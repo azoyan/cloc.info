@@ -1,0 +1,35 @@
+[package]
+name = "scc-online"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+openssl = { version = "0.10" }
+actix-web = { version = "4", features = ["openssl"] }
+actix-files = "0.6"
+actix-utils = "3.0"
+actix-session = { features = ["cookie-session"] }
+awc = { version = "3.0.0", features = ["openssl"] }
+tokio = "1"
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+tokio-stream = "0.1"
+structopt = "0.3"
+structopt-flags = "0.3"
+serde = { version = "1", features = ["derive"] }
+tempdir = { version = "0.3" }
+woothee = "0.13.0"
+derive_more = "0.99"
+fs_extra = "1"
+ordered-multimap = "0.4.3"
+indexlist = "0.1.0"
+serde_json = "1"
+snafu = { version = "0.7" }
+env_logger = { version = "0.9" }
+log = { version = "0.4" }
+
+[profile.release]
+lto = true
+opt-level = "z"  # Optimize for size.
+strip = true  # Automatically strip symbols from the binary.

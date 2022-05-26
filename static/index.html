@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+    <section>
+        <h3>Count Line of Code</h3>
+    </section>
+    <section>
+        <form id="repo" action="github" method="post">
+            <label for="url">Repository</label>
+            <input type="text" id="urlik" name="repository" placeholder="URL" form="repo">
+            <section>
+                <button type="submit" form="repo">Submit</button>
+            </section>
+        </form>
+    </section>
+</body>
+<script>
+    const form = document.getElementById('repo');
+    form.addEventListener('submit', (event) => {
+        console.log(event)
+        let url = form.elements['urlik'].value
+        let location = new URL(url)
+        let path = location.host + location.pathname + location.search + location.hash
+        console.log(path)
+        window.location.replace(path)
+        event.preventDefault();
+    });
+</script>
+
+</html>
+<!-- <script async src="https://ga.jspm.io/npm:es-module-shims@1.5.4/dist/es-module-shims.js"></script>
+<script type="importmap">
+    {
+      "imports": {
+        "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
+      }
+    }
+  </script>
+  
+  <div id="app">{{ message }}</div>
+  
+  <script type="module">
+    import { createApp } from 'vue'
+    import MyComponent from './my-component.js'
+  
+    createApp(MyComponent).mount('#app')
+  </script> -->
