@@ -108,7 +108,7 @@ impl RepositoryCache {
         assert!(self.urls.len() <= self.limit);
         match &result {
             Success::Rejected(_repo) => {}
-            Success::Done(repo) => {
+            Success::Done(_repo) => {
                 log::debug!(
                     "Insertion Ok. self.size = {}",
                     self.urls.len()

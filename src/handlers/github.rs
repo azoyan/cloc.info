@@ -5,16 +5,13 @@ use crate::repository::{
     downloader::{self, cloc_branch},
     info::{to_url, BranchInfo, RepositoryInfo},
 };
-use actix_web::{error::PayloadError, get, http::StatusCode, web, HttpRequest, HttpResponse};
+use actix_web::{error::PayloadError, get, web, HttpRequest, HttpResponse};
 use awc::error::{JsonPayloadError, SendRequestError};
 use serde_json::Value;
 use snafu::{ResultExt, Snafu};
 
 // recommendations from https://docs.github.com/en/rest/reference/branches
 const HEADER: (&str, &str) = ("Accept", "application/vnd.github.v3+json");
-const GITHUB_API_INFO: &str = "https://api.github.com/repos/{owner}/{repo}";
-const GITHUB_API_BRANCHES: &str = "https://api.github.com/repos/{owner}/{repo}/branches";
-const GITHUB_API_COMMITS: &str = "https://api.github.com/repos/{owner}/{repo}/commits/{branch}";
 
 #[derive(Debug, Snafu)]
 pub enum Error {
@@ -47,9 +44,9 @@ pub enum Error {
 async fn handle_github_dummy(
     request: HttpRequest,
     path: web::Path<(String, String)>,
-    provider: web::Data<RwLock<GithubProvider>>,
+    _provider: web::Data<RwLock<GithubProvider>>,
 ) -> HttpResponse {
-    let (owner, repository_name) = path.into_inner();
+    let (_owner, _repository_name) = path.into_inner();
     println!("Request: {request:?}");
     HttpResponse::Ok().content_type("plain/text").body("debil")
 }
@@ -86,7 +83,7 @@ async fn handle_github(
 
 #[get("/{user}/{name}/tree/{branch}")]
 async fn handle_github_branch(
-    request: HttpRequest,
+    _request: HttpRequest,
     path: web::Path<(String, String, String)>,
     provider: web::Data<RwLock<GithubProvider>>,
 ) -> HttpResponse {

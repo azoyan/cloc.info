@@ -1,4 +1,9 @@
-use super::info::{to_url, CocomoInfo, RepositoryInfo};
+use super::info::{to_url, RepositoryInfo};
+use actix_web::{
+    error,
+    http::{header::ContentType, StatusCode},
+    HttpResponse,
+};
 use snafu::Snafu;
 use std::{path::PathBuf, process::Command, str::from_utf8};
 use tempdir::TempDir;
@@ -18,6 +23,21 @@ pub enum Error {
 
     #[snafu(display("Error at counting line of code (scc): {error}"))]
     SccError { error: String },
+}
+impl error::ResponseError for Error {
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::build(self.status_code())
+            .insert_header(ContentType::html())
+            .body(self.to_string())
+    }
+    fn status_code(&self) -> StatusCode {
+        match self {
+            Error::CloneError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::SccError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::TempDirError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::LastCommitError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
 }
 
 pub async fn cloc_branch(
@@ -142,68 +162,68 @@ async fn count_line_of_code(path: &str, format: &str) -> Result<Vec<u8>, Error> 
     Ok(out)
 }
 
-fn parse_output(lines: &[&str]) -> Result<(), Error> {
-    let json = serde_json::Value::from(lines[0]);
+// fn parse_output(lines: &[&str]) -> Result<(), Error> {
+//     let _json = serde_json::Value::from(lines[0]);
 
-    println!("len = {}", lines.len());
-    let last_index = lines.len() - 1;
-    let header = lines[1].split_whitespace().collect::<Vec<&str>>().join(",");
+//     println!("len = {}", lines.len());
+//     let last_index = lines.len() - 1;
+//     let header = lines[1].split_whitespace().collect::<Vec<&str>>().join(",");
 
-    println!("{header}");
-    let languages = &lines[3..last_index - 9];
-    for language in languages.iter() {
-        println!("{language}");
-    }
+//     println!("{header}");
+//     let languages = &lines[3..last_index - 9];
+//     for language in languages.iter() {
+//         println!("{language}");
+//     }
 
-    let total = lines[last_index - 7]
-        .split_whitespace()
-        .collect::<Vec<&str>>()
-        .join(",");
-    let people_required = lines[last_index - 3];
-    let schedule_effort = lines[last_index - 4];
-    let cost_develop = lines[last_index - 5];
+//     let total = lines[last_index - 7]
+//         .split_whitespace()
+//         .collect::<Vec<&str>>()
+//         .join(",");
+//     let people_required = lines[last_index - 3];
+//     let schedule_effort = lines[last_index - 4];
+//     let cost_develop = lines[last_index - 5];
 
-    println!("{total}");
-    println!("{cost_develop}");
-    println!("{schedule_effort}");
-    println!("{people_required}");
-    // let (left, right) = processed.split_once(',').unwrap();
+//     println!("{total}");
+//     println!("{cost_develop}");
+//     println!("{schedule_effort}");
+//     println!("{people_required}");
+//     // let (left, right) = processed.split_once(',').unwrap();
 
-    // let mut splited = left.split_whitespace();
-    // let next = splited.next();
-    // let bytes = splited.next().unwrap().parse::<usize>().unwrap();
+//     // let mut splited = left.split_whitespace();
+//     // let next = splited.next();
+//     // let bytes = splited.next().unwrap().parse::<usize>().unwrap();
 
-    let cocomo_info = CocomoInfo {
-        cost_develop: cost_develop.to_string(),
-        schedule_effort: schedule_effort.to_string(),
-        people_required: people_required.to_string(),
-    };
-    Ok(())
-}
+//     let _cocomo_info = CocomoInfo {
+//         cost_develop: cost_develop.to_string(),
+//         schedule_effort: schedule_effort.to_string(),
+//         people_required: people_required.to_string(),
+//     };
+//     Ok(())
+// }
 
-fn parse_output2(lines: Vec<&str>) -> Result<(serde_json::Value, CocomoInfo, usize), Error> {
-    let json = serde_json::Value::from(lines[0]);
+// fn parse_output2(lines: Vec<&str>) -> Result<(serde_json::Value, CocomoInfo, usize), Error> {
+//     let json = serde_json::Value::from(lines[0]);
 
-    let last_index = lines.len() - 1;
-    let processed = lines[last_index - 4];
-    let people_required = lines[last_index - 6];
-    let schedule_effort = lines[last_index - 7];
-    let cost_develop = lines[last_index - 8];
+//     let last_index = lines.len() - 1;
+//     let processed = lines[last_index - 4];
+//     let people_required = lines[last_index - 6];
+//     let schedule_effort = lines[last_index - 7];
+//     let cost_develop = lines[last_index - 8];
 
-    let (left, right) = processed.split_once(',').unwrap();
+//     let (left, _right) = processed.split_once(',').unwrap();
 
-    let mut splited = left.split_whitespace();
-    let next = splited.next();
-    let bytes = splited.next().unwrap().parse::<usize>().unwrap();
+//     let mut splited = left.split_whitespace();
+//     let _next = splited.next();
+//     let bytes = splited.next().unwrap().parse::<usize>().unwrap();
 
-    let cocomo_info = CocomoInfo {
-        cost_develop: cost_develop.to_string(),
-        schedule_effort: schedule_effort.to_string(),
-        people_required: people_required.to_string(),
-    };
+//     let cocomo_info = CocomoInfo {
+//         cost_develop: cost_develop.to_string(),
+//         schedule_effort: schedule_effort.to_string(),
+//         people_required: people_required.to_string(),
+//     };
 
-    Ok((json, cocomo_info, bytes))
-}
+//     Ok((json, cocomo_info, bytes))
+// }
 
 // async fn json_response(url: &str) -> Result<HttpResponse> {
 //     let (_tmp_dir, tmp_dir_path) = create_temp_dir(url)?;
@@ -228,15 +248,15 @@ fn parse_output2(lines: Vec<&str>) -> Result<(serde_json::Value, CocomoInfo, usi
 //     Ok(HttpResponse::Ok().content_type("plain/text").body(bytes))
 // }
 
-#[cfg(test)]
-mod tests {
-    use super::parse_output;
+// #[cfg(test)]
+// mod tests {
+//     use super::parse_output;
 
-    #[test]
-    fn parse() {
-        let s = include_str!("../../tmp.txt");
+//     #[test]
+//     fn parse() {
+//         let s = include_str!("../../tmp.txt");
 
-        let lines: Vec<&str> = s.lines().collect();
-        parse_output(&lines);
-    }
-}
+//         let lines: Vec<&str> = s.lines().collect();
+//         parse_output(&lines);
+//     }
+// }

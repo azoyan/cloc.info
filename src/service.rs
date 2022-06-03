@@ -1,33 +1,24 @@
+use crate::{
+    handlers::github::{handle_github, handle_github_branch, handle_github_dummy, GithubProvider},
+    p404, welcome,
+};
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{
     cookie::Key,
-    error, guard,
-    http::{header::ContentType, Method, StatusCode},
+    error,
+    http::{Method, StatusCode},
     middleware,
     rt::{self},
     web::{self, Data},
     App, HttpRequest, HttpResponse, HttpServer, Result,
 };
-use derive_more::{Display, Error};
-use std::{io, net::SocketAddr, process::Command, sync::RwLock};
-use tempdir::TempDir;
+use std::{io, net::SocketAddr};
 
-use crate::{
-    handlers::github::{handle_github, handle_github_branch, handle_github_dummy, GithubProvider},
-    p404,
-    repository::cache::RepositoryCache,
-    response_body, welcome,
-};
-
-pub struct Service {
-    repository_provider: RepositoryCache,
-}
+pub struct Service {}
 
 impl Service {
-    pub fn new(cache_size: usize) -> Self {
-        Self {
-            repository_provider: RepositoryCache::new(cache_size),
-        }
+    pub fn new() -> Self {
+        Self {}
     }
 
     pub fn run_on(self, socket_address: SocketAddr) -> Result<(), std::io::Error> {
@@ -77,111 +68,3 @@ impl Service {
         )
     }
 }
-
-#[derive(Debug, Display, Error)]
-enum UserError {
-    #[display(fmt = "Error at creating temporary directory for clone: {error}")]
-    TempDirError { error: String },
-    #[display(fmt = "Error at cloning (git clone) repository {repository}: {error}")]
-    CloneError { repository: String, error: String },
-    #[display(fmt = "Error at counting line of code (scc): {error}")]
-    SccError { error: String },
-}
-
-impl error::ResponseError for UserError {
-    fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(self.status_code())
-            .insert_header(ContentType::html())
-            .body(self.to_string())
-    }
-    fn status_code(&self) -> StatusCode {
-        match *self {
-            UserError::CloneError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
-            UserError::SccError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
-            UserError::TempDirError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
-}
-
-async fn create_temp_dir(_repository: &str) -> Result<(TempDir, String), UserError> {
-    let tmp_dir = match TempDir::new_in(".", "tmp") {
-        Ok(dir) => dir,
-        Err(e) => {
-            return Err(UserError::TempDirError {
-                error: e.to_string(),
-            })
-        }
-    };
-
-    let path = match tmp_dir.path().to_str() {
-        Some(path) => path.to_string(),
-        None => {
-            return Err(UserError::TempDirError {
-                error: format!("Can't transform tmp_dir to path"),
-            })
-        }
-    };
-
-    Ok((tmp_dir, path))
-}
-
-async fn clone(url: &str, path: &str) -> Result<(), UserError> {
-    let mut git_clone_command = Command::new("git");
-    let repository = url.to_string();
-
-    git_clone_command.args(&["clone", "--progress", "--depth=1", url, path]);
-
-    match git_clone_command.output() {
-        Ok(output) if !output.status.success() => Err(UserError::CloneError {
-            repository,
-            error: String::from_utf8(output.stderr)
-                .unwrap_or(String::from("Error at convert git output to utf8")),
-        }),
-        Err(e) => Err(UserError::CloneError {
-            repository,
-            error: e.to_string(),
-        }),
-        _ => Ok(()),
-    }
-}
-
-async fn count_line_of_code(path: String, format: &str) -> Result<Vec<u8>, UserError> {
-    let mut scc_command = Command::new("scc");
-    scc_command.args(["--ci", "-f", format, &path]);
-    match scc_command.output() {
-        Ok(output) if !output.status.success() => Err(UserError::SccError {
-            error: String::from_utf8(output.stderr)
-                .unwrap_or(String::from("Error at convert git output to utf8")),
-        }),
-        Ok(output) => Ok(output.stdout),
-        Err(e) => Err(UserError::SccError {
-            error: e.to_string(),
-        }),
-    }
-}
-
-async fn json_response(url: &str) -> Result<HttpResponse> {
-    let (_tmp_dir, tmp_dir_path) = create_temp_dir(url).await?;
-    clone(url, &tmp_dir_path).await?;
-    let bytes = count_line_of_code(tmp_dir_path, "json").await?;
-    Ok(HttpResponse::Ok()
-        .content_type("application/json")
-        .body(bytes))
-}
-
-async fn html_respnose(url: &str) -> Result<HttpResponse> {
-    let (_tmp_dir, tmp_dir_path) = create_temp_dir(url).await?;
-    clone(url, &tmp_dir_path).await?;
-    let bytes = count_line_of_code(tmp_dir_path, "html").await?;
-    Ok(HttpResponse::Ok().content_type("text/html").body(bytes))
-}
-
-async fn ascii_respnose(url: &str) -> Result<HttpResponse> {
-    let (_tmp_dir, tmp_dir_path) = create_temp_dir(url).await?;
-    clone(url, &tmp_dir_path).await?;
-    let bytes = count_line_of_code(tmp_dir_path, "html").await?;
-    Ok(HttpResponse::Ok().content_type("plain/text").body(bytes))
-}
-
-// #[get("/gitlab.com/{tail:.*}")]
-// async fn handle_gitlab(request: HttpRequest, path: web::Path<String>) -> HttpResponse {}
