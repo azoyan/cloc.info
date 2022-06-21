@@ -49,8 +49,6 @@ pub struct BranchInfo {
     pub name: String,
     pub commit: Commit,
     pub protected: bool,
-    pub protection: Protection,
-    pub protection_url: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

@@ -1,5 +1,3 @@
-#![feature(map_first_last)]
-
 pub mod handlers;
 pub mod repository;
 pub mod service;
@@ -7,7 +5,6 @@ pub mod service;
 use crate::service::Service;
 use actix_files as fs;
 use actix_session::Session;
-use actix_web::http::StatusCode;
 use actix_web::{get, web, HttpRequest, Result};
 
 use std::net::{IpAddr, SocketAddr};
@@ -34,12 +31,17 @@ async fn welcome(session: Session, req: HttpRequest) -> Result<fs::NamedFile> {
     // set counter to session
     session.insert("counter", counter)?;
 
-    Ok(fs::NamedFile::open("static/index.html")?.set_status_code(StatusCode::OK))
+    Ok(fs::NamedFile::open("static/index.html")?)
 }
 
 /// 404 handler
 async fn p404() -> Result<fs::NamedFile> {
-    Ok(fs::NamedFile::open("static/404.html")?.set_status_code(StatusCode::NOT_FOUND))
+    Ok(fs::NamedFile::open("static/404.html")?)
+}
+
+/// script handler
+async fn script() -> Result<fs::NamedFile> {
+    Ok(fs::NamedFile::open("static/index.js")?)
 }
 
 fn main() -> Result<(), std::io::Error> {

@@ -1,11 +1,16 @@
-use std::sync::RwLock;
+use std::{io::Read, sync::RwLock};
 
 use crate::repository::{
     cache::RepositoryCache,
     downloader::{self, cloc_branch},
     info::{to_url, BranchInfo, RepositoryInfo},
 };
-use actix_web::{error::PayloadError, get, web, HttpRequest, HttpResponse};
+use actix_web::{
+    error::PayloadError,
+    get,
+    http::header::{CacheControl, CacheDirective},
+    web, HttpRequest, HttpResponse,
+};
 use awc::error::{JsonPayloadError, SendRequestError};
 use serde_json::Value;
 use snafu::{ResultExt, Snafu};
@@ -66,16 +71,78 @@ async fn handle_github(
     let (owner, repository_name) = path.into_inner();
     println!("Request: {request:?}");
 
-    let mut provider = provider.write().unwrap();
+    fn static_page() -> HttpResponse {
+        let info = actix_files::NamedFile::open("static/info.html").unwrap();
 
-    let info = provider.get(&owner, &repository_name).await;
+        let cache_control = CacheControl(vec![
+            CacheDirective::NoCache,
+            CacheDirective::Private,
+            CacheDirective::MaxAge(0u32),
+        ]);
+        let mut response = HttpResponse::Ok();
+        response.insert_header(cache_control);
 
-    match info {
-        Ok(info) => HttpResponse::Ok()
-            .content_type("text/plain")
-            .body(info.scc_output),
+        let mut contents = String::new();
+        info.file().read_to_string(&mut contents).unwrap();
+
+        return response.body(contents);
+    }
+
+    let raw_content =  || async {
+        let mut provider = provider.write().unwrap();
+
+        let info = provider.get(&owner, &repository_name).await;
+
+        match info {
+            Ok(info) => HttpResponse::Ok()
+                .content_type("text/plain")
+                .body(info.scc_output),
+            Err(e) => HttpResponse::InternalServerError()
+                // .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .content_type("text/plain")
+                .body(e.to_string()),
+        }
+    };
+
+    match request.headers().get(actix_web::http::header::IF_MATCH) {
+        Some(value) => {
+            let value = value.to_str().unwrap();
+            if value.contains("cloc") {
+                raw_content().await
+            } else {
+                static_page()
+            }
+        }
+        None => static_page(),
+    }
+}
+
+#[get("/github.com/{owner}/{repo}/branches")]
+async fn get_branches(
+    request: HttpRequest,
+    path: web::Path<(String, String)>,
+    provider: web::Data<RwLock<GithubProvider>>,
+) -> HttpResponse {
+    let (owner, repository_name) = path.into_inner();
+    println!("Request: {request:?}");
+
+    let provider = provider.read().unwrap();
+
+    let branches = provider.remote_branches(&owner, &repository_name).await;
+
+    match branches {
+        Ok(info) => match serde_json::to_string(&info) {
+            Ok(body) => {
+                log::info!("body = {body}");
+                HttpResponse::Ok()
+                    .content_type("application/json")
+                    .body(body)
+            }
+            Err(e) => HttpResponse::InternalServerError()
+                .content_type("text/plain")
+                .body(e.to_string()),
+        },
         Err(e) => HttpResponse::InternalServerError()
-            // .status(StatusCode::INTERNAL_SERVER_ERROR)
             .content_type("text/plain")
             .body(e.to_string()),
     }
@@ -141,7 +208,7 @@ impl GithubProvider {
         let url = to_url("github.com", owner, repository_name, branch);
         // Узнаем какой коммит был последний
         let last_commit_remote = self
-            .last_commit_remote(owner, repository_name, &branch)
+            .last_commit_remote(owner, repository_name, branch)
             .await?;
 
         // Смотрим есть ли уже этот репозиторий в ветке
@@ -169,12 +236,11 @@ impl GithubProvider {
         Ok(repository_info)
     }
 
-    pub async fn check_remote_branch(
+    pub async fn remote_branches(
         &self,
         owner: &str,
         repository_name: &str,
-        branch: &str,
-    ) -> Result<(), Error> {
+    ) -> Result<Vec<BranchInfo>, Error> {
         let url = format!("https://api.github.com/repos/{owner}/{repository_name}/branches");
         println!("URL = {url}");
         let mut response = self
@@ -188,10 +254,16 @@ impl GithubProvider {
                 url: to_url("github.com", owner, repository_name, ""),
             })?;
 
-        let branches = response
-            .json::<Vec<BranchInfo>>()
-            .await
-            .context(JsonSnafu)?;
+        response.json::<Vec<BranchInfo>>().await.context(JsonSnafu)
+    }
+
+    pub async fn check_remote_branch(
+        &self,
+        owner: &str,
+        repository_name: &str,
+        branch: &str,
+    ) -> Result<(), Error> {
+        let branches = self.remote_branches(owner, repository_name).await?;
 
         match branches.iter().find(|info| info.name == branch) {
             Some(_branch) => Ok(()),
@@ -258,5 +330,11 @@ impl GithubProvider {
                 repo: to_url("github.com", owner, repository_name, branch),
             }),
         }
+    }
+}
+
+impl Default for GithubProvider {
+    fn default() -> Self {
+        Self::new()
     }
 }

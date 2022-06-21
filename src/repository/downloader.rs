@@ -81,7 +81,7 @@ fn create_temp_dir(dir_name: &str) -> Result<(TempDir, String), Error> {
         Some(path) => path.to_string(),
         None => {
             return Err(Error::TempDirError {
-                error: format!("Can't transform tmp_dir to path"),
+                error: "Can't transform tmp_dir to path".to_string(),
             })
         }
     };
@@ -100,7 +100,7 @@ pub async fn clone(url: &str, path: &str) -> Result<String, Error> {
             return Err(Error::CloneError {
                 repository,
                 error: String::from_utf8(output.stderr)
-                    .unwrap_or(String::from("Error at convert git output to utf8")),
+                    .unwrap_or_else(|_| String::from("Error at convert git output to utf8")),
             })
         }
         Err(e) => {
@@ -143,12 +143,12 @@ pub async fn clone(url: &str, path: &str) -> Result<String, Error> {
 
 async fn count_line_of_code(path: &str, format: &str) -> Result<Vec<u8>, Error> {
     let mut scc_command = Command::new("scc");
-    scc_command.args(["--ci", "--wide", "--format-multi", format, &path]);
+    scc_command.args(["--ci", "--wide", "--format-multi", format, path]);
     let out = match scc_command.output() {
         Ok(output) if !output.status.success() => {
             return Err(Error::SccError {
                 error: String::from_utf8(output.stderr)
-                    .unwrap_or(String::from("Error at convert git output to utf8")),
+                    .unwrap_or_else(|_| String::from("Error at convert git output to utf8")),
             })
         }
         Ok(output) => output.stdout,
