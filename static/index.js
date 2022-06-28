@@ -52,7 +52,6 @@ async function editValue(e) {
         Later.promise
             .then(function () {
                 console.log(e.target.value)
-
                 check(e.target.value)
             })
             .catch((e) => { console.log("later cancelled", e); });
@@ -65,18 +64,20 @@ function pasteValue(e) {
 }
 
 function check(url_str) {
-    console.log(url_str);
     let url;
     hint.style.display = 'none'
+    
+    if (!url_str.match(/^[a-zA-Z]+:\/\//)) { url_str = 'https://' + url_str; }
+    console.log(url_str);
+
     try {
         url = new URL(url_str);
     }
     catch (error) {
-        console.log("Invalid URL:", error)
+        console.log("Invalid URL:", error);
         document.getElementById("invalidFeedback").innerText = '"' + url_str + '" is not valid URL.'
-
         document.getElementById("input").classList.add("is-invalid");
-        return;
+        return
     }
 
     let checkSpinner = document.getElementById("checkSpinner");

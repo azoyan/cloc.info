@@ -1,19 +1,21 @@
-use std::{io::Read, sync::RwLock};
-
 use crate::repository::{
     cache::RepositoryCache,
-    downloader::{self, cloc_branch},
     info::{to_url, BranchInfo, RepositoryInfo},
+    utils::{self, clone_branch, count_line_of_code, pull},
 };
 use actix_web::{
-    error::PayloadError,
+    error::{self, PayloadError},
     get,
-    http::header::{CacheControl, CacheDirective},
-    web, HttpRequest, HttpResponse,
+    http::{
+        header::{CacheControl, CacheDirective, ContentType},
+        StatusCode,
+    },
+    web, HttpRequest, HttpResponse, ResponseError,
 };
 use awc::error::{JsonPayloadError, SendRequestError};
 use serde_json::Value;
 use snafu::{ResultExt, Snafu};
+use tokio::sync::RwLock;
 
 // recommendations from https://docs.github.com/en/rest/reference/branches
 const HEADER: (&str, &str) = ("Accept", "application/vnd.github.v3+json");
@@ -32,6 +34,9 @@ pub enum Error {
     #[snafu(display("Can't extract default branch for repository {repo}"))]
     ExtractDefaultBranchError { repo: String },
 
+    #[snafu(display("Template page not found"))]
+    TemplatePage,
+
     #[snafu(display("Can't send request about repository '{url}': {source}"))]
     BranchInfoRequestError {
         url: String,
@@ -41,8 +46,11 @@ pub enum Error {
     #[snafu(display("Branch '{wrong_branch}' is note exist"))]
     WrongBranch { wrong_branch: String },
 
+    #[snafu(display("Unrecoginzed If-Match header"))]
+    IfMatchError,
+
     #[snafu(display("Error at cloning repository or scc: {source}"))]
-    DownloaderError { source: downloader::Error },
+    DownloaderError { source: utils::Error },
 }
 
 #[get("/")]
@@ -72,24 +80,23 @@ async fn handle_github(
     println!("Request: {request:?}");
 
     fn static_page() -> HttpResponse {
-        let info = actix_files::NamedFile::open("static/info.html").unwrap();
+        if let Ok(contents) = std::fs::read_to_string("static/info.html") {
+            let cache_control = CacheControl(vec![
+                CacheDirective::NoCache,
+                CacheDirective::Private,
+                CacheDirective::MaxAge(0u32),
+            ]);
+            let mut response = HttpResponse::Ok();
+            response.insert_header(cache_control);
 
-        let cache_control = CacheControl(vec![
-            CacheDirective::NoCache,
-            CacheDirective::Private,
-            CacheDirective::MaxAge(0u32),
-        ]);
-        let mut response = HttpResponse::Ok();
-        response.insert_header(cache_control);
-
-        let mut contents = String::new();
-        info.file().read_to_string(&mut contents).unwrap();
-
-        return response.body(contents);
+            response.body(contents)
+        } else {
+            HttpResponse::InternalServerError().finish()
+        }
     }
 
-    let raw_content =  || async {
-        let mut provider = provider.write().unwrap();
+    let raw_content = || async {
+        let mut provider = provider.write().await;
 
         let info = provider.get(&owner, &repository_name).await;
 
@@ -106,7 +113,11 @@ async fn handle_github(
 
     match request.headers().get(actix_web::http::header::IF_MATCH) {
         Some(value) => {
-            let value = value.to_str().unwrap();
+            let value = match value.to_str() {
+                Ok(v) => v,
+                Err(_e) => return Error::IfMatchError.error_response(),
+            };
+
             if value.contains("cloc") {
                 raw_content().await
             } else {
@@ -126,7 +137,7 @@ async fn get_branches(
     let (owner, repository_name) = path.into_inner();
     println!("Request: {request:?}");
 
-    let provider = provider.read().unwrap();
+    let provider = provider.read().await;
 
     let branches = provider.remote_branches(&owner, &repository_name).await;
 
@@ -156,16 +167,26 @@ async fn handle_github_branch(
 ) -> HttpResponse {
     let (owner, repository_name, branch) = path.into_inner();
 
-    let mut provider = provider.write().unwrap();
+    let mut provider = provider.write().await;
 
     let info = provider
         .get_with_branch(&owner, &repository_name, &branch)
         .await;
 
     match info {
-        Ok(info) => HttpResponse::Ok()
-            .content_type("text/plain")
-            .body(info.scc_output),
+        Ok(info) => {
+            let mut branch = format!("{}\n",info.branch).into_bytes();
+            let mut commit = format!("{}\n",info.branch).into_bytes();
+            
+            let mut output = vec![];
+            output.append(&mut branch);
+            output.append(&mut commit);
+            output.extend(&info.scc_output);
+
+            HttpResponse::Ok()
+                .content_type("text/plain")
+                .body(info.scc_output)
+        }
         Err(e) => HttpResponse::InternalServerError()
             .content_type("text/plain")
             .body(e.to_string()),
@@ -213,7 +234,7 @@ impl GithubProvider {
 
         // Смотрим есть ли уже этот репозиторий в ветке
         let cache_lookup = self.repository_cache.get(&url);
-        if let Some(repository_info) = cache_lookup {
+        let (last_commit, local_dir, size) = if let Some(repository_info) = cache_lookup {
             log::info!(
                 "Lookup at cache: last_commit_remote = {}, last_commit_cache = {}",
                 last_commit_remote,
@@ -223,13 +244,41 @@ impl GithubProvider {
             if repository_info.last_commit == last_commit_remote {
                 // отдаём инофрмацию из кеша
                 return Ok(repository_info.to_owned());
+            } else {
+                log::info!("Pull branch: {url}");
+                // обновляем репозиторий до последнего коммита
+                let (last_commit, size) = pull(
+                    repository_name,
+                    &repository_info.local_dir.path,
+                    &repository_info.branch,
+                )
+                .await
+                .context(DownloaderSnafu)?;
+
+                (last_commit, repository_info.local_dir.clone(), size)
             }
+        } else {
+            // Клонируем ветку
+            log::info!("Clone branch: {url}");
+
+            clone_branch("github.com", owner, repository_name, branch)
+                .await
+                .context(DownloaderSnafu)?
         };
-        // Качаем ветку
-        log::info!("Clone branch: {url}");
-        let repository_info = cloc_branch("github.com", owner, repository_name, branch)
+        let scc_output = count_line_of_code(&local_dir.path, "")
             .await
             .context(DownloaderSnafu)?;
+
+        let repository_info = RepositoryInfo {
+            hostname: "github.com".to_string(),
+            owner: owner.to_string(),
+            repository_name: repository_name.to_string(),
+            branch: branch.to_string(),
+            last_commit,
+            local_dir,
+            size,
+            scc_output,
+        };
 
         self.repository_cache.insert(repository_info.clone());
 
@@ -291,7 +340,6 @@ impl GithubProvider {
             })?;
 
         let bytes = response.body().await.context(BodySnafu)?;
-        println!("{}", std::str::from_utf8(&bytes).unwrap());
         let repository: Value = serde_json::from_slice(&bytes).context(DeserializeSnafu)?;
         match repository["default_branch"].as_str() {
             Some(branch) => Ok(branch.to_owned()),
@@ -322,7 +370,6 @@ impl GithubProvider {
             })?;
 
         let bytes = response.body().await.context(BodySnafu)?;
-        println!("{}", std::str::from_utf8(&bytes).unwrap());
         let repository: Value = serde_json::from_slice(&bytes).context(DeserializeSnafu)?;
         match repository["sha"].as_str() {
             Some(branch) => Ok(branch.to_owned()),
@@ -336,5 +383,26 @@ impl GithubProvider {
 impl Default for GithubProvider {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl error::ResponseError for Error {
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::build(self.status_code())
+            .insert_header(ContentType::html())
+            .body(self.to_string())
+    }
+    fn status_code(&self) -> StatusCode {
+        match self {
+            Error::JsonError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::BodyError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::DeserializeError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::ExtractDefaultBranchError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::TemplatePage => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::BranchInfoRequestError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::WrongBranch { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::DownloaderError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::IfMatchError => StatusCode::BAD_REQUEST,
+        }
     }
 }

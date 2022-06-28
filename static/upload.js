@@ -10,13 +10,22 @@ function request(e) {
         .then(response => {
             return response.text()
         })
-        .then(createTableFromResponse)
+        .then(startStreaming)
         .catch(function (e) {
             console.log(e);
         });
 }
 
 document.onload = request
+
+function startStreaming(data) {
+    let ws = new WebSocket(data);
+
+    ws.onmessage = function (event) {
+        let payload = event.data
+        console.log(payload)
+    }
+}
 
 function createTableFromResponse(data) {
     console.log(data)
@@ -74,4 +83,5 @@ function createTableRow(array) {
     row += "</tr>"
     return row
 }
+
 document.addEventListener("DOMContentLoaded", request);

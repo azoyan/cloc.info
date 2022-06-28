@@ -109,10 +109,7 @@ impl RepositoryCache {
         match &result {
             Success::Rejected(_repo) => {}
             Success::Done(_repo) => {
-                log::debug!(
-                    "Insertion Ok. self.size = {}",
-                    self.urls.len()
-                )
+                log::debug!("Insertion Ok. self.size = {}", self.urls.len())
             }
         }
         result
@@ -121,9 +118,10 @@ impl RepositoryCache {
 
 #[cfg(test)]
 mod tests {
+    use tempdir::TempDir;
+
     use super::RepositoryCache;
-    use crate::repository::info::RepositoryInfo;
-    use std::path::Path;
+    use crate::repository::info::{LocalTempDir, RepositoryInfo};
 
     #[test]
     fn simple() {
@@ -136,7 +134,7 @@ mod tests {
                 repository_name: i.to_string(),
                 branch: "master".to_string(),
                 last_commit: "her".to_string(),
-                local_path: Path::new("/her").to_path_buf(),
+                local_dir: LocalTempDir::new(TempDir::new("").unwrap()),
                 size: i,
                 scc_output: vec![],
             };
@@ -151,7 +149,7 @@ mod tests {
             repository_name: "her".to_string(),
             branch: "master".to_string(),
             last_commit: "her".to_string(),
-            local_path: Path::new("/her").to_path_buf(),
+            local_dir: LocalTempDir::new(TempDir::new("").unwrap()),
             scc_output: vec![],
         };
 
@@ -166,7 +164,7 @@ mod tests {
             repository_name: "her".to_owned(),
             branch: "master".to_owned(),
             size: 10000,
-            local_path: Path::new("/her").to_path_buf(),
+            local_dir: LocalTempDir::new(TempDir::new("").unwrap()),
             last_commit: String::from("her"),
             scc_output: vec![],
         };
@@ -181,7 +179,7 @@ mod tests {
 
         let big_repo = RepositoryInfo {
             size: 10000,
-            local_path: Path::new("/her").to_path_buf(),
+            local_dir: LocalTempDir::new(TempDir::new("").unwrap()),
             hostname: "github.com".to_owned(),
             owner: "her".to_string(),
             repository_name: "her2".to_string(),

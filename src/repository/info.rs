@@ -1,11 +1,28 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, rc::Rc};
 
 use serde::{Deserialize, Serialize};
+use tempdir::TempDir;
 
 #[derive(Debug, Clone, PartialOrd, PartialEq, Eq)]
 pub struct StorageInfo {
     pub size: usize,
     pub local_path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct LocalTempDir {
+    pub temp_dir: Rc<TempDir>,
+    pub path: String,
+}
+
+impl LocalTempDir {
+    pub fn new(temp_dir: TempDir) -> Self {
+        let path = temp_dir.path().to_str().unwrap().to_owned();
+        Self {
+            temp_dir: Rc::new(temp_dir),
+            path,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,10 +32,18 @@ pub struct RepositoryInfo {
     pub repository_name: String,
     pub branch: String,
     pub last_commit: String,
-    pub local_path: PathBuf,
+    pub local_dir: LocalTempDir,
     pub size: u64,
     pub scc_output: Vec<u8>,
 }
+
+impl PartialEq for LocalTempDir {
+    fn eq(&self, other: &Self) -> bool {
+        self.temp_dir.path().eq(other.temp_dir.path()) && self.path.eq(&other.path)
+    }
+}
+
+impl Eq for LocalTempDir {}
 
 impl RepositoryInfo {
     pub fn to_url(&self) -> String {

@@ -15,6 +15,7 @@ use actix_web::{
     App, HttpServer, Result,
 };
 use std::{io, net::SocketAddr};
+use tokio::sync::RwLock;
 
 pub struct Service {}
 
@@ -24,7 +25,7 @@ impl Service {
     }
 
     pub fn run_on(self, socket_address: SocketAddr) -> Result<(), std::io::Error> {
-        let data = Data::new(std::sync::RwLock::new(GithubProvider::new()));
+        let data = Data::new(RwLock::new(GithubProvider::new()));
 
         rt::System::new().block_on(
             HttpServer::new(move || {
