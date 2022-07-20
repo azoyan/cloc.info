@@ -1,48 +1,21 @@
-#![feature(map_first_last)]
+#![feature(byte_slice_trim_ascii)]
 
-pub mod handlers;
-pub mod repository;
-pub mod service;
-
-use crate::service::Service;
-use actix_files as fs;
-use actix_session::Session;
-use actix_web::http::StatusCode;
-use actix_web::{get, web, HttpRequest, Result};
-
+use bb8::Pool;
+use bb8_postgres::PostgresConnectionManager;
+use cloner::server::create_server;
 use std::net::{IpAddr, SocketAddr};
+use tokio_postgres::{NoTls};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-/// favicon handler
-#[get("/{file}")]
-async fn favicon(path: web::Path<String>) -> Result<fs::NamedFile> {
-    let path = format!("static/{}", path.into_inner());
-    Ok(fs::NamedFile::open(path)?)
-}
+fn main() {
+    //Set the RUST_LOG, if it hasn't been explicitly defined
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "cloner=debug,tower_http=debug".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
-/// simple index handler
-#[get("/")]
-async fn welcome(session: Session, req: HttpRequest) -> Result<fs::NamedFile> {
-    println!("{:?}", req);
-
-    // session
-    let mut counter = 1;
-    if let Some(count) = session.get::<i32>("counter")? {
-        println!("SESSION value: {}", count);
-        counter = count + 1;
-    }
-
-    // set counter to session
-    session.insert("counter", counter)?;
-
-    Ok(fs::NamedFile::open("static/index.html")?.set_status_code(StatusCode::OK))
-}
-
-/// 404 handler
-async fn p404() -> Result<fs::NamedFile> {
-    Ok(fs::NamedFile::open("static/404.html")?.set_status_code(StatusCode::NOT_FOUND))
-}
-
-fn main() -> Result<(), std::io::Error> {
     use structopt::StructOpt;
 
     #[derive(Debug, StructOpt)]
@@ -59,9 +32,30 @@ fn main() -> Result<(), std::io::Error> {
 
     let socket = SocketAddr::new(ip, port);
 
-    // env::set_var("RUST_LOG", "actix_web=debug,actix_server=debug");
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    let r = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_name("PRICER")
+        .build()
+        .unwrap();
 
-    let service = Service::new();
-    service.run_on(socket)
+    tracing::info!("her");
+    r.block_on(start_all(socket));
+}
+
+async fn start_all(socket: SocketAddr) {
+    let manager = PostgresConnectionManager::new_from_stringlike(
+        "host=localhost user=postgres dbname=cloc",
+        NoTls,
+    )
+    .unwrap();
+    let _config = tokio_postgres::Config::new()
+        .dbname("cloc")
+        .host("localhost")
+        .user("postgres")
+        .to_owned();
+    // let manager = PostgresConnectionManager::new(config, NoTls);
+    let pool = Pool::builder().build(manager).await.unwrap();
+    let server = tokio::task::spawn(create_server(socket, pool));
+    let handle = tokio::join!(server);
+    drop(handle);
 }
