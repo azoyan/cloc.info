@@ -20,6 +20,9 @@ use crate::{
     DbId,
 };
 
+const USERNAME_TOKEN: &str =
+    "Basic YXpveWFuOmdocF9IOEVqSXRwMjBOQW9Gc3dYVGI4ektEaktUbkFETlg0TktaNUk=";
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("Can't deserialize 'github API repo' JSON: {source}"))]
@@ -260,9 +263,11 @@ impl GithubProvider {
         repository_name: &str,
     ) -> Result<String, Error> {
         let url = format!("https://api.github.com/repos/{owner}/{repository_name}");
+
         let req = Request::builder()
             .header("Accept", "application/vnd.github.v3+json")
             .header("User-Agent", "Cloc-Info-App")
+            .header("Authorization", USERNAME_TOKEN)
             .uri(&url)
             .body(Body::empty())
             .with_context(|_| CreateRequestSnafu { url: url.clone() })?;
@@ -303,6 +308,7 @@ impl GithubProvider {
         let req = Request::builder()
             .header("Accept", "application/vnd.github.v3+json")
             .header("User-Agent", "Cloc-Info-App")
+            .header("Authorization", USERNAME_TOKEN)
             .uri(&url)
             .body(Body::empty())
             .with_context(|_| CreateRequestSnafu { url: url.clone() })?;
@@ -340,6 +346,7 @@ impl GithubProvider {
         let req = Request::builder()
             .header("Accept", "application/vnd.github.v3+json")
             .header("User-Agent", "Cloc-Info-App")
+            .header("Authorization", USERNAME_TOKEN)
             .uri(&url)
             .body(Body::empty())
             .with_context(|_| CreateRequestSnafu { url: url.clone() })?;

@@ -8,7 +8,7 @@ const submitButton = document.getElementById('submitButton');
 submitButton.onclick = function () {
     let url = new URL(input.value)
     let path = url.host + url.pathname + url.search + url.hash
-    console.log(path)
+    
     window.location = path
 }
 
@@ -89,7 +89,7 @@ function check(url_str) {
     console.log("api_url", api_url)
 
     fetch(api_url)
-        .then((response) => { return response.json() })
+        .then((response) => response.json())
         .then((response) => {
             branches = response;
 
@@ -131,7 +131,7 @@ function createSelect(branches, id) {
     let select = '<select class="form-select form-select-sm" aria-label=".form-select-sm example" id="' + id + '" onchange="setCommit(this.value)">'
     let hasMain = false;
     for (var i = 0; i < branches.length; ++i) {
-        let branchName = branches[i].name
+        let branchName = branches[i].name   
         if (branchName === "main" && hasMain === false) {
             select += createSelectOption(branchName, true)
             document.getElementById("commit").innerText = "Last commit: " + branches[i].commit.sha

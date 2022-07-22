@@ -1,14 +1,13 @@
-<!DOCTYPE html>
 <html lang="en">
 
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <link rel="shortcut icon" type="image/ico" href="static/favicon.ico" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#000000">
+    <link rel="shortcut icon" type="image/ico" href="static/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Shadows+Into+Light+Two&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Shadows+Into+Light+Two&amp;display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/index.css">
     <!-- CSS only -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -27,10 +26,8 @@
         <!-- Fixed navbar -->
         <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
             <div class="container-fluid">
-                <a class="navbar-brand" href="/">
-                    <img src="/static/logo.png" alt="cloc.info" width="28" height="28" class="d-inline-block align-text-top">
-                    cloc.info
-                </a>
+                <a class="navbar-brand text-center pe-4" href="/">
+                    <img src="/static/logo.png" alt="cloc.info" class="pe-2">cloc.info</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"
                     aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -51,66 +48,77 @@
 
     <main class="flex-fill">
         <div class="container mt-3">
-            <div class="row pt-2 align-items-center">
-                <h4 class="d-flex justify-content-start">
+            <div class="row align-items-center">
+                <h4 class="d-flex justify-content-center pt-3">
                     <label for="input_url" class="form-label">Count lines of code</label>
                 </h4>
             </div>
-            <div class="row pt-2 align-items-center">
-                <div class="d-flex justify-content-start align-items-center">
-                    <div class="col-lg float-left">
-                        <div class="input-group has-validation" id="inputGroupPrepend">
-                            <input onkeypress="return event.charCode != 32" v-model="url" type="url"
-                                class="form-control" placeholder="Repository URL" id="input"
-                                aria-describedby="inputGroupPrepend" required>
-                            <div class="invalid-feedback" id="invalidFeedback"></div>
-                        </div>
-                    </div>
-                    <div class="col-sm-auto px-2">
-                        <div class="spinner-border spinner-border-sm text-success invisible" id="checkSpinner"
-                            role="status">
-                        </div>
-                    </div>
-                    <div class="col-sm-auto ">
-                        <button class="btn btn-outline-success disabled" id="submitButton" type="submit">Submit</button>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center">
-                    <div class="row" id="hint">
-                        <div class="form-text">
-                            For example: <button class="link-secondary" id="hint_url"
-                                style="background:none; border:none;"><u>https://github.com/actix/actix-web</u></button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="d-flex align-items-center justify-content-start">
-                <div class="row row-cols-3 pt-3">
-                    <div class="col-sm-auto" id="select"></div>
-                    <div class="col-sm-auto">
-                        <img id="github_picture" src="static/GitHub-Mark-32px.png" class="float-start " hidden>
-                        <img id="gitlab_picture" src="static/gitlab32.png" class="float-start" hidden>
-                    </div>
-                    <div class="col-sm-auto pt-1 text-truncate float-start" id="commit">
+            <div class="row align-items-top">
+                <div class="col pt-3">
 
+                    <div class="row">
+                        <div class="d-flex justify-content-start align-items-center">
+                            <div class="col col-12 float-left">
+                                <div class="input-group has-validation" id="inputGroupPrepend">
+                                    <input onkeypress="return event.charCode != 32" v-model="url" type="url"
+                                        class="form-control" placeholder="Repository URL" id="input"
+                                        aria-describedby="inputGroupPrepend" required>
+                                    <div class="invalid-feedback" id="invalidFeedback"></div>
+                                </div>
+                            </div>
+                            <div class="col-sm-auto px-2">
+                                <div class="spinner-border spinner-border-sm text-success invisible" id="checkSpinner"
+                                    role="status">
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="row" id="hint">
+                                <div class="form-text">
+                                    For example: <button class="link-secondary" id="hint_url"
+                                        style="background:none; border:none;"><u>https://github.com/actix/actix-web</u></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row justify-content-center-md">
+                        <div class="col col-sm-auto">
+                            <div class="row align-items-center">
+                                <div class="col-7 pt-3" id="select"></div>
+                                <div class="col-1 pt-3">
+                                    <img id="github_picture" src="static/GitHub-Mark-32px.png" class="float-start"
+                                        hidden>
+                                    <img id="gitlab_picture" src="static/gitlab32.png" class="float-start" hidden="">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-auto pt-3 ms-auto text-truncate float-start">
+                            <p class="fs-6 fw-lighter " id="commit"></p>
+                        </div>
                     </div>
 
+                </div>
+                <div class="col pt-3 col-sm-auto text-center">
+                    <button class="btn btn-outline-success btn-disabled" id="submitButton" type="submit">Submit</button>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- <footer class="footer mt-auto py-3 bg-light">
-    </footer> -->
-    <div class="card-footer text-muted mt-auto py-3 bg-light">
-        <div class="container">
+    <footer class="footer mt-auto py-3 bg-light">
+        <div class="container-fluid">
             <p class="text-muted fs-6 fw-light">Ivan Azoyan 2022</p>
             <p class="text-muted fs-6 fw-light">azoyan89@yahoo.com</p>
         </div>
-    </div>
+    </footer>
+
+
+    <script src="/static/index.js"></script>
+    <script src="/static/later.js"></script>
+
+
 
 </body>
-<script src="/static/index.js"></script>
-<script src="/static/later.js"></script>
 
 </html>

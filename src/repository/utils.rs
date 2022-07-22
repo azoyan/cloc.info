@@ -181,7 +181,7 @@ fn last_commit_local(url: String, path: &str) -> Result<CommitHash, Error> {
 
 pub async fn count_line_of_code(path: &str, _format: &str) -> Result<Vec<u8>, Error> {
     let mut scc_command = tokio::process::Command::new("scc");
-    scc_command.args(["--ci", "--wide", path]);
+    scc_command.args(["--ci", path]);
     let out = match scc_command.output().await {
         Ok(output) if !output.status.success() => {
             return Err(Error::SccError {

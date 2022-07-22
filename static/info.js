@@ -169,14 +169,18 @@ function createTableFromResponse(data) {
     document.getElementById("processing").hidden = true
     strings.splice(0, 1);
     strings.splice(1, 1);
-    strings.splice(strings.length - 3, 3)
-    strings.splice(strings.length - 4, 1)
-    strings.splice(strings.length - 5, 1)
-    let cocomo = strings.splice(strings.length - 3, 3);
+    strings.splice(-3)
+
+    let processed = strings.splice(-1, 1)
+    console.log(processed)
+    strings.splice(-1)
+    let cocomo = strings.splice(-3, 3);
+    strings.splice(-1)
+    strings.splice(-2, 1)
 
     for (let i = 0; i < strings.length; ++i) {
-        let array = strings[i].split(/\s+/);
-        while (array.length > 8) {
+        let array = strings[i].trim().split(/\s+/);         
+        while (array.length > 7) {
             array[0] += array[1]
             array.splice(1, 1)
         }
@@ -196,7 +200,7 @@ function createTableFromResponse(data) {
     table += "</table>"
     document.getElementById("t").innerHTML = table
     console.log(strings, cocomo)
-    createCocomoFromResponse(cocomo)
+    createCocomoFromResponse(cocomo, processed)
 }
 
 function createTableThead(array) {
@@ -221,8 +225,11 @@ function createTableRow(array) {
     return row
 }
 
-function createCocomoFromResponse(cocomo) {
-    let str = '<h5>'+ cocomo[0] + '</h5>' + '<h5>'+ cocomo[1] + '</h5>' + '<h5>'+ cocomo[2] + '</h5>';
+function createCocomoFromResponse(cocomo, processed) {
+    let str = ""
+    str += '<h6>' + processed + '</h6>'
+    str += '<hr class="bg-primary"></hr>'
+    str += '<h6>' + cocomo[0] + '</h6>' + '<h6>' + cocomo[1] + '</h6>' + '<h6>' + cocomo[2] + '</h6>';
     console.log(str)
     document.getElementById("cocomo").innerHTML = str
 }
