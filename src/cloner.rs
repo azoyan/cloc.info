@@ -1,5 +1,5 @@
-use bytes::{BytesMut};
-use std::{collections::HashMap, io::Read, process::Stdio, sync::Arc};
+use bytes::BytesMut;
+use std::{collections::HashMap, fmt::Display, process::Stdio, sync::Arc};
 use tokio::{
     io::{AsyncReadExt, BufReader},
     process::Command,
@@ -35,18 +35,22 @@ impl Stages {
             updating: String::new(),
         }
     }
-    pub fn to_string(&self) -> String {
-        let mut result = String::new();
-        result.push_str(&self.cloning);
-        result.push_str(&self.enumerating);
-        result.push_str(&self.counting);
-        result.push_str(&self.compressing);
-        result.push_str(&self.total);
-        result.push_str(&self.receiving);
-        result.push_str(&self.resolving);
-        result.push_str(&self.updating);
+}
 
-        result
+impl Display for Stages {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}{}{}{}{}{}{}",
+            self.cloning,
+            self.enumerating,
+            self.counting,
+            self.compressing,
+            self.total,
+            self.receiving,
+            self.resolving,
+            self.updating,
+        )
     }
 }
 
@@ -176,7 +180,7 @@ impl Default for Cloner {
 }
 
 trait ContainsSlice<T>: PartialEq<[T]> {
-    fn contains_slice(self: &'_ Self, slice: &'_ [T]) -> bool;
+    fn contains_slice(&'_ self, slice: &'_ [T]) -> bool;
 }
 
 impl<T, Item: PartialEq<T>> ContainsSlice<T> for [Item] {

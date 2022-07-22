@@ -25,9 +25,12 @@
 <body class="d-flex flex-column min-vh-100">
     <header>
         <!-- Fixed navbar -->
-        <nav class="navbar navbar-expand-md bg-light fixed-top">
+        <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
             <div class="container-fluid">
-                <a class="navbar-brand" href="/">cloc.info</a>
+                <a class="navbar-brand" href="/">
+                    <img src="/static/logo.png" alt="cloc.info" width="28" height="28" class="d-inline-block align-text-top">
+                    cloc.info
+                </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"
                     aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -47,11 +50,11 @@
     </header>
 
     <main class="flex-fill">
-        <div class="container">
+        <div class="container mt-3">
             <div class="row pt-2 align-items-center">
-                <div class="d-flex justify-content-start">
+                <h4 class="d-flex justify-content-start">
                     <label for="input_url" class="form-label">Count lines of code</label>
-                </div>
+                </h4>
             </div>
             <div class="row pt-2 align-items-center">
                 <div class="d-flex justify-content-start align-items-center">
@@ -82,19 +85,29 @@
                 </div>
             </div>
             <div class="d-flex align-items-center justify-content-start">
-                <div class="row pt-3">
+                <div class="row row-cols-3 pt-3">
                     <div class="col-sm-auto" id="select"></div>
+                    <div class="col-sm-auto">
+                        <img id="github_picture" src="static/GitHub-Mark-32px.png" class="float-start " hidden>
+                        <img id="gitlab_picture" src="static/gitlab32.png" class="float-start" hidden>
+                    </div>
+                    <div class="col-sm-auto pt-1 text-truncate float-start" id="commit">
+
+                    </div>
+
                 </div>
             </div>
         </div>
     </main>
 
-    <footer class="footer mt-auto py-3 bg-light">
+    <!-- <footer class="footer mt-auto py-3 bg-light">
+    </footer> -->
+    <div class="card-footer text-muted mt-auto py-3 bg-light">
         <div class="container">
             <p class="text-muted fs-6 fw-light">Ivan Azoyan 2022</p>
             <p class="text-muted fs-6 fw-light">azoyan89@yahoo.com</p>
         </div>
-    </footer>
+    </div>
 
 </body>
 <script src="/static/index.js"></script>

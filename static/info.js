@@ -46,9 +46,12 @@ async function start(_e) {
         if (cloc.length > 0) {
             stopStreaming(websocket);
             createTableFromResponse(cloc);
+
         }
     }
-    catch (e) { console.error("Error at getting cloc promise", e) }
+    catch (e) {
+        console.error("Error at getting cloc promise", e)
+    }
 }
 
 document.onload = start
@@ -59,36 +62,29 @@ async function stopStreaming(ws) {
 
 function startStreaming(ws) {
     let send_ping = function () {
-        // if (ws.readyState === WebSocket.CONNECTING) {
-        ws.send("ping")
-        // }
+        if (ws.readyState !== WebSocket.CLOSING || ws.readyState !== WebSocket.CLOSED) {
+            ws.send("ping")
+        }
     }
-    let status = document.getElementById("status")
-
 
     ws.onopen = function (event) {
         console.log("event", event);
         setInterval(send_ping, 500);
     }
 
-    ws.onclose = function(event) {
+    ws.onclose = function (event) {
         console.log("event", event);
         document.getElementById("hint").innerText = "Counting lines of code"
     }
 
     ws.onmessage = function (event) {
         let p = event.data
-        // console.log(p);
-        if (p.startsWith("unknown repository")) {
-            ws.close();
-        }
-                
-        // console.log(p)
+
         // status.innerText = p;
         let lines = p.split(/\r?\n/)
         for (let i = 0; i < lines.length; ++i) {
             let payload = lines[i];
-            console.log("payload line:", payload)
+            // console.log("payload line:", payload)
             if (payload.includes("Cloning")) {
                 document.getElementById("hint").innerHTML = "Cloning repository into server"
                 document.getElementById("clone").innerText = "git clone https:/" + document.location.pathname
@@ -97,18 +93,30 @@ function startStreaming(ws) {
             if (payload.includes("Enumerating")) {
                 let parts = payload.split(":");
                 if (parts.length >= 3) {
+
+                    // console.log(percent)
+                    // document.getElementById("pg_enumerating").style.width = percent;
                     document.getElementById("enumerating").innerText = "remote: Enumerating objects:" + parts[parts.length - 1]
                 }
             }
             if (payload.includes("Counting")) {
                 let parts = payload.split(":");
                 if (parts.length >= 3) {
+                    let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g)[0])
+                    // console.log("counting", percent)
+                    percent = percent * 2 / 100
+                    document.getElementById("pg_counting").style.width = percent + '%';
                     document.getElementById("counting").innerText = "remote: Counting objects:" + parts[parts.length - 1]
+
                 }
             }
             if (payload.includes("Compressing")) {
                 let parts = payload.split(":");
                 if (parts.length >= 3) {
+                    let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g))
+                    // console.log("compressing", percent)
+                    percent = percent * 15 / 100
+                    document.getElementById("pg_compressing").style.width = percent + '%';
                     document.getElementById("compressing").innerText = "remote: Compressing objects:" + parts[parts.length - 1]
                 }
             }
@@ -121,18 +129,33 @@ function startStreaming(ws) {
             if (payload.includes("Receiving")) {
                 let parts = payload.split(":");
                 if (parts.length >= 2) {
+                    let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g)[0]);
+                    percent = percent * 70 / 100
+                    // console.log("receving ", percent)
+                    document.getElementById("pg_receiving").style.width = percent + '%';
                     document.getElementById("receiving").innerText = "Receiving objects:" + parts[parts.length - 1];
                 }
             }
             if (payload.includes("Resolving")) {
                 let parts = payload.split(":");
                 if (parts.length >= 2) {
+                    let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g))
+                    console.log("resolving", percent)
+                    percent = percent * 2 / 100
+                    document.getElementById("pg_resolving").style.width = percent + '%';
                     document.getElementById("resolving").innerText = "Resolving deltas:" + parts[parts.length - 1]
                 }
             }
             if (payload.includes("Updating")) {
+                if (payload.includes("done")) {
+                    document.getElementById("hint").innerText = "Counting lines of code"
+                }
                 let parts = payload.split(":");
                 if (parts.length >= 2) {
+                    let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g))
+                    console.log("updating", percent)
+                    percent = percent * 11 / 100
+                    document.getElementById("pg_updating").style.width = percent + '%';
                     document.getElementById("updating").innerText = "Updating objects:" + parts[parts.length - 1]
                 }
             }
@@ -149,7 +172,7 @@ function createTableFromResponse(data) {
     strings.splice(strings.length - 3, 3)
     strings.splice(strings.length - 4, 1)
     strings.splice(strings.length - 5, 1)
-    let cocoma = strings.splice(strings.length - 3, 3);
+    let cocomo = strings.splice(strings.length - 3, 3);
 
     for (let i = 0; i < strings.length; ++i) {
         let array = strings[i].split(/\s+/);
@@ -172,8 +195,8 @@ function createTableFromResponse(data) {
     table += "</tbody>"
     table += "</table>"
     document.getElementById("t").innerHTML = table
-    console.log(strings, cocoma)
-
+    console.log(strings, cocomo)
+    createCocomoFromResponse(cocomo)
 }
 
 function createTableThead(array) {
@@ -196,6 +219,12 @@ function createTableRow(array) {
     }
     row += "</tr>"
     return row
+}
+
+function createCocomoFromResponse(cocomo) {
+    let str = '<h5>'+ cocomo[0] + '</h5>' + '<h5>'+ cocomo[1] + '</h5>' + '<h5>'+ cocomo[2] + '</h5>';
+    console.log(str)
+    document.getElementById("cocomo").innerHTML = str
 }
 
 document.addEventListener("DOMContentLoaded", start);

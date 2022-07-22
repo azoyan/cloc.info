@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 async-stream = "0.3"
 futures = {version = "0.3", default-features = false, features = ["alloc"]}
-tokio = {version = "1.0", features = ["rt-multi-thread", "time", "fs", "macros", "net", "process"]}
+tokio = {version = "1.0", features = ["rt-multi-thread", "time", "fs", "macros", "net", "process", "signal" ]}
 tokio-stream = {version = "0.1", features = ["net"]}
 futures-util = {version = "0.3.21"}
 tonic = { version = "0.7", features = ["tls", "compression", "tls-roots", "codegen", "channel"]}
@@ -37,6 +37,7 @@ tokio-postgres = "0.7"
 bb8 = "0.8"
 bb8-postgres = "0.8"
 hyper-openssl = "0.9"
+axum-server = "0.4"
 
 [profile.release]
 lto = true

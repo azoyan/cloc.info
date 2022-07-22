@@ -1,4 +1,4 @@
-use crate::{DbId, providers::github::GithubProvider, repository::utils};
+use crate::{providers::github::GithubProvider, repository::utils, DbId};
 use axum::{
     extract::Path,
     response::{IntoResponse, Response},
@@ -55,7 +55,7 @@ async fn raw_content(
 ) -> Result<(Response<Body>, DbId), Error> {
     let result = {
         let provider_guard = provider.read().await;
-        provider_guard.get(&owner, &repository_name).await
+        provider_guard.get(owner, repository_name).await
     };
 
     let (response, branch_id) = match result {
@@ -238,18 +238,5 @@ impl IntoResponse for Error {
         }));
 
         (status, body).into_response()
-    }
-}
-trait ContainsSlice<T>: PartialEq<[T]> {
-    fn contains_slice(self: &'_ Self, slice: &'_ [T]) -> bool;
-}
-
-impl<T, Item: PartialEq<T>> ContainsSlice<T> for [Item] {
-    fn contains_slice(self: &'_ [Item], slice: &'_ [T]) -> bool {
-        let len = slice.len();
-        if len == 0 {
-            return true;
-        }
-        self.windows(len).any(move |sub_slice| sub_slice == slice)
     }
 }

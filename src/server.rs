@@ -1,16 +1,16 @@
 use crate::{github, providers::github::GithubProvider, MB};
 use axum::{
     error_handling::HandleErrorLayer,
+    handler::Handler,
     middleware::Next,
     response::{IntoResponse, Response},
-    routing::IntoMakeService,
-    Extension, Router, Server,
+    Extension, Router,
 };
 use axum_extra::routing::SpaRouter;
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use bytes::Bytes;
-use hyper::{server::conn::AddrIncoming, Body, Request, StatusCode};
+use hyper::{Body, Method, Request, StatusCode, Uri};
 use std::net::SocketAddr;
 use tokio_postgres::NoTls;
 use tower::{BoxError, ServiceBuilder};
@@ -19,15 +19,17 @@ use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLay
 pub fn create_server(
     socket: SocketAddr,
     connection_pool: Pool<PostgresConnectionManager<NoTls>>,
-) -> Server<AddrIncoming, IntoMakeService<Router>> {
-    let spa = SpaRouter::new("/static", "static");
-    let github_provider = GithubProvider::new(4 * MB, connection_pool.clone());
+) -> impl futures::Future<Output = Result<(), std::io::Error>> {
+    let spa = SpaRouter::new("/static", "static")
+        .index_file("index.html")
+        .handle_error(handle_error);
+    let github_provider = GithubProvider::new(4 * MB, connection_pool);
 
     let app = Router::new()
-       
         .layer(Extension(github_provider.cloner.clone()))
-        .merge(spa)
         .nest("/github.com", github::create_router(github_provider))
+        .merge(spa)
+        // .fallback(fallback.into_service())
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(handle_errors))
@@ -38,7 +40,32 @@ pub fn create_server(
         .layer(axum::middleware::from_fn(print_request_response))
         .layer(TraceLayer::new_for_http());
 
-    axum::Server::bind(&socket).serve(app.into_make_service())
+    let handle = axum_server::Handle::new();
+
+    tokio::spawn(graceful_shutdown(handle.clone()));
+
+    let f = axum_server::bind(socket)
+        .handle(handle)
+        .serve(app.into_make_service());
+    f
+}
+
+async fn handle_error(method: Method, uri: Uri, err: std::io::Error) -> String {
+    format!("{} {} failed with {}", method, uri, err)
+}
+
+pub async fn fallback(uri: Uri) -> Response<Body> {
+    Response::builder()
+        .body(Body::from(include_str!("../static/404.html")))
+        .unwrap()
+}
+
+async fn graceful_shutdown(handle: axum_server::Handle) {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("expect tokio signal ctrl-c");
+    handle.shutdown();
+    tracing::info!("signal shutdown");
 }
 
 async fn handle_errors(err: BoxError) -> (StatusCode, String) {

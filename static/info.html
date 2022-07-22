@@ -27,9 +27,12 @@
 <body class="d-flex flex-column min-vh-100">
     <header>
         <!-- Fixed navbar -->
-        <nav class="navbar navbar-expand-md bg-light fixed-top">
+        <nav class="navbar navbar-expand-md bg-dark navbar-dark fixed-top">
             <div class="container-fluid">
-                <a class="navbar-brand" href="/">cloc.info</a>
+                <a class="navbar-brand" href="/">
+                    <img src="/static/logo.png" alt="cloc.info" width="28" height="28" class="d-inline-block align-text-top">
+                    cloc.info
+                </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"
                     aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -49,16 +52,39 @@
     </header>
 
     <main class="flex-fill">
-        <div class="container">
-            <div class="card" id="processing">
-                <h6 class="card-header d-flex">
+        <div class="container mt-3">
+            <div class="card shadow mb-5 bg-body rounded" id="processing">
+                <div class="card-header d-flex">
                     <strong id="hint">Processing</strong>
                     <div class="dots">...</div>
 
                     <!-- <div class="spinner-border text-secondary text-center spinner-border-sm ms-auto" role="status"
                                 aria-hidden="true">
                             </div> -->
-                </h6>
+                </div>
+                <div class="progress" style="height: 2px">
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment one" style="width: 0%;"
+                        aria-valuenow="10" aria-valuemin="0" aria-valuemax="100" id="pg_cloning">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment two" style="width: 0%"
+                        aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_enumerating">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three" style="width: 0%"
+                        aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_counting">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment one" style="width: 0%;"
+                        aria-valuenow="10" aria-valuemin="0" aria-valuemax="100" id="pg_compressing">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment two" style="width: 0%"
+                        aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_receiving">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three" style="width: 0%"
+                        aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_resolving">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three" style="width: 0%"
+                        aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" id="pg_updating">
+                    </div>
+                </div>
                 <div class="card-body text-muted" id="status">
                     <div class="card-text p-0"><strong id="clone"></strong></div>
                     <div class="card-text p-0" id="cloning"></div>
@@ -71,19 +97,23 @@
                     <div class="card-text p-0" id="updating"></div>
                 </div>
             </div>
-            <div id="t"></div>
+            <div class="mb-5 bg-body rounded">
+                <div id="t"></div>
+            </div>
+            <div id="cocomo"></div>
         </div>
     </main>
 
-
-    <footer class="footer mt-auto py-3 bg-light">
-        <div class="container">
+    <!-- <div class="card-footer  d-flex text-muted mt-auto py-3 bg-light"> -->
+    <nav class="navbar bg-light mt-auto py-3 fixed-bottom">
+        <div class="container-fluid">
             <p class="text-muted fs-6 fw-light">Ivan Azoyan 2022</p>
             <p class="text-muted fs-6 fw-light">azoyan89@yahoo.com</p>
         </div>
-    </footer>
+        <!-- </div> -->
+    </nav>
 
 </body>
-<script src="/static/upload.js"></script>
+<script src="/static/info.js"></script>
 
 </html>

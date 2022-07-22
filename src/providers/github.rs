@@ -5,7 +5,7 @@ use bb8_postgres::PostgresConnectionManager;
 use hyper::{Body, Request};
 use hyper_openssl::HttpsConnector;
 use serde_json::Value;
-use snafu::{OptionExt, ResultExt, Snafu};
+use snafu::{ResultExt, Snafu};
 use tempfile::TempDir;
 use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
@@ -146,7 +146,7 @@ impl GithubProvider {
                 if last_commit_remote == db_last_commit {
                     let scc_output: Vec<u8> = row.get("scc_output");
                     tracing::info!("Current commit is actual");
-                    return Ok((branch_id, scc_output));
+                    Ok((branch_id, scc_output))
                 }
                 // Текущий коммит не актуален
                 else {
@@ -177,7 +177,7 @@ impl GithubProvider {
                                 .context(CreateTempDirSnafu)?;
                             let _result = self
                                 .cloner
-                                .clone_repository(&repository_name, &repository_path)
+                                .clone_repository(repository_name, &repository_path)
                                 .await;
                             let cloc = count_line_of_code(&repository_path, "")
                                 .await
@@ -204,7 +204,8 @@ impl GithubProvider {
             }
             // Если в БД отсутствует
             None => {
-                let temp_dir = TempDir::force_tempdir(&repository_path).context(CreateTempDirSnafu)?;
+                let temp_dir =
+                    TempDir::force_tempdir(&repository_path).context(CreateTempDirSnafu)?;
                 tracing::warn!("Repository doesn't exist in database");
                 // клонируем репозиторий
                 let _state = self.cloner.clone_repository(&url, &repository_path).await;

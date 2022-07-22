@@ -62,11 +62,11 @@ function pasteValue(e) {
     if (e.target.value === "") return;
     check(e.target.value)
 }
-
+let branches;
 function check(url_str) {
     let url;
     hint.style.display = 'none'
-    
+
     if (!url_str.match(/^[a-zA-Z]+:\/\//)) { url_str = 'https://' + url_str; }
     console.log(url_str);
 
@@ -91,9 +91,8 @@ function check(url_str) {
     fetch(api_url)
         .then((response) => { return response.json() })
         .then((response) => {
-            let branches = response;
+            branches = response;
 
-            branches.map((branch) => console.log("name = ", branch.name))
             let select = document.getElementById("select");
             let html_select = createSelect(branches, "select-child");
             select.appendChild(createElementFromHTML(html_select));
@@ -121,28 +120,40 @@ function check(url_str) {
                 console.log(error.response.headers);
                 document.getElementById("input").classList.add("is-invalid");
             }
-            else { console.log("error", error) }
+            else {
+                console.log("error", error)
+            }
         });
 }
 
 function createSelect(branches, id) {
-    document.getElementById(id)?.remove()
-    let select = '<select class="form-select form-select-sm" aria-label=".form-select-sm example" id="' + id + '">'
+    document.getElementById(id)?.remove() // delete previous if exists
+    let select = '<select class="form-select form-select-sm" aria-label=".form-select-sm example" id="' + id + '" onchange="setCommit(this.value)">'
     let hasMain = false;
     for (var i = 0; i < branches.length; ++i) {
-        if (branches[i].name === "main" && hasMain === false) {
-            select += createSelectOption(branches[i].name, true)
+        let branchName = branches[i].name
+        if (branchName === "main" && hasMain === false) {
+            select += createSelectOption(branchName, true)
+            document.getElementById("commit").innerText = "Last commit: " + branches[i].commit.sha
             hasMain = true;
         }
-        else if (branches[i].name === "master") {
+        else if (branchName === "master") {
             if (!hasMain) {
-                select += createSelectOption(branches[i].name, true)
+                select += createSelectOption(branchName, true)
+                document.getElementById("commit").innerText = "Last commit: " + branches[i].commit.sha
                 hasMain = true;
+
             }
         }
         else {
-            select += createSelectOption(branches[i].name)
+            select += createSelectOption(branchName)
         }
+    }
+    if (input.value.includes("https://github.com")) {
+        document.getElementById("github_picture").hidden = false
+    }
+    else if (input.value.includes("https://gitlab.com")) {
+        document.getElementById("gitlab_picture").hidden = false
     }
     select += '</select>'
     return select;
@@ -152,8 +163,17 @@ function substitute() {
     pasteValue("https://github.com/actix/actix-web")
 }
 
-function createSelectOption(branch, main) {
-    if (main) {
+function setCommit(branchName) {
+    // let branchName = e.value
+    for (let i = 0; i < branches.length; ++i) {
+        if (branches[i].name === branchName) {
+            document.getElementById("commit").innerText = "Last commit: " + branches[i].commit.sha
+        }
+    }
+}
+
+function createSelectOption(branch, isMain) {
+    if (isMain) {
         return "<option selected>" + branch + "</option>"
     }
     else {
