@@ -234,16 +234,15 @@ impl GithubProvider {
                     .context(SccSnafu)?;
 
                 // вставляем результат в БД
-                let insert_repositories =
-                    "INSERT INTO repositories VALUES (DEFAULT, $1, $2, $3, $4) RETURNING id";
+                let upsert_repositories = "insert into repositories values (DEFAULT, $1, $2, $3, $4) ON CONFLICT (hostname, owner, repository_name) DO UPDATE SET hostname=EXCLUDED.hostname, owner=EXCLUDED.owner, repository_name=EXCLUDED.repository_name  RETURNING ID;";
                 let rows = connection
                     .query(
-                        insert_repositories,
+                        upsert_repositories,
                         &[&"github.com", &owner, &repository_name, &default_branch],
                     )
                     .await
                     .with_context(|_e| QuerySnafu {
-                        query: insert_repositories.to_string(),
+                        query: upsert_repositories.to_string(),
                     })?;
 
                 let repository_id: DbId = rows[0].get("id");

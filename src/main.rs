@@ -34,7 +34,7 @@ fn main() {
 
     let r = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .thread_name("PRICER")
+        .thread_name("main_thread")
         .build()
         .unwrap();
 
