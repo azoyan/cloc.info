@@ -4,7 +4,7 @@ use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use cloner::server::create_server;
 use std::net::{IpAddr, SocketAddr};
-use tokio_postgres::{NoTls};
+use tokio_postgres::NoTls;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 fn main() {
@@ -38,7 +38,7 @@ fn main() {
         .build()
         .unwrap();
 
-    tracing::info!("her");
+    tracing::info!("Starting...");
     r.block_on(start_all(socket));
 }
 

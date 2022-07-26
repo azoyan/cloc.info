@@ -1,12 +1,14 @@
-use crate::{providers::github::GithubProvider, repository::utils, DbId};
+use crate::{
+    providers::github::GithubProvider,
+    repository::{info::AllBranchesInfo, utils},
+    DbId,
+};
 use axum::{
     extract::Path,
     response::{IntoResponse, Response},
     routing::get,
     Extension, Json, Router,
 };
-use axum_macros::debug_handler;
-
 use hyper::{
     header::{self, CONTENT_TYPE, USER_AGENT},
     Body, Request, StatusCode,
@@ -18,21 +20,16 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub fn create_router(github_provider: GithubProvider) -> Router<Body> {
-    let cloner = github_provider.cloner.clone();
     let provider = Arc::new(RwLock::new(github_provider));
 
     let router = Router::new()
         .route("/", get(default_handler))
-        .route(
-            "/ws/:hostname/:owner/:repository_name",
-            axum::routing::get(crate::websocket::handler_ws),
-        )
+        .route("/tree/*branch", get(handler_with_branch))
         .route("/branches", get(all_branches_lookup));
 
     Router::new()
         .nest("/:owner/:repo", router)
         .layer(Extension(provider))
-        .layer(Extension(cloner))
 }
 
 fn static_page() -> Result<Response<Body>, Error> {
@@ -52,10 +49,13 @@ async fn raw_content(
     provider: Arc<RwLock<GithubProvider>>,
     owner: &str,
     repository_name: &str,
+    branch: Option<&str>,
 ) -> Result<(Response<Body>, DbId), Error> {
     let result = {
         let provider_guard = provider.read().await;
-        provider_guard.get(owner, repository_name).await
+        provider_guard
+            .get_with_branch(owner, repository_name, branch)
+            .await
     };
 
     let (response, branch_id) = match result {
@@ -79,14 +79,33 @@ async fn raw_content(
     Ok((response, branch_id))
 }
 
-#[debug_handler]
 async fn default_handler(
     Path((owner, repository_name)): Path<(String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
-    tracing::debug!("default handler {:?}", request);
+    tracing::debug!("default handler{:?}", request);
+    handle_request(&owner, &repository_name, None, provider, request).await
+}
 
+async fn handler_with_branch(
+    Path((owner, repository_name, branch_name)): Path<(String, String, String)>,
+    Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
+    request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
+) -> Result<Response<Body>, Error> {
+    tracing::debug!("handler with branch {:?}", request);
+
+    let branch = &branch_name[1..];
+    handle_request(&owner, &repository_name, Some(branch), provider, request).await
+}
+
+async fn handle_request(
+    owner: &str,
+    repository_name: &str,
+    branch: Option<&str>,
+    provider: Arc<RwLock<GithubProvider>>,
+    request: Request<Body>,
+) -> Result<Response<Body>, Error> {
     let user_agent = match request.headers().get(USER_AGENT) {
         Some(value) => value.to_str().unwrap_or("not valid utf-8"),
         None => "unknown",
@@ -97,9 +116,10 @@ async fn default_handler(
         || user_agent.contains("Links")
         // Netrik User agent
         || user_agent.contains("Not mandatory")
+        || user_agent.contains("curl")
     {
         tracing::info!("Terminal browser: {:?}", user_agent);
-        let (response, branch_id) = raw_content(provider.clone(), &owner, &repository_name)
+        let (response, branch_id) = raw_content(provider.clone(), owner, repository_name, branch)
             .await
             .unwrap();
         update_statistic(provider, branch_id, user_agent).await;
@@ -121,7 +141,7 @@ async fn default_handler(
 
             if value.contains("cloc") {
                 let (response, branch_id) =
-                    raw_content(provider.clone(), &owner, &repository_name).await?;
+                    raw_content(provider.clone(), owner, repository_name, branch).await?;
 
                 tracing::info!("Response is ready, branch_id = {}", branch_id);
 
@@ -172,20 +192,27 @@ async fn all_branches_lookup(
         .remote_branches(&owner, &repository_name)
         .await
         .with_context(|_e| GithubProviderSnafu)?;
+    // tracing::debug!("{:?}", branches);
 
-    tracing::debug!("{:?}", branches);
+    let default_branch = provider_guard
+        .default_branch_remote(&owner, &repository_name)
+        .await
+        .with_context(|_e| GithubProviderSnafu)?;
 
-    let response = match serde_json::to_string(&branches) {
-        Ok(body) => Response::builder()
+    let all = AllBranchesInfo {
+        default_branch,
+        branches,
+    };
+    match serde_json::to_string(&all) {
+        Ok(branches) => Response::builder()
             .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
-            .body(Body::from(body))
-            .context(ResponseSnafu)?,
+            .body(Body::from(branches))
+            .context(ResponseSnafu),
         Err(e) => Response::builder()
             .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
             .body(Body::from(e.to_string()))
-            .context(ResponseSnafu)?,
-    };
-    Ok(response)
+            .context(ResponseSnafu),
+    }
 }
 
 // recommendations from https://docs.github.com/en/rest/reference/branches

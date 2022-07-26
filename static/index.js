@@ -7,8 +7,18 @@ const submitButton = document.getElementById('submitButton');
 
 submitButton.onclick = function () {
     let url = new URL(input.value)
-    let path = url.host + url.pathname + url.search + url.hash
-    
+    let selected = document.getElementById("select-child").value;
+    console.log(selected)
+    let path;
+    if (selected === branches.default_branch) {
+        path = url.host + url.pathname + url.search + url.hash
+
+    }
+    else {
+        if (url.host === "github.com") {
+            path = url.host + url.pathname + url.search + url.hash + '/tree/' + selected
+        }
+    }
     window.location = path
 }
 
@@ -126,24 +136,16 @@ function check(url_str) {
         });
 }
 
-function createSelect(branches, id) {
+function createSelect(all_branches, id) {
+    let branches = all_branches.branches;
+    let defaultBranch = all_branches.default_branch;
     document.getElementById(id)?.remove() // delete previous if exists
     let select = '<select class="form-select form-select-sm" aria-label=".form-select-sm example" id="' + id + '" onchange="setCommit(this.value)">'
-    let hasMain = false;
     for (var i = 0; i < branches.length; ++i) {
-        let branchName = branches[i].name   
-        if (branchName === "main" && hasMain === false) {
+        let branchName = branches[i].name
+        if (branchName === defaultBranch) {
             select += createSelectOption(branchName, true)
             document.getElementById("commit").innerText = "Last commit: " + branches[i].commit.sha
-            hasMain = true;
-        }
-        else if (branchName === "master") {
-            if (!hasMain) {
-                select += createSelectOption(branchName, true)
-                document.getElementById("commit").innerText = "Last commit: " + branches[i].commit.sha
-                hasMain = true;
-
-            }
         }
         else {
             select += createSelectOption(branchName)

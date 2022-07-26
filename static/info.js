@@ -33,7 +33,8 @@ async function start(_e) {
     let websocket;
     try {
         let address = await fetch_ws();
-        let url = "ws://" + document.location.host + document.location.pathname + address + document.location.pathname
+        let url = "ws://" + document.location.host + address + document.location.pathname 
+        console.log("websocket:", url);
         websocket = new WebSocket(url);
         startStreaming(websocket)
     }
@@ -164,22 +165,30 @@ function startStreaming(ws) {
 }
 
 function createTableFromResponse(data) {
-    console.log(data)
     let strings = data.split("\n")
+    console.log(data)
     document.getElementById("processing").hidden = true
     strings.splice(0, 1);
     strings.splice(1, 1);
-    strings.splice(-3)
+    console.log(strings.splice(-1, 1))
+    let commit_array = strings.splice(-1, 1);
+    let branch_array = strings.splice(-1, 1)
+    let url_array = strings.splice(-1, 1);
+
+    createAboutInfo(url_array[0], branch_array[0], commit_array[0])
+
+    console.log(strings.splice(-2, 2))
 
     let processed = strings.splice(-1, 1)
     console.log(processed)
-    strings.splice(-1)
+    console.log(strings.splice(-1, 1))
     let cocomo = strings.splice(-3, 3);
-    strings.splice(-1)
-    strings.splice(-2, 1)
+    console.log(cocomo)
+    console.log(strings.splice(-1))
+    console.log(strings.splice(-2, 1))
 
     for (let i = 0; i < strings.length; ++i) {
-        let array = strings[i].trim().split(/\s+/);         
+        let array = strings[i].trim().split(/\s+/);
         while (array.length > 7) {
             array[0] += array[1]
             array.splice(1, 1)
@@ -197,10 +206,13 @@ function createTableFromResponse(data) {
 
 
     table += "</tbody>"
+    let caption = '<caption>' + processed + '</caption>'
+    table += caption
     table += "</table>"
     document.getElementById("t").innerHTML = table
+    document.getElementById("t").hidden = false
     console.log(strings, cocomo)
-    createCocomoFromResponse(cocomo, processed)
+    createCocomoFromResponse(cocomo)
 }
 
 function createTableThead(array) {
@@ -225,13 +237,45 @@ function createTableRow(array) {
     return row
 }
 
-function createCocomoFromResponse(cocomo, processed) {
+function createCocomoFromResponse(cocomo) {
     let str = ""
-    str += '<h6>' + processed + '</h6>'
-    str += '<hr class="bg-primary"></hr>'
-    str += '<h6>' + cocomo[0] + '</h6>' + '<h6>' + cocomo[1] + '</h6>' + '<h6>' + cocomo[2] + '</h6>';
-    console.log(str)
+
+   str += '<div class="card-body"><h5 class="card-title"><strong>COCOMO</strong></h5><h6 class="card-subtitle mb-4 text-muted">Constructive Cost Model (<a target="_blank" rel="noopener noreferrer canonical" href="https://en.wikipedia.org/wiki/COCOMO">wiki</a>)</h6>'
+    str += '<p class="card-text">' + cocomo[0] + '</p>'
+    str += '<p class="card-text">' + cocomo[1] + '</p>'
+    str += '<p class="card-text">' + cocomo[2] + '</p>'
+    str += '</div>'
     document.getElementById("cocomo").innerHTML = str
+}
+
+function createAboutInfo(url_s, branch_s, commit_s) {
+    let url_str = url_s.split(' ')[1]
+    let ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + url_str + '">' + url_str + '</a>'
+
+    let urlRow = '<div class="row align-items-center">'
+    urlRow += '<div class="col col-sm-auto"><strong>URL:</strong></div>'
+    urlRow += '<div class="col col-sm-auto text-truncate float-start">' + ref + '</div>'
+
+    if (url_str.includes("github.com")) {
+        let img = '<img alt="Open repository" src="/static/GitHub-Mark-32px.png" class="float-start">'
+        let ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + url_str + '">' + img + '</a>'
+        urlRow += '<div class="col col-sm-auto">' + ref + '</div>'
+    }
+
+    urlRow += '</div>'
+    console.log(urlRow)
+
+    let branch_str = branch_s.split(' ')[1]
+    let branchRow = '<div class="row pt-2">'
+    branchRow += '<div class="col col-sm-auto"><strong>Branch:</strong></div>'
+    branchRow += '<div class="col">' + branch_str + '</div>'
+    branchRow += '</div> '
+
+    let commit_str = commit_s.split(' ')[1]
+    let commitRow = '<div class="row pt-2"><div class="col col-sm-auto">Commit:</div><div class="col text-truncate float-start">' + commit_str + '</div></div>'
+
+    let res = urlRow + branchRow + commitRow;
+    document.getElementById("about").innerHTML = res
 }
 
 document.addEventListener("DOMContentLoaded", start);

@@ -6,6 +6,7 @@ use tokio::{
     sync::RwLock,
 };
 
+#[derive(Debug)]
 pub enum State {
     Buffered(String),
     Done,
@@ -72,18 +73,43 @@ impl Cloner {
         }
     }
 
-    pub async fn clone_repository(&self, repository_name: &str, repository_path: &str) -> State {
+    pub async fn pull_repository(&self, url: &str, repository_path: &str) -> State {
         let mut command = Command::new("git");
-        tracing::info!("clone {} to {}", repository_name, repository_path);
+        tracing::info!("pull {} to {}", url, repository_path);
+
+        command.args(&[
+            "pull",
+            "-C",
+            repository_path,
+            "--progress",
+            "--depth=1",
+            repository_path,
+        ]);
+        self.execute(command, url).await
+    }
+
+    pub async fn clone_repository(
+        &self,
+        url: &str,
+        branch_name: &str,
+        repository_path: &str,
+    ) -> State {
+        let mut command = Command::new("git");
+        tracing::info!("clone {} to {}", url, repository_path);
 
         command.args(&[
             "clone",
             "--progress",
             "--depth=1",
-            repository_name,
+            url,
+            "--branch",
+            branch_name,
             repository_path,
         ]);
+        self.execute(command, url).await
+    }
 
+    pub async fn execute(&self, mut command: Command, repository_name: &str) -> State {
         command.stdout(Stdio::piped());
         command.stderr(Stdio::piped());
 
@@ -93,6 +119,8 @@ impl Cloner {
         let mut reader = BufReader::new(stderr);
         let mut buffer = BytesMut::with_capacity(1000);
         // let mut buffer = String::new();
+
+        tracing::warn!("{:?}", command);
 
         // let mut buffer = [0u8; 1000];
         let mut stages = Stages::default();
@@ -127,22 +155,16 @@ impl Cloner {
                     stages.updating = String::from(&line);
                 }
             }
-            // let _res = std::io::Read::read_to_string(&mut slice, &mut line);
-            // let mut line = String::from_utf8(slice).unwrap();
-            // line.push('\\');
-            // tracing::debug!("len:{}, line ={:?}", line, line.len());
-
             buffer.clear();
-            // break;
 
             let stages_string = stages.to_string();
 
-            tracing::debug!(
-                "{repository_name} <-> ASCII:{} {}>>\n{}\n<<",
-                stages_string.is_ascii(),
-                stages_string.len(),
-                &stages_string
-            );
+            // tracing::debug!(
+            //     "{repository_name} <-> ASCII:{} {}>>\n{}\n<<",
+            //     stages_string.is_ascii(),
+            //     stages_string.len(),
+            //     &stages_string
+            // );
             self.clone_state
                 .write()
                 .await

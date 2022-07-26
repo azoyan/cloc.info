@@ -1,24 +1,22 @@
-use std::sync::Arc;
-
+use crate::{
+    cloner::Cloner,
+    repository::{
+        cache::RepositoryCache,
+        info::{to_filename, to_url, BranchInfo},
+        utils::{self, count_line_of_code},
+    },
+    DbId,
+};
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use hyper::{Body, Request};
 use hyper_openssl::HttpsConnector;
 use serde_json::Value;
 use snafu::{ResultExt, Snafu};
+use std::sync::Arc;
 use tempfile::TempDir;
 use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
-
-use crate::{
-    cloner::Cloner,
-    repository::{
-        cache::RepositoryCache,
-        info::{to_filename, to_url, BranchInfo},
-        utils::{self, count_line_of_code, pull},
-    },
-    DbId,
-};
 
 const USERNAME_TOKEN: &str =
     "Basic YXpveWFuOmdocF9IOEVqSXRwMjBOQW9Gc3dYVGI4ektEaktUbkFETlg0TktaNUk=";
@@ -55,6 +53,9 @@ pub enum Error {
         source: tokio_postgres::Error,
     },
 
+    #[snafu(display("Error at getting last commit: {source}"))]
+    LastCommitError { source: utils::Error },
+
     #[snafu(display("Error at scc: {source}"))]
     SccError { source: utils::Error },
 
@@ -80,29 +81,34 @@ impl GithubProvider {
         }
     }
 
-    pub async fn get(&self, owner: &str, repository_name: &str) -> Result<(DbId, Vec<u8>), Error> {
-        let default_branch = self.default_branch_remote(owner, repository_name).await?;
-        self.get_with_branch(owner, repository_name, &default_branch, &default_branch)
-            .await
-    }
-
     pub async fn get_with_branch(
         &self,
         owner: &str,
         repository_name: &str,
-        branch: &str,
-        default_branch: &str,
+        branch: Option<&str>,
     ) -> Result<(DbId, Vec<u8>), Error> {
-        let is_default_branch = branch == default_branch;
-        let url = if is_default_branch {
-            format!("https://github.com/{owner}/{repository_name}")
-        } else {
-            format!("https://github.com/{owner}/{repository_name}/tree/{branch}")
+        let start = tokio::time::Instant::now();
+        let default_branch = self.default_branch_remote(owner, repository_name).await?;
+        let duration = start.elapsed();
+        tracing::warn!("Time elapsed in default_branch_remote() is: {:?}", duration);
+        
+        let branch = match branch {
+            Some(branch) => branch,
+            None => &default_branch,
         };
+
+        let is_default_branch = branch == default_branch;
+        let url = format!("https://github.com/{owner}/{repository_name}");
+
+        let start = tokio::time::Instant::now();
         // Узнаем какой коммит был последний
         let last_commit_remote = self
             .last_commit_remote(owner, repository_name, branch)
             .await?;
+        let last_commit_local;
+        
+        let duration = start.elapsed();
+        tracing::warn!("Time elapsed in last_commit_remote() is: {:?}", duration);
 
         // Новый алгортим
         // 1. Смотрим есть ли в БД
@@ -124,95 +130,105 @@ impl GithubProvider {
             }
         };
 
-        let query = "select * from branches where repository_id=(select id from repositories where hostname=$1 and owner=$2 and repository_name=$3);";
+        let query = "select * from branches where name=$4 and repository_id=(select id from repositories where hostname=$1 and owner=$2 and repository_name=$3);";
 
         let rows = connection
-            .query(query, &[&"github.com", &owner, &repository_name])
+            .query(query, &[&"github.com", &owner, &repository_name, &branch])
             .await
             .with_context(|_e| QuerySnafu {
                 query: query.to_owned(),
             })?;
 
-        tracing::info!("{rows:?}");
         let repository_path = to_filename("github.com", owner, repository_name, branch);
 
-        assert!(rows.len() <= 1);
-
-        match rows.get(0) {
+        let (branch_id, mut cloc) = match rows.get(0) {
             // Есть в БД
             Some(row) => {
                 // проверяем актуальность коммита
                 let db_last_commit: String = row.get("last_commit_sha");
+                let db_branch_name: String = row.get("name");
                 let branch_id: DbId = row.get("id");
 
-                //  Текущий коммит в базе актуален
-                if last_commit_remote == db_last_commit {
+                if last_commit_remote == db_last_commit && db_branch_name == branch {
                     let scc_output: Vec<u8> = row.get("scc_output");
-                    tracing::info!("Current commit is actual");
-                    Ok((branch_id, scc_output))
-                }
-                // Текущий коммит не актуален
-                else {
-                    // смотрим, есть ли у нас репозиторий в хранилище
-                    tracing::info!("Current commit is not actual");
-                    match self.repository_cache.read().await.get(&url) {
-                        Some(_dir) => {
-                            tracing::info!("Repository cached in disk storage");
+                    tracing::info!("Current branch and commit are actual. Returning cloc from db");
+                    last_commit_local = db_last_commit;
+                    (branch_id, scc_output)
+                } else {
+                    tracing::info!("Current branch '{db_branch_name}' and commit '{db_last_commit}' are not actual '{last_commit_remote}'");
+
+                    let (result, temp_dir) = match self.repository_cache.read().await.get(&url) {
+                        Some(temp_dir) => {
+                            tracing::info!("Repository {repository_name} cached in disk storage: {repository_path}");
                             // если есть, обновляем репозиторий
-                            let _result = pull(&url, &repository_path, branch).await;
-
-                            let cloc = count_line_of_code(&repository_path, "")
-                                .await
-                                .context(SccSnafu)?;
-
-                            let _result = connection
-                                .execute(
-                                    "UPDATE branches set last_commit_sha = $1 where id = $2",
-                                    &[&last_commit_remote, &"1"],
-                                )
-                                .await;
-
-                            Ok((branch_id, cloc))
+                            let result = self.cloner.pull_repository(&url, &repository_path).await;
+                            last_commit_local = utils::last_commit_local(&url, &repository_path)
+                                .with_context(|_e| LastCommitSnafu)?;
+                            (result, temp_dir.clone())
                         }
                         None => {
-                            tracing::info!("Repository is not cached in disk storage");
-                            let temp_dir = TempDir::force_tempdir(&repository_path)
-                                .context(CreateTempDirSnafu)?;
-                            let _result = self
+                            tracing::info!(
+                                "Repository {repository_name} is not cached in disk storage"
+                            );
+                            let temp_dir = Arc::new(
+                                TempDir::force_tempdir(&repository_path)
+                                    .context(CreateTempDirSnafu)?,
+                            );
+                            let result = self
                                 .cloner
-                                .clone_repository(repository_name, &repository_path)
+                                .clone_repository(&url, branch, &repository_path)
                                 .await;
-                            let cloc = count_line_of_code(&repository_path, "")
-                                .await
-                                .context(SccSnafu)?;
-                            let _result = connection
-                                .execute(
-                                    "UPDATE branches set last_commit_sha = $1 where id = $2",
-                                    &[&last_commit_remote, &"1"],
-                                )
-                                .await;
-
-                            if is_default_branch {
-                                // если эта дефолтная ветка, сохраняем её в хранилище. Другие ветки на диске не храним, чтоб не занимать место
-                                self.repository_cache
-                                    .write()
-                                    .await
-                                    .insert(Arc::new(temp_dir));
-                            }
-
-                            Ok((branch_id, cloc))
+                            last_commit_local = utils::last_commit_local(&url, &repository_path)
+                                .with_context(|_e| LastCommitSnafu)?;
+                            (result, temp_dir)
                         }
+                    };
+
+                    tracing::info!("Repository {repository_name} cloned state: {:?}", result);
+                    let cloc = count_line_of_code(&repository_path, "")
+                        .await
+                        .context(SccSnafu)?;
+                    let repository_id: DbId = rows[0].get("repository_id");
+                    tracing::debug!(
+                        "INSERT INTO branches VALUES(DEFAULT, {}, {}, {}) ON CONFLICT RETURNING id",
+                        repository_id,
+                        &branch,
+                        &last_commit_local
+                    );
+                    let upsert_branch = "INSERT INTO branches VALUES(DEFAULT, $1, $2, $3, $4) ON CONFLICT (repository_id, name, last_commit_sha) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id";
+
+                    let rows = connection
+                        .query(
+                            upsert_branch,
+                            &[&repository_id, &branch, &last_commit_local, &cloc],
+                        )
+                        .await
+                        .with_context(|_e| QuerySnafu {
+                            query: upsert_branch.to_string(),
+                        })?;
+
+                    let branch_id = rows[0].get("id");
+                    if is_default_branch {
+                        self.repository_cache.write().await.insert(temp_dir);
                     }
+                    (branch_id, cloc)
                 }
             }
             // Если в БД отсутствует
             None => {
-                let temp_dir =
-                    TempDir::force_tempdir(&repository_path).context(CreateTempDirSnafu)?;
-                tracing::warn!("Repository doesn't exist in database");
-                // клонируем репозиторий
-                let _state = self.cloner.clone_repository(&url, &repository_path).await;
+                tracing::warn!("Repository doesn't exist in database and storage cache");
+                assert!(self.repository_cache.read().await.get(&url).is_none());
 
+                let temp_dir =
+                    Arc::new(TempDir::force_tempdir(&repository_path).context(CreateTempDirSnafu)?);
+                // клонируем репозиторий
+
+                let _state = self
+                    .cloner
+                    .clone_repository(&url, branch, &repository_path)
+                    .await;
+                last_commit_local = utils::last_commit_local(&url, &repository_path)
+                    .with_context(|_e| LastCommitSnafu)?;
                 let cloc = count_line_of_code(&repository_path, "")
                     .await
                     .context(SccSnafu)?;
@@ -238,7 +254,7 @@ impl GithubProvider {
                 let rows = connection
                     .query(
                         insert_branch,
-                        &[&repository_id, &branch, &last_commit_remote, &cloc],
+                        &[&repository_id, &branch, &last_commit_local, &cloc],
                     )
                     .await
                     .with_context(|_e| QuerySnafu {
@@ -247,14 +263,17 @@ impl GithubProvider {
 
                 let branch_id = rows[0].get("id");
                 // добовалем в хранилище на жёстком диске
-                self.repository_cache
-                    .write()
-                    .await
-                    .insert(Arc::new(temp_dir));
-                tracing::warn!("CLONE DONE");
-                Ok((branch_id, cloc))
+                tracing::info!("Clone done. Returning scc_output");
+                if is_default_branch {
+                    self.repository_cache.write().await.insert(temp_dir);
+                }
+                (branch_id, cloc)
             }
-        }
+        };
+        let bc = format!("URL: {url}\nBranch: {branch}\nCommit: {last_commit_local}\n");
+        cloc.extend(bc.as_bytes());
+
+        Ok((branch_id, cloc))
     }
 
     pub async fn default_branch_remote(

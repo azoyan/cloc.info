@@ -1,3 +1,4 @@
+use crate::cloner::Cloner;
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -7,35 +8,28 @@ use axum::{
     Extension,
 };
 
-use crate::cloner::Cloner;
-
 pub async fn handler_ws(
-    Path((owner, repository_name, hostname)): Path<(String, String, String)>,
     ws: WebSocketUpgrade,
+    Path(path): Path<String>,
     Extension(cloner): Extension<Cloner>,
+    // request: Request<Body>,
 ) -> Response {
-    tracing::info!("AZOYAN {hostname} {owner} {repository_name}");
-    ws.on_upgrade(move |socket| handle_socket(hostname, owner, repository_name, socket, cloner))
+    ws.on_upgrade(move |socket| handle_socket(path, socket, cloner))
 }
 
-async fn handle_socket(
-    hostname: String,
-    owner: String,
-    repository_name: String,
-    mut socket: WebSocket,
-    cloner: Cloner,
-) {
-    tracing::info!("Domain: {hostname}, Onwer: {owner}, Repo: {repository_name}");
-    let repository_name = format!("https://{hostname}/{owner}/{repository_name}");
-    let _repository = repository_name.clone();
+async fn handle_socket(path: String, mut socket: WebSocket, cloner: Cloner) {
+    tracing::info!("Path: {path}");
+    let repository_name = format!("https://{}", &path[1..]); //  crop first slash
 
     while let Some(msg) = socket.recv().await {
         if let Ok(_msg) = msg {
             let current_state = cloner.current_state(&repository_name).await;
             if current_state.is_empty() {
-                socket.close().await;
+                match socket.close().await {
+                    Ok(()) => tracing::debug!("Connection 'ws://{repository_name}/ws' closed"),
+                    Err(e) => tracing::error!("Error at closing connection: {}", e.to_string()),
+                }
                 return;
-                // socket.send(Message::Text("end".to_string())).await;
             }
             let msg = Message::Text(current_state);
             if socket.send(msg).await.is_err() {

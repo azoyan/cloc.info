@@ -1,7 +1,6 @@
 use crate::{github, providers::github::GithubProvider, MB};
 use axum::{
     error_handling::HandleErrorLayer,
-    handler::Handler,
     middleware::Next,
     response::{IntoResponse, Response},
     Extension, Router,
@@ -25,11 +24,17 @@ pub fn create_server(
         .handle_error(handle_error);
     let github_provider = GithubProvider::new(4 * MB, connection_pool);
 
+    let websocket_router = Router::new().route(
+        "/*path",
+        axum::routing::get(crate::websocket::handler_ws)
+            .layer(Extension(github_provider.cloner.clone())),
+    );
+
     let app = Router::new()
         .layer(Extension(github_provider.cloner.clone()))
+        .nest("/ws", websocket_router)
         .nest("/github.com", github::create_router(github_provider))
         .merge(spa)
-        // .fallback(fallback.into_service())
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(handle_errors))
@@ -44,17 +49,16 @@ pub fn create_server(
 
     tokio::spawn(graceful_shutdown(handle.clone()));
 
-    let f = axum_server::bind(socket)
+    axum_server::bind(socket)
         .handle(handle)
-        .serve(app.into_make_service());
-    f
+        .serve(app.into_make_service())
 }
 
 async fn handle_error(method: Method, uri: Uri, err: std::io::Error) -> String {
     format!("{} {} failed with {}", method, uri, err)
 }
 
-pub async fn fallback(uri: Uri) -> Response<Body> {
+pub async fn fallback(_uri: Uri) -> Response<Body> {
     Response::builder()
         .body(Body::from(include_str!("../static/404.html")))
         .unwrap()

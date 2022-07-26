@@ -98,6 +98,7 @@ pub fn to_url(hostname: &str, owner: &str, repository_name: &str, branch: &str) 
 }
 
 pub fn to_filename(hostname: &str, owner: &str, repository_name: &str, branch: &str) -> String {
+    let branch = branch.replace('/', "_");
     format!("{hostname}_{owner}_{repository_name}_branch_{branch}")
 }
 
@@ -106,4 +107,10 @@ pub struct CocomoInfo {
     pub cost_develop: String,
     pub schedule_effort: String,
     pub people_required: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AllBranchesInfo {
+    pub default_branch: String,
+    pub branches: Vec<BranchInfo>,
 }

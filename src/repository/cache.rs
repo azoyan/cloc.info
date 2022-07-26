@@ -64,53 +64,52 @@ impl RepositoryCache {
         }
         // Добавляемый репозиторий уникальный
         else {
-            // Если размер коллекции достиг предела
-            if self.repositories.len() == self.limit {
-                // Ищем самый маленький хранящейся репозиторий
-                let (smallest_size, _smallest_name) = self.sizes.front().unwrap();
-                // Если добавляемый репозиторий меньше самого маленького - отбрасываем его
-                if repository_size.lt(smallest_size) {
-                    tracing::debug!("Rejected size: {smallest_size}, name: {_smallest_name}");
-                    Success::Rejected(repository)
-                } else {
-                    // Удаляемый самый маленький репозиторий
-                    let (_smallest_size, smallest_name) = self.sizes.pop_front().unwrap();
-                    tracing::debug!(
-                        "Remove smallest, size: {:?}, name: {}",
-                        _smallest_size,
-                        &smallest_name
-                    );
-                    self.urls.remove(&smallest_name);
-                    let removed = self.repositories.remove(&smallest_name);
+            match self.repositories.len().cmp(&self.limit) {
+                std::cmp::Ordering::Less => {
                     self.sizes.append(repository_size, url.to_string());
-                    tracing::debug!(
-                        "Insert size: {}, name: {}. self.sizes keys_len = {},  values_len = {}",
-                        repository_size,
-                        &url,
-                        self.sizes.keys_len(),
-                        self.sizes.values_len()
-                    );
                     assert_eq!(None, self.urls.insert(url.to_string(), repository_size));
                     assert!(self
                         .repositories
                         .insert(url.to_string(), repository)
                         .is_none());
 
-                    Success::Done(removed)
+                    Success::Done(None)
                 }
-            }
-            // Просто добавляем новый уникальный репозиторий
-            else if self.repositories.len() < self.limit {
-                self.sizes.append(repository_size, url.to_string());
-                assert_eq!(None, self.urls.insert(url.to_string(), repository_size));
-                assert!(self
-                    .repositories
-                    .insert(url.to_string(), repository)
-                    .is_none());
+                std::cmp::Ordering::Equal => {
+                    // Ищем самый маленький хранящейся репозиторий
+                    let (smallest_size, _smallest_name) = self.sizes.front().unwrap();
+                    // Если добавляемый репозиторий меньше самого маленького - отбрасываем его
+                    if repository_size.lt(smallest_size) {
+                        tracing::debug!("Rejected size: {smallest_size}, name: {_smallest_name}");
+                        Success::Rejected(repository)
+                    } else {
+                        // Удаляемый самый маленький репозиторий
+                        let (_smallest_size, smallest_name) = self.sizes.pop_front().unwrap();
+                        tracing::debug!(
+                            "Remove smallest, size: {:?}, name: {}",
+                            _smallest_size,
+                            &smallest_name
+                        );
+                        self.urls.remove(&smallest_name);
+                        let removed = self.repositories.remove(&smallest_name);
+                        self.sizes.append(repository_size, url.to_string());
+                        tracing::debug!(
+                            "Insert size: {}, name: {}. self.sizes keys_len = {},  values_len = {}",
+                            repository_size,
+                            &url,
+                            self.sizes.keys_len(),
+                            self.sizes.values_len()
+                        );
+                        assert_eq!(None, self.urls.insert(url.to_string(), repository_size));
+                        assert!(self
+                            .repositories
+                            .insert(url.to_string(), repository)
+                            .is_none());
 
-                Success::Done(None)
-            } else {
-                unreachable!()
+                        Success::Done(removed)
+                    }
+                }
+                std::cmp::Ordering::Greater => unreachable!(),
             }
         };
 
