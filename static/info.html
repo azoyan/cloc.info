@@ -54,6 +54,37 @@
 
     <main class="flex-fill">
         <div class="container mt-3">
+            <div class="container py-4 px-2">
+                <div class="collapse" id="alert_block">
+                    <div class="alert alert-danger" role="alert">
+                        <h4 class="alert-heading">Error</h4>
+                        <p class="mb-4" id="alert_message"></p>
+                    </div>
+                </div>
+                <div class="row align-items-center">
+                    <div class="col col-sm-auto"><strong>URL:</strong></div>
+                    <div class="col col-sm-auto text-truncate float-start">
+                        <a target="_blank" rel="noopener noreferrer canonical" id="url"></a>
+                    </div>
+                    <div class="col col-sm-auto" id="url_pic"></div>
+                </div>
+                <div class="row pt-2">
+                    <div class="col col-sm-auto"><strong>Branch:</strong></div>
+                    <div class="col" id="branch">
+                        <div class="spinner-grow spinner-grow-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="row pt-2">
+                    <div class="col col-sm-auto">Commit:</div>
+                    <div class="col text-truncate float-start" id="commit">
+                        <div class="spinner-grow spinner-grow-sm role=" status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="card shadow mb-5 bg-body rounded" id="processing">
                 <div class="card-header d-flex">
                     <strong id="hint">Processing</strong>
@@ -99,7 +130,28 @@
                 </div>
             </div>
             <div class="mb-5 bg-body rounded">
-                <div class="container py-4 px-2" id="about"></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="table-responsive shadow pt-4 pb-2 px-4" id="t" hidden></div>
                 <div id="cocomo" class="card mt-4 px-2" style="border: 0px;"></div>
             </div>

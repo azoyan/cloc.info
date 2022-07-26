@@ -7,7 +7,8 @@ async function fetch_ws() {
         return text_ws;
     }
     catch (e) {
-        console.error("Error at fetching ws:", e)
+        console.error(e)
+        throw Error("Error at fetching ws:", e)
     }
 
 }
@@ -23,17 +24,119 @@ async function fetch_cloc() {
 
         return response_cloc.text();
     } catch (e) {
-        console.error("Error at fetching cloc", e)
+        console.error(e)
+        throw Error("Error at fetching cloc: ", e.message)
     }
 }
 
+function extractContent(response, msg) {
+    message = msg ? msg +":\n" : ""
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.indexOf("application/json") !== -1) {
+        return response.json().then(data => {
+            return data
+        });
+    } else {
+        return response.text().then(text => {
+            throw Error(message + text)
+        });
+    }
+}
+
+async function fetch_branch_info(url_str) {
+    let branch_api_info_url = new URL(url_str)
+    console.log("branch_api_info_url", branch_api_info_url)
+    let response_branch_info = await fetch(branch_api_info_url);
+    return extractContent(response_branch_info, "Error at fetching default branch")
+}
+
+async function fetch_branch_commit(url_str) {
+    try {
+        let branch_commit = new URL(url_str)
+        console.log("branch_commit", branch_commit)
+        let response = await fetch(branch_commit);
+        return extractContent(response)
+    } catch (e) {
+        console.error(e)
+        throw Error("Error at fetching branch commit: ", e.message)
+    }
+}
+
+async function preparePage(url) {
+    let path_name_array = url.pathname.split('/').filter(item => item);
+    console.log(path_name_array, url)
+    if (path_name_array.length < 3) {
+
+        console.error("Incorrect URL:", url)
+        throw Error("Incorrect URL: " +  url + "\nURL should contain repository hostname, owner and repository name");
+    }
+    let repository_hostname = path_name_array[0];
+    let onwer = path_name_array[1]
+    let repository_name = path_name_array[2]
+    let branch = ""
+
+    if (repository_hostname == "github.com") {
+        try {
+            let origin_url = "https://" + Url.pathname
+            let img = '<img alt="Open repository" src="/static/GitHub-Mark-32px.png" class="float-start">'
+            let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
+            document.getElementById("url").innerText = origin_url
+            document.getElementById("url").setAttribute("href", origin_url)
+            document.getElementById("url_pic").innerHTML = pic_ref
+
+        }
+        catch (e) {
+            throw Error("Can't setup URL")
+        }
+
+        if (path_name_array[3] === undefined) {
+            branch = await fetch_branch_info(Url.protocol + Url.host + "/api" + Url.pathname)
+            document.getElementById("branch").innerText = branch.default_branch
+            let commit = await fetch_branch_commit(Url.protocol + Url.host + "/api" + Url.pathname + "/tree/" + branch.default_branch)
+            console.log("commit", commit)
+            document.getElementById("commit").innerText = commit.commit
+        }
+        else if (repository_hostname == "github.com" && path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
+            for (let i = 4; i < path_name_array.length; ++i) {
+                console.log("el:", path_name_array[i])
+                branch += path_name_array[i]
+            }
+            document.getElementById("branch").innerText = branch
+            let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/tree/" + branch
+            let commit = await fetch_branch_commit(url_str)
+            document.getElementById("commit").innerText = commit.commit
+        }
+        else {
+            let error_msg = "Incorrect URL: " + url + "\nAfter tree/ must be followed by a branch name"
+            console.error(error_msg)
+            throw Error(error_msg)
+        }
+    }
+    return true
+}
+
+function showError(error_msg) {
+    document.getElementById("alert_block").classList.toggle('show')
+    document.getElementById("alert_message").innerText = error_msg
+}
+
 async function start(_e) {
+    let ok = false
+    try {
+        ok = await preparePage(new URL(document.URL))
+    }
+    catch (e) {
+        console.error(e.message)
+        showError(e.message)
+    }
+    if (!ok) { return; }
     let cloc_promise = fetch_cloc();
+
 
     let websocket;
     try {
         let address = await fetch_ws();
-        let url = "ws://" + document.location.host + address + document.location.pathname 
+        let url = "ws://" + document.location.host + address + document.location.pathname
         console.log("websocket:", url);
         websocket = new WebSocket(url);
         startStreaming(websocket)
@@ -47,11 +150,10 @@ async function start(_e) {
         if (cloc.length > 0) {
             stopStreaming(websocket);
             createTableFromResponse(cloc);
-
         }
     }
     catch (e) {
-        console.error("Error at getting cloc promise", e)
+        showError("Error at getting cloc promise", e)
     }
 }
 
@@ -171,11 +273,6 @@ function createTableFromResponse(data) {
     strings.splice(0, 1);
     strings.splice(1, 1);
     console.log(strings.splice(-1, 1))
-    let commit_array = strings.splice(-1, 1);
-    let branch_array = strings.splice(-1, 1)
-    let url_array = strings.splice(-1, 1);
-
-    createAboutInfo(url_array[0], branch_array[0], commit_array[0])
 
     console.log(strings.splice(-2, 2))
 
@@ -240,7 +337,7 @@ function createTableRow(array) {
 function createCocomoFromResponse(cocomo) {
     let str = ""
 
-   str += '<div class="card-body"><h5 class="card-title"><strong>COCOMO</strong></h5><h6 class="card-subtitle mb-4 text-muted">Constructive Cost Model (<a target="_blank" rel="noopener noreferrer canonical" href="https://en.wikipedia.org/wiki/COCOMO">wiki</a>)</h6>'
+    str += '<div class="card-body"><h5 class="card-title"><strong>COCOMO</strong></h5><h6 class="card-subtitle mb-4 text-muted">Constructive Cost Model (<a target="_blank" rel="noopener noreferrer canonical" href="https://en.wikipedia.org/wiki/COCOMO">wiki</a>)</h6>'
     str += '<p class="card-text">' + cocomo[0] + '</p>'
     str += '<p class="card-text">' + cocomo[1] + '</p>'
     str += '<p class="card-text">' + cocomo[2] + '</p>'

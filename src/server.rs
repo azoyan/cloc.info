@@ -1,8 +1,10 @@
 use crate::{github, providers::github::GithubProvider, MB};
 use axum::{
     error_handling::HandleErrorLayer,
+    handler::Handler,
     middleware::Next,
     response::{IntoResponse, Response},
+    routing::get_service,
     Extension, Router,
 };
 use axum_extra::routing::SpaRouter;
@@ -10,31 +12,57 @@ use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use bytes::Bytes;
 use hyper::{Body, Method, Request, StatusCode, Uri};
-use std::net::SocketAddr;
+use retainer::Cache;
+use std::{net::SocketAddr, sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
 use tower::{BoxError, ServiceBuilder};
-use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
+use tower_http::{
+    compression::CompressionLayer, cors::CorsLayer, services::ServeFile, trace::TraceLayer,
+};
 
 pub fn create_server(
     socket: SocketAddr,
     connection_pool: Pool<PostgresConnectionManager<NoTls>>,
 ) -> impl futures::Future<Output = Result<(), std::io::Error>> {
     let spa = SpaRouter::new("/static", "static")
-        .index_file("index.html")
+        // .index_file("index.html")
         .handle_error(handle_error);
-    let github_provider = GithubProvider::new(4 * MB, connection_pool);
+
+    let cache = Arc::new(Cache::new());
+    let cache_clone = cache.clone();
+    let github_provider = GithubProvider::new(4 * MB, connection_pool, cache);
+
+    let _monitor =
+        tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
 
     let websocket_router = Router::new().route(
         "/*path",
         axum::routing::get(crate::websocket::handler_ws)
             .layer(Extension(github_provider.cloner.clone())),
     );
-
+    let gh_provider = Arc::new(RwLock::new(github_provider));
     let app = Router::new()
-        .layer(Extension(github_provider.cloner.clone()))
+        .route(
+            // GET `/static/Cargo.toml` goes to a service from tower-http
+            "/",
+            get_service(ServeFile::new("static/index.html"))
+                // though we must handle any potential errors
+                .handle_error(|error: std::io::Error| async move {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Unhandled internal error: {}", error),
+                    )
+                }),
+        )
         .nest("/ws", websocket_router)
-        .nest("/github.com", github::create_router(github_provider))
+        .nest(
+            "/api/github.com",
+            github::create_api_router(gh_provider.clone()),
+        )
+        .nest("/github.com", github::create_router(gh_provider))
         .merge(spa)
+        .fallback(fallback.into_service())
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(handle_errors))
@@ -58,12 +86,17 @@ async fn handle_error(method: Method, uri: Uri, err: std::io::Error) -> String {
     format!("{} {} failed with {}", method, uri, err)
 }
 
-pub async fn fallback(_uri: Uri) -> Response<Body> {
-    Response::builder()
-        .body(Body::from(include_str!("../static/404.html")))
-        .unwrap()
+// pub async fn fallback(_uri: Uri) -> Response<Body> {
+//     Response::builder()
+//         .body(Body::from(include_str!("../static/404.html")))
+//         .unwrap()
+// }
+pub async fn fallback(uri: axum::http::Uri) -> impl axum::response::IntoResponse {
+    (
+        axum::http::StatusCode::NOT_FOUND,
+        format!("No route {}", uri),
+    )
 }
-
 async fn graceful_shutdown(handle: axum_server::Handle) {
     tokio::signal::ctrl_c()
         .await
