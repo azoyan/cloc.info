@@ -8,7 +8,7 @@ async function fetch_ws() {
     }
     catch (e) {
         console.error(e)
-        throw Error("Error at fetching ws:", e)
+        throw new Error("Error at fetching ws:", e)
     }
 
 }
@@ -25,12 +25,12 @@ async function fetch_cloc() {
         return response_cloc.text();
     } catch (e) {
         console.error(e)
-        throw Error("Error at fetching cloc: ", e.message)
+        throw new Error("Error at fetching cloc: ", e.message)
     }
 }
 
 function extractContent(response, msg) {
-    message = msg ? msg +":\n" : ""
+    message = msg ? msg + ":\n" : ""
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.indexOf("application/json") !== -1) {
         return response.json().then(data => {
@@ -38,7 +38,7 @@ function extractContent(response, msg) {
         });
     } else {
         return response.text().then(text => {
-            throw Error(message + text)
+            throw new FetchError(response.status, message + text)
         });
     }
 }
@@ -51,24 +51,18 @@ async function fetch_branch_info(url_str) {
 }
 
 async function fetch_branch_commit(url_str) {
-    try {
-        let branch_commit = new URL(url_str)
-        console.log("branch_commit", branch_commit)
-        let response = await fetch(branch_commit);
-        return extractContent(response)
-    } catch (e) {
-        console.error(e)
-        throw Error("Error at fetching branch commit: ", e.message)
-    }
+    let branch_commit = new URL(url_str)
+    console.log("branch_commit", branch_commit)
+    let response = await fetch(branch_commit);
+    return extractContent(response, "Error at fetching branch commit")
 }
 
 async function preparePage(url) {
     let path_name_array = url.pathname.split('/').filter(item => item);
     console.log(path_name_array, url)
     if (path_name_array.length < 3) {
-
         console.error("Incorrect URL:", url)
-        throw Error("Incorrect URL: " +  url + "\nURL should contain repository hostname, owner and repository name");
+        throw Error("Incorrect URL: " + url + "\nURL should contain repository hostname, owner and repository name");
     }
     let repository_hostname = path_name_array[0];
     let onwer = path_name_array[1]
@@ -86,7 +80,7 @@ async function preparePage(url) {
 
         }
         catch (e) {
-            throw Error("Can't setup URL")
+            throw new Error("Can't setup URL")
         }
 
         if (path_name_array[3] === undefined) {
@@ -109,15 +103,19 @@ async function preparePage(url) {
         else {
             let error_msg = "Incorrect URL: " + url + "\nAfter tree/ must be followed by a branch name"
             console.error(error_msg)
-            throw Error(error_msg)
+            throw new Error(error_msg)
         }
     }
     return true
 }
 
-function showError(error_msg) {
+function showError(message, status) {
+    console.log(message)
     document.getElementById("alert_block").classList.toggle('show')
-    document.getElementById("alert_message").innerText = error_msg
+    document.getElementById("alert_message").innerText = message
+    document.getElementById("status").innerText = status ? status : ""
+    document.getElementById("repository").hidden = true
+    document.getElementById("processing").hidden = true
 }
 
 async function start(_e) {
@@ -125,9 +123,12 @@ async function start(_e) {
     try {
         ok = await preparePage(new URL(document.URL))
     }
-    catch (e) {
-        console.error(e.message)
-        showError(e.message)
+    catch (err) {
+        if (err instanceof FetchError) {
+            showError(err.message, err.status)
+        } else {
+            showError(err)
+        }
     }
     if (!ok) { return; }
     let cloc_promise = fetch_cloc();
@@ -207,7 +208,7 @@ function startStreaming(ws) {
                 if (parts.length >= 3) {
                     let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g)[0])
                     // console.log("counting", percent)
-                    percent = percent * 2 / 100
+                    percent = percent * 1 / 100
                     document.getElementById("pg_counting").style.width = percent + '%';
                     document.getElementById("counting").innerText = "remote: Counting objects:" + parts[parts.length - 1]
 
@@ -218,7 +219,7 @@ function startStreaming(ws) {
                 if (parts.length >= 3) {
                     let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g))
                     // console.log("compressing", percent)
-                    percent = percent * 15 / 100
+                    percent = percent * 16 / 100
                     document.getElementById("pg_compressing").style.width = percent + '%';
                     document.getElementById("compressing").innerText = "remote: Compressing objects:" + parts[parts.length - 1]
                 }
@@ -334,15 +335,19 @@ function createTableRow(array) {
     return row
 }
 
-function createCocomoFromResponse(cocomo) {
+function createCocomoFromResponse(cocomo_data) {
     let str = ""
 
     str += '<div class="card-body"><h5 class="card-title"><strong>COCOMO</strong></h5><h6 class="card-subtitle mb-4 text-muted">Constructive Cost Model (<a target="_blank" rel="noopener noreferrer canonical" href="https://en.wikipedia.org/wiki/COCOMO">wiki</a>)</h6>'
-    str += '<p class="card-text">' + cocomo[0] + '</p>'
-    str += '<p class="card-text">' + cocomo[1] + '</p>'
-    str += '<p class="card-text">' + cocomo[2] + '</p>'
+    str += '<p class="card-text">' + cocomo_data[0] + '</p>'
+    str += '<p class="card-text">' + cocomo_data[1] + '</p>'
+    str += '<p class="card-text">' + cocomo_data[2] + '</p>'
     str += '</div>'
-    document.getElementById("cocomo").innerHTML = str
+
+    let cocomo = document.getElementById("cocomo");
+    cocomo.innerHTML = str
+    cocomo.hidden = false
+
 }
 
 function createAboutInfo(url_s, branch_s, commit_s) {
@@ -376,3 +381,11 @@ function createAboutInfo(url_s, branch_s, commit_s) {
 }
 
 document.addEventListener("DOMContentLoaded", start);
+
+class FetchError extends Error {
+    constructor(status, message) {
+        super(message);
+        this.name = "FetchError";
+        this.status = status
+    }
+}

@@ -2,7 +2,7 @@
 
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
-use cloner::server::create_server;
+use cloc::server::create_server;
 use std::net::{IpAddr, SocketAddr};
 use tokio_postgres::NoTls;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -11,7 +11,7 @@ fn main() {
     //Set the RUST_LOG, if it hasn't been explicitly defined
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "cloner=debug,tower_http=debug".into()),
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "cloc=debug,tower_http=debug".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();

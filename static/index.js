@@ -72,7 +72,9 @@ function pasteValue(e) {
     if (e.target.value === "") return;
     check(e.target.value)
 }
+
 let branches;
+
 function check(url_str) {
     let url;
     hint.style.display = 'none'
@@ -95,7 +97,7 @@ function check(url_str) {
 
     let submitButton = document.getElementById("submitButton");
 
-    let api_url = document.URL + url.hostname + url.pathname + "/branches";
+    let api_url = document.URL + "api/" + url.hostname + url.pathname + "/branches";
     console.log("api_url", api_url)
 
     fetch(api_url)
@@ -125,9 +127,9 @@ function check(url_str) {
             document.getElementById("invalidFeedback").innerText = error
             checkSpinner.classList.add("invisible");
             if (error.response) {
-                console.log(error.response.data);
-                console.log(error.response.status);
-                console.log(error.response.headers);
+                console.error(error.response.data);
+                console.error(error.response.status);
+                console.error(error.response.headers);
                 document.getElementById("input").classList.add("is-invalid");
             }
             else {

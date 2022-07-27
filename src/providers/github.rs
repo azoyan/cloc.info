@@ -2,7 +2,7 @@ use crate::{
     cloner::Cloner,
     repository::{
         cache::RepositoryCache,
-        info::{to_filename, to_url, BranchInfo},
+        info::{to_filename, to_url, BranchInfo, BranchValue, Branches, RepositoryInfo},
         utils::{self, count_line_of_code},
     },
     DbId,
@@ -11,9 +11,10 @@ use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use hyper::{Body, Request};
 use hyper_openssl::HttpsConnector;
+use retainer::Cache;
 use serde_json::Value;
 use snafu::{ResultExt, Snafu};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tempfile::TempDir;
 use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
@@ -23,8 +24,18 @@ const USERNAME_TOKEN: &str =
 
 #[derive(Debug, Snafu)]
 pub enum Error {
-    #[snafu(display("Can't deserialize 'github API repo' JSON: {source}"))]
-    DeserializeError { source: serde_json::Error },
+    #[snafu(display("Can't deserialize bytes: {bytes} from request {url} {source}"))]
+    DeserializeError {
+        bytes: String,
+        url: String,
+        source: serde_json::Error,
+    },
+
+    #[snafu(display("Repository not found by API request {url}"))]
+    NotFound { url: String },
+
+    #[snafu(display("Error at API request {url} message: {message}"))]
+    RemoteError { url: String, message: String },
 
     #[snafu(display("Can't extract default branch for repository {repo}"))]
     ExtractDefaultBranchError { repo: String },
@@ -69,14 +80,20 @@ pub enum Error {
 pub struct GithubProvider {
     repository_cache: Arc<RwLock<RepositoryCache>>,
     pub connection_pool: Pool<PostgresConnectionManager<NoTls>>,
+    pub cache: Arc<Cache<RepositoryInfo, Branches>>,
     pub cloner: Cloner,
 }
 
 impl GithubProvider {
-    pub fn new(cache_size: usize, connection_pool: Pool<PostgresConnectionManager<NoTls>>) -> Self {
+    pub fn new(
+        cache_size: usize,
+        connection_pool: Pool<PostgresConnectionManager<NoTls>>,
+        cache: Arc<Cache<RepositoryInfo, Branches>>,
+    ) -> Self {
         Self {
             repository_cache: Arc::new(RwLock::new(RepositoryCache::new(cache_size))),
             connection_pool,
+            cache,
             cloner: Cloner::new(),
         }
     }
@@ -91,7 +108,7 @@ impl GithubProvider {
         let default_branch = self.default_branch_remote(owner, repository_name).await?;
         let duration = start.elapsed();
         tracing::warn!("Time elapsed in default_branch_remote() is: {:?}", duration);
-        
+
         let branch = match branch {
             Some(branch) => branch,
             None => &default_branch,
@@ -106,7 +123,7 @@ impl GithubProvider {
             .last_commit_remote(owner, repository_name, branch)
             .await?;
         let last_commit_local;
-        
+
         let duration = start.elapsed();
         tracing::warn!("Time elapsed in last_commit_remote() is: {:?}", duration);
 
@@ -141,7 +158,7 @@ impl GithubProvider {
 
         let repository_path = to_filename("github.com", owner, repository_name, branch);
 
-        let (branch_id, mut cloc) = match rows.get(0) {
+        let (branch_id, cloc) = match rows.get(0) {
             // Есть в БД
             Some(row) => {
                 // проверяем актуальность коммита
@@ -152,12 +169,16 @@ impl GithubProvider {
                 if last_commit_remote == db_last_commit && db_branch_name == branch {
                     let scc_output: Vec<u8> = row.get("scc_output");
                     tracing::info!("Current branch and commit are actual. Returning cloc from db");
-                    last_commit_local = db_last_commit;
                     (branch_id, scc_output)
                 } else {
                     tracing::info!("Current branch '{db_branch_name}' and commit '{db_last_commit}' are not actual '{last_commit_remote}'");
 
-                    let (result, temp_dir) = match self.repository_cache.read().await.get(&url) {
+                    let (result, temp_dir) = match self
+                        .repository_cache
+                        .read()
+                        .await
+                        .get(&repository_path)
+                    {
                         Some(temp_dir) => {
                             tracing::info!("Repository {repository_name} cached in disk storage: {repository_path}");
                             // если есть, обновляем репозиторий
@@ -217,7 +238,12 @@ impl GithubProvider {
             // Если в БД отсутствует
             None => {
                 tracing::warn!("Repository doesn't exist in database and storage cache");
-                assert!(self.repository_cache.read().await.get(&url).is_none());
+                assert!(self
+                    .repository_cache
+                    .read()
+                    .await
+                    .get(&repository_path)
+                    .is_none());
 
                 let temp_dir =
                     Arc::new(TempDir::force_tempdir(&repository_path).context(CreateTempDirSnafu)?);
@@ -269,8 +295,6 @@ impl GithubProvider {
                 (branch_id, cloc)
             }
         };
-        let bc = format!("URL: {url}\nBranch: {branch}\nCommit: {last_commit_local}\n");
-        cloc.extend(bc.as_bytes());
 
         Ok((branch_id, cloc))
     }
@@ -280,6 +304,14 @@ impl GithubProvider {
         owner: &str,
         repository_name: &str,
     ) -> Result<String, Error> {
+        let key = RepositoryInfo::new("github.com", owner, repository_name);
+        if let Some(branches) = self.cache.get(&key).await {
+            if let Some(default_branch) = &branches.default_branch {
+                tracing::debug!("Exist branch in cache: {default_branch}");
+                return Ok(default_branch.to_string());
+            }
+        }
+
         let url = format!("https://api.github.com/repos/{owner}/{repository_name}");
 
         let req = Request::builder()
@@ -302,12 +334,32 @@ impl GithubProvider {
 
         let bytes = hyper::body::to_bytes(body)
             .await
-            .with_context(|_| GetResponseBodySnafu { url })?;
+            .with_context(|_| GetResponseBodySnafu { url: url.clone() })?;
 
-        let repository: Value = serde_json::from_slice(&bytes).context(DeserializeSnafu)?;
+        let repository: Value =
+            serde_json::from_slice(&bytes).with_context(|_e| DeserializeSnafu {
+                bytes: String::from_utf8(bytes.to_vec()).expect("can't vec to string"),
+                url,
+            })?;
 
         match repository["default_branch"].as_str() {
-            Some(branch) => Ok(branch.to_owned()),
+            Some(branch) => {
+                let branches = if let Some(mut branches) = self.cache.remove(&key).await {
+                    tracing::debug!("Update default branch {branch} for {key:?}");
+                    branches.default_branch = Some(branch.to_string());
+                    branches
+                } else {
+                    tracing::debug!("{key:?} doesn't exist in cache or expired. Insert to cache repo and branch {branch}");
+                    Branches {
+                        default_branch: Some(branch.to_string()),
+                        branches: vec![],
+                    }
+                };
+                self.cache
+                    .insert(key, branches, Duration::from_secs(60))
+                    .await;
+                Ok(branch.to_owned())
+            }
             None => Err(Error::ExtractDefaultBranchError {
                 repo: to_url("github.com", owner, repository_name, ""),
             }),
@@ -320,6 +372,16 @@ impl GithubProvider {
         repository_name: &str,
         branch: &str,
     ) -> Result<String, Error> {
+        let key = RepositoryInfo::new("github.com", owner, repository_name);
+        if let Some(branches) = self.cache.get(&key).await {
+            if let Some(branch) = branches.branches.iter().find(|b| b.name == branch) {
+                if let Some(commit) = &branch.commit {
+                    tracing::debug!("Exist in cache commit {commit}");
+                    return Ok(commit.to_string());
+                }
+            }
+        }
+
         let url =
             format!("https://api.github.com/repos/{owner}/{repository_name}/commits/{branch}");
 
@@ -343,12 +405,43 @@ impl GithubProvider {
 
         let bytes = hyper::body::to_bytes(body)
             .await
-            .with_context(|_| GetResponseBodySnafu { url })?;
+            .with_context(|_| GetResponseBodySnafu { url: url.clone() })?;
 
-        let repository: Value = serde_json::from_slice(&bytes).context(DeserializeSnafu)?;
+        let repository: Value =
+            serde_json::from_slice(&bytes).with_context(|_e| DeserializeSnafu {
+                bytes: String::from_utf8(bytes.to_vec()).expect("Can't string from bytes"),
+                url: url.clone(),
+            })?;
 
         match repository["sha"].as_str() {
-            Some(branch) => Ok(branch.to_owned()),
+            Some(commit) => {
+                let branches = if let Some(mut branches) = self.cache.remove(&key).await {
+                    let mut values = branches.branches;
+                    if let Some(mut value) = values.iter_mut().find(|b| b.name == branch) {
+                        value.commit = Some(commit.to_string());
+                    } else {
+                        let value = BranchValue {
+                            name: branch.to_string(),
+                            commit: Some(commit.to_string()),
+                        };
+                        values.push(value);
+                    }
+                    branches.branches = values;
+                    branches
+                } else {
+                    Branches {
+                        default_branch: None,
+                        branches: vec![BranchValue {
+                            name: branch.to_string(),
+                            commit: Some(commit.to_string()),
+                        }],
+                    }
+                };
+                self.cache
+                    .insert(key, branches, Duration::from_secs(60))
+                    .await;
+                Ok(commit.to_owned())
+            }
             None => Err(Error::ExtractDefaultBranchError {
                 repo: to_url("github.com", owner, repository_name, branch),
             }),
@@ -381,10 +474,56 @@ impl GithubProvider {
 
         let bytes = hyper::body::to_bytes(body)
             .await
-            .with_context(|_| GetResponseBodySnafu { url })?;
+            .with_context(|_| GetResponseBodySnafu { url: url.clone() })?;
 
-        let branches: Vec<BranchInfo> = serde_json::from_slice(&bytes).context(DeserializeSnafu)?;
+        let branches_info: Value =
+            serde_json::from_slice(&bytes).with_context(|_e| DeserializeSnafu {
+                bytes: String::from_utf8(bytes.to_vec()).expect("Cant' vec to string"),
+                url: url.clone(),
+            })?;
 
-        Ok(branches)
+        match branches_info.get("message") {
+            Some(v) if v == "Not Found" => return Err(Error::NotFound { url }),
+            Some(message) => {
+                return Err(Error::RemoteError {
+                    url,
+                    message: message.to_string(),
+                })
+            }
+            None => {}
+        }
+
+        let branches_info: Vec<BranchInfo> =
+            serde_json::from_slice(&bytes).with_context(|_e| DeserializeSnafu {
+                bytes: String::from_utf8(bytes.to_vec()).expect("Can't vec to string"),
+                url,
+            })?;
+
+        let key = RepositoryInfo::new("github.com", owner, repository_name);
+        let mut branches = Vec::with_capacity(branches_info.len());
+        for info in branches_info.iter() {
+            let branch = BranchValue {
+                name: info.name.clone(),
+                commit: Some(info.commit.sha.clone()),
+            };
+            branches.push(branch);
+        }
+
+        let value = if let Some(mut current_branches) = self.cache.remove(&key).await {
+            tracing::debug!("Repository {key:?} exist in cache. Update branches in cache");
+            current_branches.branches = branches;
+            current_branches
+        } else {
+            tracing::debug!(
+                "{key:?} doesn't exist in cache. Insert to cache repo and branches info"
+            );
+            Branches {
+                default_branch: None,
+                branches,
+            }
+        };
+        self.cache.insert(key, value, Duration::from_secs(60)).await;
+
+        Ok(branches_info)
     }
 }

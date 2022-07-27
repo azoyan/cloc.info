@@ -1,6 +1,5 @@
-use std::{path::PathBuf, sync::Arc};
-
 use serde::{Deserialize, Serialize};
+use std::{path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 
 #[derive(Debug, Clone, PartialOrd, PartialEq, Eq)]
@@ -25,47 +24,38 @@ impl LocalTempDir {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RepositoryInfo {
     pub hostname: String,
     pub owner: String,
-    pub repository_name: String,
-    pub branch: String,
-    pub last_commit: String,
-    pub local_dir: LocalTempDir,
-    pub size: u64,
-    pub scc_output: Vec<u8>,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BranchValue {
+    pub name: String,
+    pub commit: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Branches {
+    pub default_branch: Option<String>,
+    pub branches: Vec<BranchValue>,
+}
+
+impl RepositoryInfo {
+    pub fn new(hostname: &str, owner: &str, name: &str) -> Self {
+        Self {
+            hostname: hostname.to_owned(),
+            owner: owner.to_owned(),
+            name: name.to_owned(),
+        }
+    }
 }
 
 impl PartialEq for LocalTempDir {
     fn eq(&self, other: &Self) -> bool {
         self.temp_dir.path().eq(other.temp_dir.path()) && self.path.eq(&other.path)
-    }
-}
-
-impl Eq for LocalTempDir {}
-
-impl RepositoryInfo {
-    pub fn to_url(&self) -> String {
-        let Self {
-            hostname,
-            owner,
-            repository_name,
-            branch,
-            ..
-        } = &self;
-        to_url(hostname, owner, repository_name, branch)
-    }
-
-    pub fn to_filename(&self) -> String {
-        let Self {
-            hostname,
-            owner,
-            repository_name,
-            branch,
-            ..
-        } = &self;
-        to_filename(hostname, owner, repository_name, branch)
     }
 }
 

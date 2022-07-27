@@ -19,13 +19,18 @@ use snafu::{ResultExt, Snafu};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-pub fn create_router(github_provider: GithubProvider) -> Router<Body> {
-    let provider = Arc::new(RwLock::new(github_provider));
+pub fn create_api_router(provider: Arc<RwLock<GithubProvider>>) -> Router<Body> {
+    Router::new()
+        .route("/:onwer/:repo", get(default_branch_info))
+        .route("/:onwer/:repo/tree/*branch", get(branch_commit_info))
+        .route("/:onwer/:repo/branches", get(all_branches_lookup))
+        .layer(Extension(provider))
+}
 
+pub fn create_router(provider: Arc<RwLock<GithubProvider>>) -> Router<Body> {
     let router = Router::new()
         .route("/", get(default_handler))
-        .route("/tree/*branch", get(handler_with_branch))
-        .route("/branches", get(all_branches_lookup));
+        .route("/tree/*branch", get(handler_with_branch));
 
     Router::new()
         .nest("/:owner/:repo", router)
@@ -188,11 +193,10 @@ async fn all_branches_lookup(
 ) -> Result<Response<Body>, Error> {
     let provider_guard = provider.read().await;
 
-    let branches = provider_guard
+    let branches_info = provider_guard
         .remote_branches(&owner, &repository_name)
         .await
         .with_context(|_e| GithubProviderSnafu)?;
-    // tracing::debug!("{:?}", branches);
 
     let default_branch = provider_guard
         .default_branch_remote(&owner, &repository_name)
@@ -201,7 +205,7 @@ async fn all_branches_lookup(
 
     let all = AllBranchesInfo {
         default_branch,
-        branches,
+        branches: branches_info,
     };
     match serde_json::to_string(&all) {
         Ok(branches) => Response::builder()
@@ -209,20 +213,64 @@ async fn all_branches_lookup(
             .body(Body::from(branches))
             .context(ResponseSnafu),
         Err(e) => Response::builder()
+            .status(StatusCode::NOT_FOUND)
             .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
             .body(Body::from(e.to_string()))
             .context(ResponseSnafu),
     }
 }
 
-// recommendations from https://docs.github.com/en/rest/reference/branches
-// const HEADER: (&str, &str) = ("Accept", "application/vnd.github.v3+json");
+async fn default_branch_info(
+    Path((owner, repository_name)): Path<(String, String)>,
+    Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
+    _request: Request<Body>,
+) -> Result<Response<Body>, Error> {
+    let provider_guard = provider.read().await;
+    match provider_guard
+        .default_branch_remote(&owner, &repository_name)
+        .await
+    {
+        Ok(branch) => {
+            let json = json!({ "default_branch": branch });
+            Response::builder()
+                .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
+                .body(Body::from(json.to_string()))
+                .context(ResponseSnafu)
+        }
+        Err(e) => Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
+            .body(Body::from(e.to_string()))
+            .context(ResponseSnafu),
+    }
+}
+
+async fn branch_commit_info(
+    Path((owner, repository_name, branch)): Path<(String, String, String)>,
+    Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
+) -> Result<Response<Body>, Error> {
+    let provider_guard = provider.read().await;
+    match provider_guard
+        .last_commit_remote(&owner, &repository_name, &branch)
+        .await
+    {
+        Ok(commit) => {
+            let json = json!({ "commit": commit });
+            Response::builder()
+                .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
+                .body(Body::from(json.to_string()))
+                .context(ResponseSnafu)
+        }
+        Err(e) => Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
+            .body(Body::from(e.to_string()))
+            .context(ResponseSnafu),
+    }
+}
 
 #[derive(Debug, Snafu)]
 pub enum Error {
-    #[snafu(display("Can't deserialize 'github API repo' JSON: {source}"))]
-    DeserializeError { source: serde_json::Error },
-
     #[snafu(display("Can't create StaticPage: {source}"))]
     StaticPage { source: axum::http::Error },
 

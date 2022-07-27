@@ -1,5 +1,5 @@
 [package]
-name = "cloner"
+name = "cloc"
 version = "0.1.0"
 edition = "2021"
 
@@ -36,6 +36,7 @@ bb8 = "0.8"
 bb8-postgres = "0.8"
 hyper-openssl = "0.9"
 axum-server = "0.4"
+retainer = "0.3"
 
 [profile.release]
 lto = true

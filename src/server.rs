@@ -25,9 +25,15 @@ pub fn create_server(
     socket: SocketAddr,
     connection_pool: Pool<PostgresConnectionManager<NoTls>>,
 ) -> impl futures::Future<Output = Result<(), std::io::Error>> {
-    let spa = SpaRouter::new("/static", "static")
-        // .index_file("index.html")
-        .handle_error(handle_error);
+    let root_service = get_service(ServeFile::new("static/index.html")).handle_error(
+        |error: std::io::Error| async move {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Unhandled internal error: {}", error),
+            )
+        },
+    );
+    let spa = SpaRouter::new("/static", "static").handle_error(handle_error);
 
     let cache = Arc::new(Cache::new());
     let cache_clone = cache.clone();
@@ -36,26 +42,15 @@ pub fn create_server(
     let _monitor =
         tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
 
-    let websocket_router = Router::new().route(
+    let websocket_service = Router::new().route(
         "/*path",
         axum::routing::get(crate::websocket::handler_ws)
             .layer(Extension(github_provider.cloner.clone())),
     );
     let gh_provider = Arc::new(RwLock::new(github_provider));
     let app = Router::new()
-        .route(
-            // GET `/static/Cargo.toml` goes to a service from tower-http
-            "/",
-            get_service(ServeFile::new("static/index.html"))
-                // though we must handle any potential errors
-                .handle_error(|error: std::io::Error| async move {
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Unhandled internal error: {}", error),
-                    )
-                }),
-        )
-        .nest("/ws", websocket_router)
+        .route("/", root_service)
+        .nest("/ws", websocket_service)
         .nest(
             "/api/github.com",
             github::create_api_router(gh_provider.clone()),
@@ -86,11 +81,6 @@ async fn handle_error(method: Method, uri: Uri, err: std::io::Error) -> String {
     format!("{} {} failed with {}", method, uri, err)
 }
 
-// pub async fn fallback(_uri: Uri) -> Response<Body> {
-//     Response::builder()
-//         .body(Body::from(include_str!("../static/404.html")))
-//         .unwrap()
-// }
 pub async fn fallback(uri: axum::http::Uri) -> impl axum::response::IntoResponse {
     (
         axum::http::StatusCode::NOT_FOUND,

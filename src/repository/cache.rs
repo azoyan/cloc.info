@@ -30,10 +30,10 @@ impl RepositoryCache {
         }
     }
 
-    pub(crate) fn get(&self, url: &String) -> Option<&Arc<TempDir>> {
-        let result = self.repositories.get(url);
+    pub(crate) fn get(&self, path: &String) -> Option<&Arc<TempDir>> {
+        let result = self.repositories.get(path);
         tracing::debug!(
-            "Try to get by url {url}: {result:?}. Cache size = {},{},{}",
+            "Get repository {path}: {result:?}. Cache size = {},{},{}",
             self.repositories.len(),
             self.sizes.values_len(),
             self.urls.len()
@@ -44,7 +44,11 @@ impl RepositoryCache {
     pub fn insert(&mut self, repository: Arc<TempDir>) -> Success {
         let url = repository.path().as_os_str().to_str().unwrap();
         let repository_size = fs_extra::dir::get_size(repository.path()).unwrap();
-        tracing::debug!("Attempt to insert: {:?}, name: {}", repository_size, url);
+        tracing::debug!(
+            "Attempt to insert to storage cache: {:?}, name: {}",
+            repository_size,
+            url
+        );
 
         // Ищем, есть ли у нас репозиторий с таким именем
 
