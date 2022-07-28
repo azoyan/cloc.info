@@ -1,4 +1,6 @@
 #![feature(byte_slice_trim_ascii)]
+#![feature(async_closure)]
+
 pub mod cloner;
 pub mod github;
 pub mod providers;

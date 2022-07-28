@@ -1,4 +1,4 @@
-use crate::{github, providers::github::GithubProvider, MB};
+use crate::{github, providers::github_provider::GithubProvider, MB};
 use axum::{
     error_handling::HandleErrorLayer,
     handler::Handler,
@@ -43,7 +43,7 @@ pub fn create_server(
         tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
 
     let websocket_service = Router::new().route(
-        "/*path",
+        "/:id/*path",
         axum::routing::get(crate::websocket::handler_ws)
             .layer(Extension(github_provider.cloner.clone())),
     );
@@ -65,7 +65,7 @@ pub fn create_server(
         )
         .layer(CorsLayer::new().allow_credentials(true))
         .layer(CompressionLayer::new().br(true).gzip(true))
-        .layer(axum::middleware::from_fn(print_request_response))
+        // .layer(axum::middleware::from_fn(print_request_response))
         .layer(TraceLayer::new_for_http());
 
     let handle = axum_server::Handle::new();

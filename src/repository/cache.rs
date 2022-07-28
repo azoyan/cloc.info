@@ -30,19 +30,18 @@ impl RepositoryCache {
         }
     }
 
-    pub(crate) fn get(&self, path: &String) -> Option<&Arc<TempDir>> {
+    pub(crate) fn get(&self, path: &str) -> Option<&Arc<TempDir>> {
         let result = self.repositories.get(path);
-        tracing::debug!(
-            "Get repository {path}: {result:?}. Cache size = {},{},{}",
-            self.repositories.len(),
-            self.sizes.values_len(),
-            self.urls.len()
-        );
+        // tracing::debug!(
+        //     "Get repository {path}: {result:?}. Cache size = {},{},{}",
+        //     self.repositories.len(),
+        //     self.sizes.values_len(),
+        //     self.urls.len()
+        // );
         result
     }
 
-    pub fn insert(&mut self, repository: Arc<TempDir>) -> Success {
-        let url = repository.path().as_os_str().to_str().unwrap();
+    pub fn insert(&mut self, url: &str, repository: Arc<TempDir>) -> Success { 
         let repository_size = fs_extra::dir::get_size(repository.path()).unwrap();
         tracing::debug!(
             "Attempt to insert to storage cache: {:?}, name: {}",
@@ -123,10 +122,16 @@ impl RepositoryCache {
         match &result {
             Success::Rejected(_repo) => {}
             Success::Done(_repo) => {
-                tracing::debug!("Insertion Ok. self.size = {}", self.urls.len())
+                // tracing::debug!("Insertion Ok. self.size = {}", self.urls.len())
             }
         }
         result
+    }
+}
+
+impl Drop for RepositoryCache {
+    fn drop(&mut self) {
+        tracing::debug!("Repository cahce droped");
     }
 }
 

@@ -87,10 +87,10 @@ pub fn to_url(hostname: &str, owner: &str, repository_name: &str, branch: &str) 
     format!("https://{hostname}/{owner}/{repository_name}/{branch}")
 }
 
-pub fn to_filename(hostname: &str, owner: &str, repository_name: &str, branch: &str) -> String {
-    let branch = branch.replace('/', "_");
-    format!("{hostname}_{owner}_{repository_name}_branch_{branch}")
-}
+// pub fn to_filename(hostname: &str, owner: &str, repository_name: &str, branch: &str) -> String {
+//     let branch = branch.replace('/', "_");
+//     format!("{hostname}_{owner}_{repository_name}_branch_{branch}")
+// }
 
 #[derive(Debug, Clone, PartialOrd, PartialEq, Eq)]
 pub struct CocomoInfo {

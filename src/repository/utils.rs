@@ -58,12 +58,13 @@ pub(crate) fn last_commit_local(url: &str, path: &str) -> Result<CommitHash, Err
 
 pub async fn count_line_of_code(path: &str, _format: &str) -> Result<Vec<u8>, Error> {
     let mut scc_command = tokio::process::Command::new("scc");
+    tracing::debug!("Counting line of code in path: {path}");
     scc_command.args(["--ci", path]);
     let out = match scc_command.output().await {
         Ok(output) if !output.status.success() => {
             return Err(Error::SccError {
                 error: String::from_utf8(output.stderr)
-                    .unwrap_or_else(|_| String::from("Error at convert git output to utf8")),
+                    .unwrap_or_else(|e| format!("Error at convert git output to utf8: {e}")),
             })
         }
         Ok(output) => output.stdout,

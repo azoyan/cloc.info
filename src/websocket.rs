@@ -10,34 +10,67 @@ use axum::{
 
 pub async fn handler_ws(
     ws: WebSocketUpgrade,
-    Path(path): Path<String>,
+    Path((id, path)): Path<(String, String)>,
     Extension(cloner): Extension<Cloner>,
     // request: Request<Body>,
-) -> Response {
-    ws.on_upgrade(move |socket| handle_socket(path, socket, cloner))
+) -> Response { 
+    
+    ws.on_upgrade(move |socket| handle_socket(id, path, socket, cloner))
 }
 
-async fn handle_socket(path: String, mut socket: WebSocket, cloner: Cloner) {
-    tracing::info!("Path: {path}");
+async fn handle_socket(id: String, path: String, mut socket: WebSocket, cloner: Cloner) {
+    tracing::info!("Connect websocket {id}/{path}");
     let repository_name = format!("https://{}", &path[1..]); //  crop first slash
-
+    cloner.clear_state_buffer(&repository_name).await;
     while let Some(msg) = socket.recv().await {
         if let Ok(_msg) = msg {
-            let current_state = cloner.current_state(&repository_name).await;
-            if current_state.is_empty() {
-                match socket.close().await {
-                    Ok(()) => tracing::debug!("Connection 'ws://{repository_name}/ws' closed"),
-                    Err(e) => tracing::error!("Error at closing connection: {}", e.to_string()),
+            if let Some(state) = cloner.current_state(&repository_name).await {
+                match state {
+                    crate::cloner::State::Buffered(state) => {
+                        // tracing::debug!("Websocket {id}/{path} send: {}", state);
+                        let msg = Message::Text(state);
+                        if socket.send(msg).await.is_err() {
+                            // client disconnected
+                            return;
+                        }
+                    }
+                    crate::cloner::State::Done => {
+                        tracing::debug!("Repository {} downloading done", repository_name);
+                        // match socket.close().await {
+                        //     Ok(()) => {
+                        //         tracing::debug!("Connection {id}/{repository_name} closed")
+                        //     }
+                        //     Err(e) => {
+                        //         tracing::error!("Error at closing  {id}/{repository_name} connection: {}", e.to_string())
+                        //     }
+                        // }
+                        return;
+                    }
                 }
-                return;
-            }
-            let msg = Message::Text(current_state);
-            if socket.send(msg).await.is_err() {
-                // client disconnected
-                return;
+            } else {
+                // tracing::debug!("Not found repository {}", repository_name);
+                // match socket.close().await {
+                //     Ok(()) => {
+                //         tracing::debug!("Connection 'ws://{repository_name}/ws' closed")
+                //     }
+                //     Err(e) => {
+                //         tracing::error!("Error at closing connection: {}", e.to_string())
+                //     }
+                // }
+                // return;
             }
         } else {
             // client disconnected
+            match socket.close().await {
+                Ok(()) => tracing::debug!(
+                    "Can't receive message {}. Connection {id}/{repository_name}' closed",
+                    repository_name
+                ),
+                Err(e) => tracing::error!(
+                    "Error at closing {id}/{repository_name} connection: {}",
+                    e.to_string()
+                ),
+            }
             return;
         };
     }

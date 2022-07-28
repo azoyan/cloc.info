@@ -1,5 +1,5 @@
 use crate::{
-    providers::github::GithubProvider,
+    providers::github_provider::{self, GithubProvider},
     repository::{info::AllBranchesInfo, utils},
     DbId,
 };
@@ -72,14 +72,29 @@ async fn raw_content(
                 .context(ResponseSnafu)?,
             branch_id,
         ),
-        Err(e) => (
-            Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .header("Content-Type", "text/plain")
-                .body(Body::from(e.to_string()))
-                .context(ResponseSnafu)?,
-            0,
-        ),
+        Err(e) => {
+            if let github_provider::Error::InProgress { url } = e {
+                tracing::warn!("Repository {url} dowonloading already in progress");
+                (
+                    Response::builder()
+                        .status(StatusCode::NO_CONTENT)
+                        .header("Content-Type", "text/plain")
+                        .body(Body::empty())
+                        .context(ResponseSnafu)?,
+                    0,
+                )
+            } else {
+                tracing::error!("{}", e);
+                (
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .header("Content-Type", "text/plain")
+                        .body(Body::from(e.to_string()))
+                        .context(ResponseSnafu)?,
+                    0,
+                )
+            }
+        }
     };
     Ok((response, branch_id))
 }
@@ -89,7 +104,7 @@ async fn default_handler(
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
-    tracing::debug!("default handler{:?}", request);
+    tracing::debug!("Default Handler {:?}", request);
     handle_request(&owner, &repository_name, None, provider, request).await
 }
 
@@ -98,7 +113,7 @@ async fn handler_with_branch(
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
-    tracing::debug!("handler with branch {:?}", request);
+    tracing::debug!("Handler with branch {:?}", request);
 
     let branch = &branch_name[1..];
     handle_request(&owner, &repository_name, Some(branch), provider, request).await
@@ -147,15 +162,22 @@ async fn handle_request(
             if value.contains("cloc") {
                 let (response, branch_id) =
                     raw_content(provider.clone(), owner, repository_name, branch).await?;
-
                 tracing::info!("Response is ready, branch_id = {}", branch_id);
-
                 update_statistic(provider, branch_id, user_agent).await;
                 Ok(response)
             } else {
+                let start = std::time::SystemTime::now();
+                let since_the_epoch = start
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("Time went backwards")
+                    .as_micros()
+                    .to_string();
+
+                let json = json!({ "id": since_the_epoch }).to_string();
+
                 Response::builder()
-                    .header("Content-Type", "text/plain")
-                    .body(Body::from("/ws"))
+                    .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
+                    .body(Body::from(json))
                     .context(ResponseSnafu)
             }
         }
@@ -291,7 +313,7 @@ pub enum Error {
 
     #[snafu(display("Error at github provider: {source}"))]
     GithubProviderError {
-        source: crate::providers::github::Error,
+        source: crate::providers::github_provider::Error,
     },
 
     #[snafu(display("Error {source} at query {query}"))]

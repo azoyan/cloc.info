@@ -1,32 +1,13 @@
 let Url = new URL(document.URL);
 
 async function fetch_ws() {
-    try {
-        let response_ws = await fetch(Url, { headers: { 'If-Match': 'ws' } });
-        let text_ws = await response_ws.text()
-        return text_ws;
-    }
-    catch (e) {
-        console.error(e)
-        throw new Error("Error at fetching ws:", e)
-    }
-
+    let response_ws = await fetch(Url, { headers: { 'If-Match': 'ws' } });
+    return extractContent(response_ws, "Error at fetching websocket")
 }
 
 async function fetch_cloc() {
-    try {
-        let response_cloc = await fetch(Url,
-            {
-                headers: {
-                    'If-Match': 'cloc'
-                }
-            });
-
-        return response_cloc.text();
-    } catch (e) {
-        console.error(e)
-        throw new Error("Error at fetching cloc: ", e.message)
-    }
+    let response_cloc = await fetch(Url, { headers: { 'If-Match': 'cloc' } });
+    return extractContent(response_cloc, "Error at fetching lines of code");
 }
 
 function extractContent(response, msg) {
@@ -37,9 +18,16 @@ function extractContent(response, msg) {
             return data
         });
     } else {
-        return response.text().then(text => {
-            throw new FetchError(response.status, message + text)
-        });
+        if (response.status >= 400) {
+            return response.text().then(text => {
+                throw new FetchError(response.status, message + text)
+            });
+        }
+        else {
+            return response.text().then(text => {
+                return text
+            });
+        }
     }
 }
 
@@ -109,11 +97,11 @@ async function preparePage(url) {
     return true
 }
 
-function showError(message, status) {
-    console.log(message)
+function showError(status, message) {
+    console.error(message)
     document.getElementById("alert_block").classList.toggle('show')
     document.getElementById("alert_message").innerText = message
-    document.getElementById("status").innerText = status ? status : ""
+    document.getElementById("error_status").innerText = status ? status : ""
     document.getElementById("repository").hidden = true
     document.getElementById("processing").hidden = true
 }
@@ -122,63 +110,59 @@ async function start(_e) {
     let ok = false
     try {
         ok = await preparePage(new URL(document.URL))
-    }
-    catch (err) {
-        if (err instanceof FetchError) {
-            showError(err.message, err.status)
-        } else {
-            showError(err)
-        }
-    }
-    if (!ok) { return; }
-    let cloc_promise = fetch_cloc();
 
-
-    let websocket;
-    try {
-        let address = await fetch_ws();
-        let url = "ws://" + document.location.host + address + document.location.pathname
+        if (!ok) { return; } 
+        let ws_json = await fetch_ws();
+        let cloc_promise = fetch_cloc();
+        console.log(ws_json)
+        let url = "ws://" + document.location.host + "/ws/" + ws_json.id + document.location.pathname
         console.log("websocket:", url);
-        websocket = new WebSocket(url);
+        let websocket = new WebSocket(url);
+        console.log(websocket)
+        // websocket.addEventListener('error', function (event) {
+        //     console.log('WebSocket error: ', event);
+        //     stopStreaming(websocket);
+        // });
         startStreaming(websocket)
-    }
-    catch (e) {
-        console.error("Error at ws:", e)
-    }
-
-    try {
         let cloc = await cloc_promise;
+        console.log("cloc" ,cloc)
         if (cloc.length > 0) {
-            stopStreaming(websocket);
+            stopStreaming(websocket)
             createTableFromResponse(cloc);
         }
     }
-    catch (e) {
-        showError("Error at getting cloc promise", e)
+    catch (err) {
+        if (err instanceof FetchError) {
+            showError(err.status, err.message)
+        } else {
+            showError(err)
+        }
     }
 }
 
 document.onload = start
 
 async function stopStreaming(ws) {
-    await ws.close()
+    return await ws.close()
 }
 
 function startStreaming(ws) {
     let send_ping = function () {
-        if (ws.readyState !== WebSocket.CLOSING || ws.readyState !== WebSocket.CLOSED) {
+        if (ws.readyState === WebSocket.OPEN) {
+            console.log("ping ws")
             ws.send("ping")
         }
     }
 
     ws.onopen = function (event) {
-        console.log("event", event);
+        console.log("open ws", event);
         setInterval(send_ping, 500);
     }
 
     ws.onclose = function (event) {
         console.log("event", event);
         document.getElementById("hint").innerText = "Counting lines of code"
+        console.log("WEB SOCKET  CLOSED");
     }
 
     ws.onmessage = function (event) {
@@ -244,7 +228,6 @@ function startStreaming(ws) {
                 let parts = payload.split(":");
                 if (parts.length >= 2) {
                     let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g))
-                    console.log("resolving", percent)
                     percent = percent * 2 / 100
                     document.getElementById("pg_resolving").style.width = percent + '%';
                     document.getElementById("resolving").innerText = "Resolving deltas:" + parts[parts.length - 1]
@@ -257,7 +240,6 @@ function startStreaming(ws) {
                 let parts = payload.split(":");
                 if (parts.length >= 2) {
                     let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g))
-                    console.log("updating", percent)
                     percent = percent * 11 / 100
                     document.getElementById("pg_updating").style.width = percent + '%';
                     document.getElementById("updating").innerText = "Updating objects:" + parts[parts.length - 1]
@@ -321,7 +303,6 @@ function createTableThead(array) {
     thead += "</tr></thead>"
     return thead;
 }
-
 
 function createTableRow(array) {
     let row = "<tr>"
