@@ -8,8 +8,8 @@ pub mod repository;
 pub mod server;
 pub mod websocket;
 
-pub const KB: usize = 1024;
-pub const MB: usize = 1024 * KB;
-pub const GB: usize = 1024 * MB;
+pub const KB: u64 = 1024;
+pub const MB: u64 = 1024 * KB;
+pub const GB: u64 = 1024 * MB;
 
 type DbId = i64;

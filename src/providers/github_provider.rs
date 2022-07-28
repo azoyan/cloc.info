@@ -1,7 +1,7 @@
 use crate::{
     cloner::{Cloner},
     repository::{
-        cache::RepositoryCache,
+        storage_cache::{StorageCache},
         info::{to_url, BranchInfo, BranchValue, Branches, RepositoryInfo},
         utils::{self, count_line_of_code},
     },
@@ -97,7 +97,7 @@ struct VisitCounter {
 }
 
 pub struct GithubProvider {
-    repository_cache: Arc<RwLock<RepositoryCache>>,
+    repository_cache: Arc<RwLock<StorageCache>>,
     pub connection_pool: Pool<PostgresConnectionManager<NoTls>>,
     pub cache: Arc<Cache<RepositoryInfo, Branches>>,
     pub cloner: Cloner,
@@ -106,12 +106,12 @@ pub struct GithubProvider {
 
 impl GithubProvider {
     pub fn new(
-        cache_size: usize,
+        cache_size: u64,
         connection_pool: Pool<PostgresConnectionManager<NoTls>>,
         cache: Arc<Cache<RepositoryInfo, Branches>>,
     ) -> Self {
         Self {
-            repository_cache: Arc::new(RwLock::new(RepositoryCache::new(cache_size))),
+            repository_cache: Arc::new(RwLock::new(StorageCache::new(cache_size))),
             connection_pool,
             cache,
             cloner: Cloner::new(),
@@ -179,16 +179,16 @@ impl GithubProvider {
                 } else {
                     tracing::info!("Current branch '{db_branch_name}' and commit '{db_last_commit}' are not actual '{last_commit_remote}'");
 
-                    let (result, temp_dir) = match self.repository_cache.read().await.get(&url) {
+                    let (result, temp_dir) = match self.repository_cache.read().await.get(url) {
                         Some(temp_dir) => {
                             let repository_path = temp_dir.path().to_str().unwrap();
                             tracing::info!("Repository {repository_name} cached in disk storage: {repository_path}");
                             // если есть, обновляем репозиторий
                             let result = self
                                 .cloner
-                                .pull_repository(&url, &repository_path, branch)
+                                .pull_repository(url, repository_path, branch)
                                 .await;
-                            last_commit_local = utils::last_commit_local(&url, &repository_path)
+                            last_commit_local = utils::last_commit_local(url, repository_path)
                                 .with_context(|_e| LastCommitSnafu)?;
                             (result, temp_dir.clone())
                         }
@@ -200,9 +200,9 @@ impl GithubProvider {
                             let repository_path = temp_dir.path().to_str().unwrap();
                             let result = self
                                 .cloner
-                                .clone_repository(&url, branch, &temp_dir.path().to_str().unwrap())
+                                .clone_repository(url, branch, temp_dir.path().to_str().unwrap())
                                 .await;
-                            last_commit_local = utils::last_commit_local(&url, &repository_path)
+                            last_commit_local = utils::last_commit_local(url, repository_path)
                                 .with_context(|_e| LastCommitSnafu)?;
                             (result, temp_dir)
                         }
@@ -210,7 +210,7 @@ impl GithubProvider {
 
                     tracing::info!("Repository {repository_name} cloned state: {:?}", result);
                     let repository_path = temp_dir.path().to_str().unwrap();
-                    let cloc = count_line_of_code(&repository_path, "")
+                    let cloc = count_line_of_code(repository_path, "")
                         .await
                         .context(SccSnafu)?;
                     let repository_id: DbId = rows[0].get("repository_id");
@@ -235,7 +235,7 @@ impl GithubProvider {
                     let branch_id = rows[0].get("id");
 
                     if is_default_branch {
-                        self.repository_cache.write().await.insert(&url, temp_dir);
+                        self.repository_cache.write().await.insert(url, temp_dir);
                     }
                     (branch_id, cloc)
                 }
@@ -251,14 +251,14 @@ impl GithubProvider {
 
                 let _state = self
                     .cloner
-                    .clone_repository(&url, branch, repository_path)
+                    .clone_repository(url, branch, repository_path)
                     .await;
 
                 tracing::info!("Cloning {url} done");
 
-                last_commit_local = utils::last_commit_local(&url, &repository_path)
+                last_commit_local = utils::last_commit_local(url, repository_path)
                     .with_context(|_e| LastCommitSnafu)?;
-                let cloc = count_line_of_code(&repository_path, "")
+                let cloc = count_line_of_code(repository_path, "")
                     .await
                     .context(SccSnafu)?;
 
@@ -290,10 +290,10 @@ impl GithubProvider {
                     })?;
 
                 let branch_id = rows[0].get("id");
-                // добовалем в хранилище на жёстком диске
                 tracing::info!("Inserting {url} info to db done. Returning scc_output");
+                // добовалем в хранилище на жёстком диске 
                 if is_default_branch {
-                    self.repository_cache.write().await.insert(&url, temp_dir);
+                    self.repository_cache.write().await.insert(url, temp_dir);
                 }
                 (branch_id, cloc)
             }
