@@ -80,3 +80,13 @@ header {
     opacity: .65;
     transform: scale(.85) translateY(-.5rem) translateX(.15rem);
 }
+
+#t {
+    font-family: "Ubuntu", sans-serif, monospace;
+    font-size: medium;
+}
+
+#cocomo {
+    font-family: "Ubuntu", sans-serif, monospace;
+    font-size: medium;
+}
