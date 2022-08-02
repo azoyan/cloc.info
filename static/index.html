@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -67,10 +68,10 @@
                                     <div class="invalid-feedback" id="invalidFeedback"></div>
                                 </div>
                             </div>
-                            <div class="col-sm-auto px-2">
-                                <div class="spinner-border spinner-border-sm text-success invisible" id="checkSpinner"
+                            <div class="col-sm-auto mx-1">
+                                <!-- <div class="spinner-border spinner-border-sm text-success invisible" id="checkSpinner"
                                     role="status">
-                                </div>
+                                </div> -->
                             </div>
 
                         </div>
@@ -83,7 +84,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="row justify-content-center-md">
+                    <div id="repoInfo" class="row justify-content-center-md">
                         <div class="col col-sm-auto">
                             <div class="row align-items-center">
                                 <div class="col-7 pt-3" id="select"></div>
@@ -95,13 +96,18 @@
                             </div>
                         </div>
                         <div class="col-sm-auto pt-3 ms-auto text-truncate float-start">
-                            <p class="fs-6 fw-lighter " id="commit"></p>
+                            <p class="fs-6" id="commit"></p>
                         </div>
                     </div>
 
                 </div>
                 <div class="col pt-3 col-sm-auto text-center">
-                    <button class="btn btn-outline-success btn-disabled" id="submitButton" type="submit">Submit</button>
+                    <button class="btn btn-outline-success disabled" id="submitButton" type="submit">
+                        <span class="spinner-border spinner-border-sm" hidden="true" id="checkSpinner" role="status">
+                        </span>
+                        <span id="buttonText">
+                            Submit
+                        </span>
                 </div>
             </div>
         </div>

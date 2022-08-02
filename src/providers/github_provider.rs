@@ -1,33 +1,31 @@
 use crate::{
-    cloner::{Cloner},
+    cloner::Cloner,
     repository::{
-        storage_cache::{StorageCache},
         info::{to_url, BranchInfo, BranchValue, Branches, RepositoryInfo},
+        storage_cache::StorageCache,
         utils::{self, count_line_of_code},
     },
     DbId,
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
-use hyper::{Body, Request};
+use hyper::{client::connect, Body, Request};
 use hyper_openssl::HttpsConnector;
 use retainer::Cache;
 use scopeguard::defer;
 use serde_json::Value;
 use snafu::{ResultExt, Snafu};
 use std::{
-    collections::{HashMap},
+    collections::HashMap,
     sync::{
-        atomic::{AtomicU64, Ordering::SeqCst},
+        atomic::{AtomicI64, Ordering::SeqCst},
         Arc,
     },
     time::Duration,
 };
 use tempfile::TempDir;
-use tokio::{
-    sync::{Notify, RwLock},
-};
-use tokio_postgres::NoTls;
+use tokio::sync::{Notify, RwLock};
+use tokio_postgres::{IsolationLevel::Serializable, NoTls};
 
 const USERNAME_TOKEN: &str =
     "Basic YXpveWFuOmdocF9IOEVqSXRwMjBOQW9Gc3dYVGI4ektEaktUbkFETlg0TktaNUk=";
@@ -92,12 +90,19 @@ pub enum Error {
 
 #[derive(Debug, Default)]
 struct VisitCounter {
-    counter: AtomicU64,
+    counter: AtomicI64,
     notify: Notify,
 }
 
+#[derive(Debug, Clone)]
+pub struct Processed {
+    branch_id: DbId,
+    scc_output: Vec<u8>,
+    directory: Option<Arc<TempDir>>, // need to drop after all processing done // TODO refactor
+}
+
 pub struct GithubProvider {
-    repository_cache: Arc<RwLock<StorageCache>>,
+    storage_cache: Arc<RwLock<StorageCache>>,
     pub connection_pool: Pool<PostgresConnectionManager<NoTls>>,
     pub cache: Arc<Cache<RepositoryInfo, Branches>>,
     pub cloner: Cloner,
@@ -111,7 +116,7 @@ impl GithubProvider {
         cache: Arc<Cache<RepositoryInfo, Branches>>,
     ) -> Self {
         Self {
-            repository_cache: Arc::new(RwLock::new(StorageCache::new(cache_size))),
+            storage_cache: Arc::new(RwLock::new(StorageCache::new(cache_size))),
             connection_pool,
             cache,
             cloner: Cloner::new(),
@@ -126,7 +131,7 @@ impl GithubProvider {
         repository_name: &str,
         branch: &str,
         default_branch: &str,
-    ) -> Result<(DbId, Vec<u8>), Error> {
+    ) -> Result<Processed, Error> {
         // Узнаем какой коммит был последний
         let last_commit_remote = self
             .last_commit_remote(owner, repository_name, branch)
@@ -144,7 +149,7 @@ impl GithubProvider {
         // 3.1 клонируем репозиторий, вставляем в БД, вставляем в хранилище на жёстком диске.
 
         // 1. Смотрим есть ли в БД
-        let connection = match self.connection_pool.get().await {
+        let mut connection = match self.connection_pool.get().await {
             Ok(connection) => connection,
             Err(error) => {
                 match error {
@@ -157,14 +162,14 @@ impl GithubProvider {
 
         let query = "select * from branches where name=$4 and repository_id=(select id from repositories where hostname=$1 and owner=$2 and repository_name=$3);";
 
-        let rows = connection
-            .query(query, &[&"github.com", &owner, &repository_name, &branch])
+        let row = connection
+            .query_opt(query, &[&"github.com", &owner, &repository_name, &branch])
             .await
             .with_context(|_e| QuerySnafu {
                 query: query.to_owned(),
             })?;
 
-        let (branch_id, cloc) = match rows.get(0) {
+        let processed = match row {
             // Есть в БД
             Some(row) => {
                 // проверяем актуальность коммита
@@ -175,11 +180,15 @@ impl GithubProvider {
                 if last_commit_remote == db_last_commit && db_branch_name == branch {
                     let scc_output: Vec<u8> = row.get("scc_output");
                     tracing::info!("Current branch and commit are actual. Returning cloc from db");
-                    (branch_id, scc_output)
+                    Processed {
+                        branch_id,
+                        scc_output,
+                        directory: None,
+                    }
                 } else {
                     tracing::info!("Current branch '{db_branch_name}' and commit '{db_last_commit}' are not actual '{last_commit_remote}'");
 
-                    let (result, temp_dir) = match self.repository_cache.read().await.get(url) {
+                    let (result, temp_dir) = match self.storage_cache.read().await.get(url) {
                         Some(temp_dir) => {
                             let repository_path = temp_dir.path().to_str().unwrap();
                             tracing::info!("Repository {repository_name} cached in disk storage: {repository_path}");
@@ -196,7 +205,8 @@ impl GithubProvider {
                             tracing::info!(
                                 "Repository {repository_name} is not cached in disk storage"
                             );
-                            let temp_dir = Arc::new(TempDir::new_in(".").context(CreateTempDirSnafu)?);
+                            let temp_dir =
+                                Arc::new(TempDir::new_in(".").context(CreateTempDirSnafu)?);
                             let repository_path = temp_dir.path().to_str().unwrap();
                             let result = self
                                 .cloner
@@ -210,96 +220,180 @@ impl GithubProvider {
 
                     tracing::info!("Repository {repository_name} cloned state: {:?}", result);
                     let repository_path = temp_dir.path().to_str().unwrap();
+                    let repository_size =
+                        i64::try_from(fs_extra::dir::get_size(temp_dir.path()).unwrap()).unwrap();
                     let cloc = count_line_of_code(repository_path, "")
                         .await
                         .context(SccSnafu)?;
-                    let repository_id: DbId = rows[0].get("repository_id");
+                    let repository_id: DbId = row.get("repository_id");
+
                     tracing::debug!(
-                        "INSERT INTO branches VALUES(DEFAULT, {}, {}, {}) ON CONFLICT RETURNING id",
+                        "INSERT INTO branches VALUES(DEFAULT, {}, '{}', '{}', 'scc', {}) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id;",
                         repository_id,
                         &branch,
-                        &last_commit_local
+                        &last_commit_local,
+                        repository_size
                     );
-                    let upsert_branch = "INSERT INTO branches VALUES(DEFAULT, $1, $2, $3, $4) ON CONFLICT (repository_id, name, last_commit_sha) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id";
 
-                    let rows = connection
-                        .query(
-                            upsert_branch,
-                            &[&repository_id, &branch, &last_commit_local, &cloc],
-                        )
-                        .await
-                        .with_context(|_e| QuerySnafu {
+                    let branch_id = {
+                        let upsert_branch = "INSERT INTO branches VALUES(DEFAULT, $1, $2, $3, $4, $5) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id";
+                        let transaction = connection
+                            .build_transaction()
+                            .isolation_level(Serializable)
+                            .start()
+                            .await
+                            .with_context(|_e| QuerySnafu {
+                                query: upsert_branch.to_string(),
+                            })?;
+                        transaction
+                            .query_one(
+                                upsert_branch,
+                                &[
+                                    &repository_id,
+                                    &branch,
+                                    &last_commit_local,
+                                    &cloc,
+                                    &repository_size,
+                                ],
+                            )
+                            .await
+                            .with_context(|_e| QuerySnafu {
+                                query: upsert_branch.to_string(),
+                            })?;
+
+                        transaction.commit().await.with_context(|_e| QuerySnafu {
                             query: upsert_branch.to_string(),
                         })?;
 
-                    let branch_id = rows[0].get("id");
+                        row.get("id")
+                    };
 
                     if is_default_branch {
-                        self.repository_cache.write().await.insert(url, temp_dir);
+                        self.storage_cache
+                            .write()
+                            .await
+                            .insert(url, temp_dir.clone());
                     }
-                    (branch_id, cloc)
+                    Processed {
+                        branch_id,
+                        scc_output: cloc,
+                        directory: Some(temp_dir),
+                    }
                 }
             }
             // Если в БД отсутствует
             None => {
                 tracing::warn!("Repository {url} doesn't exist in database and storage cache");
-                assert!(self.repository_cache.read().await.get(url).is_none());
+                assert!(self.storage_cache.read().await.get(url).is_none());
 
                 let temp_dir = Arc::new(TempDir::new_in(".").context(CreateTempDirSnafu)?);
                 let repository_path = temp_dir.path().to_str().unwrap();
                 // клонируем репозиторий
-
+                
                 let _state = self
-                    .cloner
+                .cloner
                     .clone_repository(url, branch, repository_path)
                     .await;
 
                 tracing::info!("Cloning {url} done");
-
+                
+                let repository_size =
+                    i64::try_from(fs_extra::dir::get_size(temp_dir.path()).unwrap()).unwrap();
+                
                 last_commit_local = utils::last_commit_local(url, repository_path)
                     .with_context(|_e| LastCommitSnafu)?;
-                let cloc = count_line_of_code(repository_path, "")
+                let scc_output = count_line_of_code(repository_path, "")
                     .await
                     .context(SccSnafu)?;
 
                 // вставляем результат в БД
-                let upsert_repositories = "insert into repositories values (DEFAULT, $1, $2, $3, $4) ON CONFLICT (hostname, owner, repository_name) DO UPDATE SET hostname=EXCLUDED.hostname, owner=EXCLUDED.owner, repository_name=EXCLUDED.repository_name  RETURNING ID;";
-                let rows = connection
-                    .query(
-                        upsert_repositories,
-                        &[&"github.com", &owner, &repository_name, &default_branch],
-                    )
-                    .await
-                    .with_context(|_e| QuerySnafu {
+
+                let repository_id: DbId = {
+                    let upsert_repositories = "insert into repositories values (DEFAULT, $1, $2, $3, $4) ON CONFLICT (hostname, owner, repository_name) DO UPDATE SET hostname=EXCLUDED.hostname, owner=EXCLUDED.owner, repository_name=EXCLUDED.repository_name  RETURNING ID;";
+                    let transaction = connection
+                        .build_transaction()
+                        .isolation_level(Serializable)
+                        .start()
+                        .await
+                        .with_context(|_e| QuerySnafu {
+                            query: upsert_repositories.to_string(),
+                        })?;
+                    let row = transaction
+                        .query_one(
+                            upsert_repositories,
+                            &[&"github.com", &owner, &repository_name, &default_branch],
+                        )
+                        .await
+                        .with_context(|_e| QuerySnafu {
+                            query: upsert_repositories.to_string(),
+                        })?;
+
+                    transaction.commit().await.with_context(|_e| QuerySnafu {
                         query: upsert_repositories.to_string(),
                     })?;
 
-                let repository_id: DbId = rows[0].get("id");
+                    row.get("id")
+                };
 
-                let insert_branch =
-                    "INSERT INTO branches VALUES(DEFAULT, $1, $2, $3, $4) RETURNING id";
+                tracing::debug!(
+                    "INSERT INTO branches VALUES(DEFAULT, {}, '{}', '{}', 'scc', {}) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id;",
+                    repository_id,
+                    &branch,
+                    &last_commit_local,
+                    repository_size
+                );
 
-                let rows = connection
-                    .query(
-                        insert_branch,
-                        &[&repository_id, &branch, &last_commit_local, &cloc],
-                    )
-                    .await
-                    .with_context(|_e| QuerySnafu {
+                let branch_id = {
+                    let insert_branch =
+                        "INSERT INTO branches VALUES(DEFAULT, $1, $2, $3, $4, $5) RETURNING id";
+                    let transaction = connection
+                        .build_transaction()
+                        .isolation_level(Serializable)
+                        .start()
+                        .await
+                        .with_context(|_e| QuerySnafu {
+                            query: insert_branch.to_string(),
+                        })?;
+
+                    let row = transaction
+                        .query_one(
+                            insert_branch,
+                            &[
+                                &repository_id,
+                                &branch,
+                                &last_commit_local,
+                                &scc_output,
+                                &repository_size,
+                            ],
+                        )
+                        .await
+                        .with_context(|_e| QuerySnafu {
+                            query: insert_branch.to_string(),
+                        })?;
+
+                    transaction.commit().await.with_context(|_e| QuerySnafu {
                         query: insert_branch.to_string(),
                     })?;
 
-                let branch_id = rows[0].get("id");
-                tracing::info!("Inserting {url} info to db done. Returning scc_output");
-                // добовалем в хранилище на жёстком диске 
+                    row.get("id")
+                };
+                tracing::info!("Inserting {url} info to database done. Returning scc_output");
+                // добовалем в хранилище на жёстком диске
                 if is_default_branch {
-                    self.repository_cache.write().await.insert(url, temp_dir);
+                    self.storage_cache
+                        .write()
+                        .await
+                        .insert(url, temp_dir.clone());
                 }
-                (branch_id, cloc)
+                Processed {
+                    branch_id,
+                    scc_output,
+                    directory: Some(temp_dir),
+                }
             }
         };
 
-        Ok((branch_id, cloc))
+        Ok(processed)
     }
 
     pub async fn get_with_branch(
@@ -322,21 +416,22 @@ impl GithubProvider {
             Some(branch) => branch,
             None => &default_branch,
         };
-        self.cloner.clear_state_buffer(&url).await;
-        defer! {            
+        // self.cloner.clear_state_buffer(&url).await;  // try remove later and check progress view
+        defer! {
             match self.processed.try_read() {
                 Ok(guard) => {
                     match guard.get(&url) {
                         Some(visit) => {
                             tracing::debug!("Trying Remove notificator for {url}");
                             let counter = visit.counter.load(SeqCst);
+                            assert!(counter >=0);
                             if counter == 0 {
                                drop(guard);
                                match self.processed.try_write() {
                                     Ok(mut guard) => {
                                         guard.remove(&url);
                                         tracing::debug!("Remove Done notificator for {url}");
-                                        
+
                                     },
                                     Err(e) =>  tracing::error!(
                                         "Remove notificator Error at write lock for {url}: {e}"
@@ -357,6 +452,7 @@ impl GithubProvider {
                     );
                 }
             }
+
             tracing::info!("Out of the scope {url} get_with_branch\n");
         }
 
@@ -370,7 +466,7 @@ impl GithubProvider {
                             guard.insert(
                                 url.clone(),
                                 Arc::new(VisitCounter {
-                                    counter: AtomicU64::new(0),
+                                    counter: AtomicI64::new(0),
                                     notify: Default::default(),
                                 }),
                             );
@@ -382,15 +478,15 @@ impl GithubProvider {
                     }
                 }
                 Some(notify) => {
-                    let n = notify.clone();
-                    let prev = n.counter.fetch_add(1, SeqCst);
+                    let visit = notify.clone();
+                    drop(guard);
+                    let prev = visit.counter.fetch_add(1, SeqCst);
                     tracing::debug!(
                         "Someone else ({}) request but In prgress {url} ...",
                         prev + 1
                     );
-                    drop(guard);
-                    n.notify.notified().await;
-                    tracing::debug!("Continue {url} progress...");
+                    visit.notify.notified().await;
+                    // tracing::debug!("Continue {url} progress...");
                 }
             },
             Err(e) => {
@@ -398,32 +494,36 @@ impl GithubProvider {
             }
         }
 
-        tracing::info!("Start Processing {url}");
-        let result = self
+        // tracing::info!("Start Processing {url}");
+        let Processed {
+            branch_id,
+            scc_output,
+            directory: _directory,
+        } = self
             .processing(&url, owner, repository_name, branch, &default_branch)
-            .await;
+            .await?;
 
-        tracing::info!("Processing {url} Done {}", result.is_ok());
+        // tracing::info!("End Processing {url}. Done: {}", result.is_ok());
 
         match self.processed.try_read() {
             Ok(guard) => match guard.get(&url) {
                 Some(notify) => {
-                    tracing::debug!("Processing {url} done. Notify to other waiters");
+                    // tracing::debug!("Processing {url} done. Notify to other waiters");
                     self.cloner.set_done(&url).await;
                     let n = notify.clone();
                     drop(guard);
                     n.notify.notify_waiters();
                 }
                 None => {
-                    tracing::debug!("Processing {url} done. No other waiters");
+                    // tracing::debug!("Processing {url} done. No other waiters");
                 }
             },
             Err(e) => {
-                tracing::error!("Processing notificator Error at write lock for {url}: {e}");
+                // tracing::error!("Processing notificator Error at write lock for {url}: {e}");
             }
         }
 
-        result
+        Ok((branch_id, scc_output))
     }
 
     pub async fn default_branch_remote(
@@ -434,7 +534,7 @@ impl GithubProvider {
         let key = RepositoryInfo::new("github.com", owner, repository_name);
         if let Some(branches) = self.cache.get(&key).await {
             if let Some(default_branch) = &branches.default_branch {
-                tracing::debug!("Exist branch in cache: {default_branch}");
+                // tracing::debug!("Exist branch in cache: {default_branch}");
                 return Ok(default_branch.to_string());
             }
         }
@@ -476,7 +576,7 @@ impl GithubProvider {
                     branches.default_branch = Some(branch.to_string());
                     branches
                 } else {
-                    tracing::debug!("{key:?} doesn't exist in cache or expired. Insert to cache repo and branch {branch}");
+                    // tracing::debug!("{key:?} doesn't exist in cache or expired. Insert to cache repo and branch {branch}");
                     Branches {
                         default_branch: Some(branch.to_string()),
                         branches: vec![],
@@ -503,7 +603,7 @@ impl GithubProvider {
         if let Some(branches) = self.cache.get(&key).await {
             if let Some(branch) = branches.branches.iter().find(|b| b.name == branch) {
                 if let Some(commit) = &branch.commit {
-                    tracing::debug!("Exist in cache commit {commit}");
+                    // tracing::debug!("Exist in cache commit {commit}");
                     return Ok(commit.to_string());
                 }
             }
@@ -641,9 +741,9 @@ impl GithubProvider {
             current_branches.branches = branches;
             current_branches
         } else {
-            tracing::debug!(
-                "{key:?} doesn't exist in cache. Insert to cache repo and branches info"
-            );
+            // tracing::debug!(
+            //     "{key:?} doesn't exist in cache. Insert to cache repo and branches info"
+            // );
             Branches {
                 default_branch: None,
                 branches,

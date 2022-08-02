@@ -62,12 +62,51 @@
                 <div class="collapse" id="alert_block">
                     <div class="alert alert-danger" role="alert">
                         <h1 class="alert-heading" id="error_status"></h1>
-                        <h4 class="alert-heading">Error</h4>
                         <p class="mb-4 font-monospace" id="alert_message"></p>
                     </div>
                 </div>
 
-                <div id="repository">
+                <div id="repository" class="table-responsive">
+                    <table class="table d-inline-flex">
+                        <tbody>
+                            <tr class="align-items-center">
+                                <th scope="row">URL:</th>
+                                <td>
+                                    <div class="row float-start">
+                                        <div class="col col-sm-auto text-truncate float-start">
+                                            <a target="_blank" rel="noopener noreferrer canonical" id="url"></a>
+                                        </div>
+                                        <div class="col ms-5 col-sm-auto" id="url_pic"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Branch:</th>
+                                <td>
+                                    <div class="col font-monospace fs-6 fw-lighter" id="branch">
+                                        <div class="spinner-grow spinner-grow-sm" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Commit:</th>
+                                <td>
+                                    <div class="col font-monospace text-truncate float-start fs-6 fw-light" id="commit">
+                                        <div class="spinner-grow spinner-grow-sm role=" status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <!--
                     <div class="row align-items-center">
                         <div class="col col-sm-auto"><strong>URL:</strong></div>
                         <div class="col col-sm-auto text-truncate float-start">
@@ -91,12 +130,11 @@
                             </div>
                         </div>
                     </div>
+                -->
                 </div>
             </div>
             <div class="container">
-
-
-                <div class="accordion shadow mt-4" id="processing">
+                <div class="accordion shadow mt-4 font-monospace" id="processing">
                     <div class="accordion-item">
 
                         <h2 class="accordion-header" id="headingOne">

@@ -35,7 +35,7 @@ async fn handle_socket(id: String, path: String, mut socket: WebSocket, cloner: 
                         }
                     }
                     crate::cloner::State::Done => {
-                        tracing::debug!("Repository {} downloading done", repository_name);
+                        // tracing::debug!("Repository {} downloading done", repository_name);
                         // match socket.close().await {
                         //     Ok(()) => {
                         //         tracing::debug!("Connection {id}/{repository_name} closed")

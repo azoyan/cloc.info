@@ -37,7 +37,7 @@ pub fn create_server(
 
     let cache = Arc::new(Cache::new());
     let cache_clone = cache.clone();
-    let github_provider = GithubProvider::new(4 * MB, connection_pool, cache);
+    let github_provider = GithubProvider::new(4 * crate::GB, connection_pool, cache);
 
     let _monitor =
         tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
@@ -57,7 +57,7 @@ pub fn create_server(
         )
         .nest("/github.com", github::create_router(gh_provider))
         .merge(spa)
-        .fallback(fallback.into_service())
+        .fallback(not_found.into_service())
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(handle_errors))
@@ -87,6 +87,21 @@ pub async fn fallback(uri: axum::http::Uri) -> impl axum::response::IntoResponse
         format!("No route {}", uri),
     )
 }
+
+pub async fn not_found(uri: axum::http::Uri) -> Response<Body> {
+    let file = std::fs::File::open("static/404.html").unwrap();
+    let mut reader = std::io::BufReader::new(file);
+
+    let mut buffer = vec![];
+
+    std::io::Read::read_to_end(&mut reader, &mut buffer).unwrap();
+    Response::builder()
+        .status(StatusCode::NOT_FOUND)
+        .header("Cache-Control", "no-cache,private,max-age=0") // TODO, maybe rewrite AddHeader
+        .body(Body::from(buffer))
+        .unwrap()
+}
+
 async fn graceful_shutdown(handle: axum_server::Handle) {
     tokio::signal::ctrl_c()
         .await

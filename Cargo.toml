@@ -11,7 +11,6 @@ axum = { version =  "0.5", features = ["ws"] }
 axum-extra = { version = "0.3.6", features = ["spa"] }
 hyper = "0.14"
 structopt = "0.3"
-env_logger = "0.9"
 mime_guess = "2"
 tower = { version = "0.4", features = ["full"] }
 tower-http = { version = "0.3", features = ["full"] }
@@ -24,7 +23,6 @@ serde = { version = "1", features = ["derive"] }
 fs_extra = "1"
 tempfile = { path = "../tempfile" }
 ordered-multimap = "0.4.3"
-axum-macros="0.2"
 tokio-postgres = "0.7"
 bb8 = "0.8"
 bb8-postgres = "0.8"

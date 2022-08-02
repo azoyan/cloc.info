@@ -50,7 +50,7 @@ async function preparePage(url) {
     console.log(path_name_array, url)
     if (path_name_array.length < 3) {
         console.error("Incorrect URL:", url)
-        throw Error("Incorrect URL: " + url + "\nURL should contain repository hostname, owner and repository name");
+        throw new PrepareError("Incorrect URL", url + " should contain repository hostname, owner and repository name");
     }
     let repository_hostname = path_name_array[0];
     let onwer = path_name_array[1]
@@ -59,7 +59,7 @@ async function preparePage(url) {
 
     if (repository_hostname == "github.com") {
         try {
-            let origin_url = "https://" + Url.pathname
+            let origin_url = "https:/" + Url.pathname
             let img = '<img alt="Open repository" src="/static/GitHub-Mark-32px.png" class="float-start">'
             let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
             document.getElementById("url").innerText = origin_url
@@ -89,9 +89,9 @@ async function preparePage(url) {
             document.getElementById("commit").innerText = commit.commit
         }
         else {
-            let error_msg = "Incorrect URL: " + url + "\nAfter tree/ must be followed by a branch name"
+            let error_msg = url + "\nAfter tree/ must be followed by a branch name"
             console.error(error_msg)
-            throw new Error(error_msg)
+            throw new PrepareError("Incorrect URL", error_msg)
         }
     }
     return true
@@ -100,7 +100,7 @@ async function preparePage(url) {
 function showError(status, message) {
     console.error(message)
     document.getElementById("alert_block").classList.toggle('show')
-    document.getElementById("alert_message").innerText = message
+    document.getElementById("alert_message").innerText = message ? message: ""
     document.getElementById("error_status").innerText = status ? status : ""
     document.getElementById("repository").hidden = true
     document.getElementById("processing").hidden = true
@@ -132,7 +132,7 @@ async function start(_e) {
         }
     }
     catch (err) {
-        if (err instanceof FetchError) {
+        if (err instanceof FetchError || err instanceof PrepareError) {
             showError(err.status, err.message)
         } else {
             showError(err)
@@ -172,12 +172,13 @@ function startStreaming(ws) {
         let lines = p.split(/\r?\n/)
         for (let i = 0; i < lines.length; ++i) {
             let payload = lines[i];
-            // console.log("payload line:", payload)
+            console.log("payload line:", payload)
+            document.getElementById("hint").innerHTML = "Downloading repository into server"
             if (payload.includes("Cloning")) {
-                document.getElementById("hint").innerHTML = "Cloning repository into server"
                 document.getElementById("clone").innerText = "git clone https:/" + document.location.pathname
                 document.getElementById("cloning").innerText = payload
             }
+            // if (payload.includes(""))
             if (payload.includes("Enumerating")) {
                 let parts = payload.split(":");
                 if (parts.length >= 3) {
@@ -367,6 +368,14 @@ class FetchError extends Error {
     constructor(status, message) {
         super(message);
         this.name = "FetchError";
+        this.status = status
+    }
+}
+
+class PrepareError extends Error {
+    constructor(status, message) {
+        super(message);
+        this.name = "PrepareError";
         this.status = status
     }
 }

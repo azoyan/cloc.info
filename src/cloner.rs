@@ -82,17 +82,46 @@ impl Cloner {
         tracing::info!("pull {} to {}", url, repository_path);
 
         command.args(&[
-            "pull",
             "-C",
             repository_path,
-            "--rebase",
+            "pull",
+            "--ff-only",
             "--progress",
-            "--depth=1",
             "--allow-unrelated-histories",
             "origin",
             branch_name,
         ]);
-        self.execute(command, url).await
+        self.execute_pull(command, url).await
+    }
+
+    pub async fn execute_pull(&self, mut command: Command, url: &str) -> State {
+        command.stderr(Stdio::piped());
+
+        let mut child = command.spawn().unwrap();
+        let stderr = child.stderr.take().unwrap();
+        let mut reader = BufReader::new(stderr);
+
+        let mut buffer = String::with_capacity(1000);
+
+        let mut result = String::with_capacity(1000);
+        while reader.read_line(&mut buffer).await.unwrap() != 0 {
+            result.push_str(&buffer);
+
+            tracing::debug!(
+                "{url} <-> ASCII:{} {}>>\n{}\n<<",
+                &result.is_ascii(),
+                result.len(),
+                &result
+            );
+            self.clone_state
+                .write()
+                .await
+                .insert(url.to_string(), State::Buffered(result.clone()));
+            buffer.clear();
+        }
+        let _c = child.wait().await; // try
+
+        State::Done
     }
 
     pub async fn clone_repository(

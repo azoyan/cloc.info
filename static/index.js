@@ -81,7 +81,7 @@ function check(url_str) {
 
     if (!url_str.match(/^[a-zA-Z]+:\/\//)) { url_str = 'https://' + url_str; }
     console.log(url_str);
-
+    
     try {
         url = new URL(url_str);
     }
@@ -91,11 +91,13 @@ function check(url_str) {
         document.getElementById("input").classList.add("is-invalid");
         return
     }
-
+    
+    document.getElementById("buttonText").innerText = "Check"
     let checkSpinner = document.getElementById("checkSpinner");
-    checkSpinner.classList.remove("invisible");
+    checkSpinner.hidden = false;
 
     let submitButton = document.getElementById("submitButton");
+    
 
     let api_url = document.URL + "api/" + url.hostname + url.pathname + "/branches";
     console.log("api_url", api_url)
@@ -121,16 +123,26 @@ function check(url_str) {
             });
 
             document.getElementById("input").classList.add("is-valid");
-            checkSpinner.classList.add("invisible");
+            document.getElementById("input").classList.remove("is-invalid");
+            document.getElementById("invalidFeedback").classList.remove("is-invalid");
+            document.getElementById("invalidFeedback").classList.add("invisible");
+            document.getElementById("repoInfo").classList.remove("invisible");
+            document.getElementById("buttonText").innerText = "Submit"
+            checkSpinner.hidden = true;
         })
         .catch(function (error) {
             document.getElementById("invalidFeedback").innerText = error
-            checkSpinner.classList.add("invisible");
+            checkSpinner.hidden = true;
+            submitButton.classList.add("disabled");
+            submitButton.classList.add('btn-outline-success');
+            document.getElementById("buttonText").innerText = "Submit"
+            document.getElementById("repoInfo").classList.add("invisible");
+            document.getElementById("invalidFeedback").classList.remove("invisible");
+            document.getElementById("input").classList.add("is-invalid");
             if (error.response) {
                 console.error(error.response.data);
                 console.error(error.response.status);
                 console.error(error.response.headers);
-                document.getElementById("input").classList.add("is-invalid");
             }
             else {
                 console.log("error", error)

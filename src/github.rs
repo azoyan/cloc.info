@@ -13,6 +13,7 @@ use hyper::{
     header::{self, CONTENT_TYPE, USER_AGENT},
     Body, Request, StatusCode,
 };
+
 use mime_guess::mime::{APPLICATION_JSON, TEXT_PLAIN};
 use serde_json::json;
 use snafu::{ResultExt, Snafu};
