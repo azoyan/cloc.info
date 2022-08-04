@@ -44,12 +44,12 @@ fn main() {
 
 async fn start_all(socket: SocketAddr) {
     let manager = PostgresConnectionManager::new_from_stringlike(
-        "host=localhost user=postgres dbname=cloc",
+        "host=localhost user=postgres dbname=clocdb",
         NoTls,
     )
     .unwrap();
     let _config = tokio_postgres::Config::new()
-        .dbname("cloc")
+        .dbname("clocdb")
         .host("localhost")
         .user("postgres")
         .to_owned();

@@ -46,11 +46,109 @@ CREATE TABLE public.branches (
     repository_id bigint,
     name text NOT NULL,
     last_commit_sha text NOT NULL,
-    scc_output bytea
+    scc_output bytea,
+    size bigint
 );
 
 
 ALTER TABLE public.branches OWNER TO postgres;
+
+--
+-- Name: branches_view; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.branches_view AS
+ SELECT branches.id,
+    branches.repository_id,
+    branches.name,
+    branches.last_commit_sha,
+    branches.size
+   FROM public.branches;
+
+
+ALTER TABLE public.branches_view OWNER TO postgres;
+
+--
+-- Name: statistic; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.statistic (
+    id bigint NOT NULL,
+    user_agent text,
+    branch_id bigint,
+    "time" timestamp with time zone
+);
+
+
+ALTER TABLE public.statistic OWNER TO postgres;
+
+--
+-- Name: recently_branches_view; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.recently_branches_view AS
+ SELECT statistic.branch_id,
+    (array_agg(statistic."time" ORDER BY statistic."time" DESC))[1] AS time
+   FROM public.statistic
+  GROUP BY statistic.branch_id;
+
+
+ALTER TABLE public.recently_branches_view OWNER TO postgres;
+
+--
+-- Name: repositories; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.repositories (
+    id bigint NOT NULL,
+    hostname text NOT NULL,
+    owner text NOT NULL,
+    repository_name text NOT NULL,
+    default_branch text NOT NULL
+);
+
+
+ALTER TABLE public.repositories OWNER TO postgres;
+
+--
+-- Name: repositories_view; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.repositories_view AS
+ SELECT branches_view.id,
+    repositories.hostname,
+    repositories.owner,
+    repositories.repository_name,
+    repositories.default_branch,
+    branches_view.name,
+    branches_view.last_commit_sha,
+    branches_view.size
+   FROM (public.repositories
+     JOIN public.branches_view ON ((repositories.id = branches_view.repository_id)));
+
+
+ALTER TABLE public.repositories_view OWNER TO postgres;
+
+--
+-- Name: all_view; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.all_view AS
+ SELECT repositories_view.id,
+    repositories_view.hostname,
+    repositories_view.owner,
+    repositories_view.repository_name,
+    repositories_view.default_branch,
+    repositories_view.name,
+    repositories_view.last_commit_sha,
+    repositories_view.size,
+    recently_branches_view.branch_id,
+    recently_branches_view.time AS "time"
+   FROM (public.repositories_view
+     JOIN public.recently_branches_view ON ((repositories_view.id = recently_branches_view.branch_id)));
+
+
+ALTER TABLE public.all_view OWNER TO postgres;
 
 --
 -- Name: branches_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -74,33 +172,58 @@ ALTER SEQUENCE public.branches_id_seq OWNED BY public.branches.id;
 
 
 --
--- Name: branches_view; Type: VIEW; Schema: public; Owner: postgres
+-- Name: largest_repositories; Type: VIEW; Schema: public; Owner: postgres
 --
 
-CREATE VIEW public.branches_view AS
- SELECT branches.id,
-    branches.repository_id,
-    branches.name,
-    branches.last_commit_sha
-   FROM public.branches;
+CREATE VIEW public.largest_repositories AS
+ SELECT repositories.hostname,
+    repositories.owner,
+    repositories.repository_name,
+    repositories.default_branch,
+    branches_view.name,
+    branches_view.last_commit_sha,
+    branches_view.size
+   FROM (public.repositories
+     JOIN public.branches_view ON ((repositories.id = branches_view.repository_id)))
+  ORDER BY branches_view.size DESC;
 
 
-ALTER TABLE public.branches_view OWNER TO postgres;
+ALTER TABLE public.largest_repositories OWNER TO postgres;
 
 --
--- Name: repositories; Type: TABLE; Schema: public; Owner: postgres
+-- Name: popular_branches; Type: VIEW; Schema: public; Owner: postgres
 --
 
-CREATE TABLE public.repositories (
-    id bigint NOT NULL,
-    hostname text NOT NULL,
-    owner text NOT NULL,
-    repository_name text NOT NULL,
-    default_branch text NOT NULL
-);
+CREATE VIEW public.popular_branches AS
+ SELECT count(*) AS count,
+    statistic.branch_id
+   FROM public.statistic
+  GROUP BY statistic.branch_id
+  ORDER BY (count(*)) DESC;
 
 
-ALTER TABLE public.repositories OWNER TO postgres;
+ALTER TABLE public.popular_branches OWNER TO postgres;
+
+--
+-- Name: popular_repositories; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.popular_repositories AS
+ SELECT popular_branches.count,
+    popular_branches.branch_id,
+    repositories_view.id,
+    repositories_view.hostname,
+    repositories_view.owner,
+    repositories_view.repository_name,
+    repositories_view.default_branch,
+    repositories_view.name,
+    repositories_view.last_commit_sha,
+    repositories_view.size
+   FROM (public.popular_branches
+     JOIN public.repositories_view ON ((repositories_view.id = popular_branches.branch_id)));
+
+
+ALTER TABLE public.popular_repositories OWNER TO postgres;
 
 --
 -- Name: repositories_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -123,20 +246,6 @@ ALTER TABLE public.repositories_id_seq OWNER TO postgres;
 
 ALTER SEQUENCE public.repositories_id_seq OWNED BY public.repositories.id;
 
-
---
--- Name: statistic; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.statistic (
-    id bigint NOT NULL,
-    user_agent text,
-    branch_id bigint,
-    "time" timestamp without time zone
-);
-
-
-ALTER TABLE public.statistic OWNER TO postgres;
 
 --
 -- Name: statistic_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
