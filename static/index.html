@@ -112,25 +112,52 @@
             </div>
         </div>
     </main>
-    <statistic>
-        <div class="container p-4">
+    <statistic class="bg-light pt-2 pb-5">
+        <div class="container">
             <div class="row">
-
-                <div class="card col mx-3" id="recent">her0</div>
-                <div class="card col mx-3" id="popular">her2</div>
-                <div class="card col mx-3" id="largest">her</div>
+                <div class="col mt-4">
+                    <div class="card shadow col mx-3">
+                        <h4 class="card-header text-center bg-white">
+                            Recent
+                        </h4>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush" id="recent"></ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col mt-4">
+                    <div class="card shadow col mx-3">
+                        <h4 class="card-header text-center bg-white">
+                            Popular
+                        </h4>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush" id="popular"></ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col mt-4">
+                    <div class="card shadow col mx-3">
+                        <h4 class="card-header text-center bg-white">
+                            Largest
+                        </h4>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush" id="largest"></ul>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </statistic>
 
-    <footer class="footer mt-auto py-3 bg-light">
+    <footer class="footer mt-auto py-3">
         <div class="container">
             <p class="text-muted fs-6 fw-light">Ivan Azoyan 2022</p>
             <p class="text-muted fs-6 fw-light">azoyan89@yahoo.com</p>
         </div>
     </footer>
 </body>
-    <script src="/static/index.js"></script>
-    <script src="/static/later.js"></script>
-    <script src="/static/api.js"></script>
+<script src="/static/index.js"></script>
+<script src="/static/later.js"></script>
+<script src="/static/api.js"></script>
+
 </html>
