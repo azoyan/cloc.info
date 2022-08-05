@@ -206,7 +206,7 @@ impl GithubProvider {
                                 "Repository {repository_name} is not cached in disk storage"
                             );
                             let temp_dir =
-                                Arc::new(TempDir::new_in(".").context(CreateTempDirSnafu)?);
+                                Arc::new(TempDir::new_in("cloc_repo").context(CreateTempDirSnafu)?);
                             let repository_path = temp_dir.path().to_str().unwrap();
                             let result = self
                                 .cloner
@@ -286,7 +286,7 @@ impl GithubProvider {
                 tracing::warn!("Repository {url} doesn't exist in database and storage cache");
                 assert!(self.storage_cache.read().await.get(url).is_none());
 
-                let temp_dir = Arc::new(TempDir::new_in(".").context(CreateTempDirSnafu)?);
+                let temp_dir = Arc::new(TempDir::new_in("cloc_repo").context(CreateTempDirSnafu)?);
                 let repository_path = temp_dir.path().to_str().unwrap();
                 // клонируем репозиторий
                 

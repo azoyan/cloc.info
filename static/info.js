@@ -100,7 +100,7 @@ async function preparePage(url) {
 function showError(status, message) {
     console.error(message)
     document.getElementById("alert_block").classList.toggle('show')
-    document.getElementById("alert_message").innerText = message ? message: ""
+    document.getElementById("alert_message").innerText = message ? message : ""
     document.getElementById("error_status").innerText = status ? status : ""
     document.getElementById("repository").hidden = true
     document.getElementById("processing").hidden = true
@@ -111,13 +111,24 @@ async function start(_e) {
     try {
         ok = await preparePage(new URL(document.URL))
 
-        if (!ok) { return; } 
+        if (!ok) { return; }
         let ws_json = await fetch_ws();
         let cloc_promise = fetch_cloc();
         console.log(ws_json)
-        let url = "ws://" + document.location.host + "/ws/" + ws_json.id + document.location.pathname
+        let url = document.location.host + "/ws/" + ws_json.id + document.location.pathname
+        let websocket = function () {
+            if (document.location.protocol === "https:") {
+                let ws = new WebSocket("wss://" + url);
+                let connected = false;
+                ws.onopen = function (event) {
+                    connected = true
+                };
+                ws.send("test")
+                return connected ? ws : new WebSocket("ws://" + url)
+            }
+            else { return new WebSocket("ws://" + url) }
+        }()
         console.log("websocket:", url);
-        let websocket = new WebSocket(url);
         console.log(websocket)
         // websocket.addEventListener('error', function (event) {
         //     console.log('WebSocket error: ', event);
@@ -125,7 +136,7 @@ async function start(_e) {
         // });
         startStreaming(websocket)
         let cloc = await cloc_promise;
-        console.log("cloc" ,cloc)
+        console.log("cloc", cloc)
         if (cloc.length > 0) {
             stopStreaming(websocket)
             createTableFromResponse(cloc);

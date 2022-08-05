@@ -19,7 +19,7 @@ use retainer::Cache;
 use serde_json::{json, Value};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
-use tokio_postgres::{NoTls, Row};
+use tokio_postgres::NoTls;
 use tower::{BoxError, ServiceBuilder};
 use tower_http::{
     compression::CompressionLayer, cors::CorsLayer, services::ServeFile, trace::TraceLayer,
@@ -184,10 +184,7 @@ async fn popular(
     let pool = connection_pool.get().await.unwrap();
 
     let result = pool
-        .query(
-            "select * from popular_repositories limit $1",
-            &[&limit],
-        )
+        .query("select * from popular_repositories limit $1", &[&limit])
         .await;
 
     match result {
