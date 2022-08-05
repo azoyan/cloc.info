@@ -18,7 +18,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx" crossorigin="anonymous">
 
-
     <!-- JavaScript Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-A3rJD856KowSb7dwlZdYEkO39Gagi7vIsF0jrRAoQmDKKtQBHUuLZ9AsSv4jD4Xa"
@@ -28,7 +27,7 @@
     <title>Count Lines of Code Online - cloc.info</title>
 </head>
 
-<body class="d-flex flex-column min-vh-100">
+<body class="flex-column">
     <header>
         <!-- Fixed navbar -->
         <nav class="navbar navbar-expand-md bg-dark navbar-dark fixed-top">
@@ -56,57 +55,57 @@
         </nav>
     </header>
 
-    <main class="flex-fill">
-        <div class="container mt-3">
-            <div class="container py-4 px-2">
-                <div class="collapse" id="alert_block">
-                    <div class="alert alert-danger" role="alert">
-                        <h1 class="alert-heading" id="error_status"></h1>
-                        <p class="mb-4 font-monospace" id="alert_message"></p>
-                    </div>
-                </div>
 
-                <div id="repository" class="table-responsive">
-                    <table class="table d-inline-flex">
-                        <tbody>
-                            <tr class="align-items-center">
-                                <th scope="row">URL:</th>
-                                <td>
-                                    <div class="row float-start">
-                                        <div class="col col-sm-auto text-truncate float-start">
-                                            <a target="_blank" rel="noopener noreferrer canonical" id="url"></a>
-                                        </div>
-                                        <div class="col ms-5 col-sm-auto" id="url_pic"></div>
+    <div class="container mt-3 mb-5">
+        <div class="container py-3 px-2">
+            <div class="collapse" id="alert_block">
+                <div class="alert alert-danger" role="alert">
+                    <h1 class="alert-heading" id="error_status"></h1>
+                    <p class="mb-4 font-monospace" id="alert_message"></p>
+                </div>
+            </div>
+
+            <div id="repository" class="table-responsive">
+                <table class="table d-inline-flex">
+                    <tbody>
+                        <tr class="align-items-center">
+                            <th scope="row">URL:</th>
+                            <td>
+                                <div class="row float-start">
+                                    <div class="col col-sm-auto text-truncate float-start">
+                                        <a target="_blank" rel="noopener noreferrer canonical" id="url"></a>
                                     </div>
-                                </td>
-                                <td>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Branch:</th>
-                                <td>
-                                    <div class="col font-monospace fs-6 fw-lighter" id="branch">
-                                        <div class="spinner-grow spinner-grow-sm" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
+                                    <div class="col ms-5 col-sm-auto" id="url_pic"></div>
+                                </div>
+                            </td>
+                            <td>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Branch:</th>
+                            <td>
+                                <div class="col font-monospace fs-6 fw-lighter" id="branch">
+                                    <div class="spinner-grow spinner-grow-sm" role="status">
+                                        <span class="visually-hidden">Loading...</span>
                                     </div>
-                                </td>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Commit:</th>
-                                <td>
-                                    <div class="col font-monospace text-truncate float-start fs-6 fw-light" id="commit">
-                                        <div class="spinner-grow spinner-grow-sm role=" status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
+                                </div>
+                            </td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Commit:</th>
+                            <td>
+                                <div class="col font-monospace text-truncate float-start fs-6 fw-light" id="commit">
+                                    <div class="spinner-grow spinner-grow-sm role=" status">
+                                        <span class="visually-hidden">Loading...</span>
                                     </div>
-                                </td>
-                                <td></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <!--
+                                </div>
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <!--
                     <div class="row align-items-center">
                         <div class="col col-sm-auto"><strong>URL:</strong></div>
                         <div class="col col-sm-auto text-truncate float-start">
@@ -131,75 +130,72 @@
                         </div>
                     </div>
                 -->
-                </div>
             </div>
-            <div class="container">
-                <div class="accordion shadow mt-4 font-monospace" id="processing">
-                    <div class="accordion-item">
+        </div>
+        <div class="container">
+            <div class="accordion shadow mt-4 font-monospace" id="processing">
+                <div class="accordion-item">
 
-                        <h2 class="accordion-header" id="headingOne">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-                                <strong id="hint">Processing</strong>
-                                <div class="dots">...</div>
-                            </button>
-                        </h2>
+                    <h2 class="accordion-header" id="headingOne">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                            <strong id="hint">Processing</strong>
+                            <div class="dots">...</div>
+                        </button>
+                    </h2>
 
 
-                        <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne"
-                            data-bs-parent="#processing">
+                    <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne"
+                        data-bs-parent="#processing">
 
-                            <div class="accordion-body text-muted" id="status">
-                                <div class="card-text p-0"><strong id="clone"></strong></div>
-                                <div class="card-text p-0" id="cloning"></div>
-                                <div class="card-text p-0" id="enumerating"></div>
-                                <div class="card-text p-0" id="counting"></div>
-                                <div class="card-text p-0" id="compressing"></div>
-                                <div class="card-text p-0" id="total"></div>
-                                <div class="card-text p-0" id="receiving"></div>
-                                <div class="card-text p-0" id="resolving"></div>
-                                <div class="card-text p-0" id="updating"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="progress shadow" style="height: 12px; border-radius: 0%;">
-                        <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment one" style="width: 0%;"
-                            aria-valuenow="10" aria-valuemin="0" aria-valuemax="100" id="pg_cloning">
-                        </div>
-                        <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment two" style="width: 0%"
-                            aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_enumerating">
-                        </div>
-                        <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three"
-                            style="width: 0%" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_counting">
-                        </div>
-                        <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment one" style="width: 0%;"
-                            aria-valuenow="10" aria-valuemin="0" aria-valuemax="100" id="pg_compressing">
-                        </div>
-                        <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment two" style="width: 0%"
-                            aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_receiving">
-                        </div>
-                        <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three"
-                            style="width: 0%" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100"
-                            id="pg_resolving">
-                        </div>
-                        <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three"
-                            style="width: 0%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
-                            id="pg_updating">
+                        <div class="accordion-body text-muted" id="status">
+                            <div class="card-text p-0"><strong id="clone"></strong></div>
+                            <div class="card-text p-0" id="cloning"></div>
+                            <div class="card-text p-0" id="enumerating"></div>
+                            <div class="card-text p-0" id="counting"></div>
+                            <div class="card-text p-0" id="compressing"></div>
+                            <div class="card-text p-0" id="total"></div>
+                            <div class="card-text p-0" id="receiving"></div>
+                            <div class="card-text p-0" id="resolving"></div>
+                            <div class="card-text p-0" id="updating"></div>
                         </div>
                     </div>
                 </div>
+                <div class="progress shadow" style="height: 12px; border-radius: 0%;">
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment one" style="width: 0%;"
+                        aria-valuenow="10" aria-valuemin="0" aria-valuemax="100" id="pg_cloning">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment two" style="width: 0%"
+                        aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_enumerating">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three" style="width: 0%"
+                        aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_counting">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment one" style="width: 0%;"
+                        aria-valuenow="10" aria-valuemin="0" aria-valuemax="100" id="pg_compressing">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment two" style="width: 0%"
+                        aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_receiving">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three" style="width: 0%"
+                        aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_resolving">
+                    </div>
+                    <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three" style="width: 0%"
+                        aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" id="pg_updating">
+                    </div>
+                </div>
             </div>
-
-            <div class="table-responsive card shadow mt-4 pt-3 pb-2 px-4" id="t" hidden></div>
-            <div id="cocomo" class="card mt-5 px-0 shadow" hidden></div>
         </div>
-        </div>
-    </main>
 
-    <!-- <div class="card-footer  d-flex text-muted mt-auto py-3 bg-light"> -->
-    <footer class="footer mt-auto py-3 bg-light">
-        <div class="container-fluid">
-            <span class="text-muted">Place sticky footer content here.</span>
+        <div class="table-responsive card shadow mt-4 pt-3 pb-2 px-4" id="t" hidden></div>
+        <div id="cocomo" class="card mt-5 px-0 shadow" hidden></div>
+    </div>
+
+
+    <footer class="footer mt-auto py-3">
+        <div class="container">
+            <p class="text-muted fs-6 fw-light">Ivan Azoyan 2022</p>
+            <p class="text-muted fs-6 fw-light">azoyan89@yahoo.com</p>
         </div>
     </footer>
 </body>
