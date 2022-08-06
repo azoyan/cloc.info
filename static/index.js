@@ -77,7 +77,7 @@ let branches;
 
 function check(url_str) {
     let url;
-    hint.style.display = 'none'
+    hint.style.display = 'invisibles'
 
     if (!url_str.match(/^[a-zA-Z]+:\/\//)) { url_str = 'https://' + url_str; }
     console.log(url_str);
@@ -159,14 +159,15 @@ function createSelect(all_branches, id) {
         let branchName = branches[i].name
         if (branchName === defaultBranch) {
             select += createSelectOption(branchName, true)
-            document.getElementById("commit").innerText = "Last commit: " + branches[i].commit.sha
+            document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate">' + branches[i].commit.sha
         }
         else {
             select += createSelectOption(branchName)
         }
     }
     if (input.value.includes("https://github.com")) {
-        document.getElementById("github_picture").hidden = false
+        document.getElementById("github_picture").classList.add("visible")
+        document.getElementById("github_picture").classList.remove("invisible")
     }
     else if (input.value.includes("https://gitlab.com")) {
         document.getElementById("gitlab_picture").hidden = false
