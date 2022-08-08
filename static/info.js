@@ -99,6 +99,7 @@ async function preparePage(url) {
 
 function showError(status, message) {
     console.error(message)
+    console.trace()
     document.getElementById("alert_block").classList.toggle('show')
     document.getElementById("alert_message").innerText = message ? message : ""
     document.getElementById("error_status").innerText = status ? status : ""
@@ -108,47 +109,44 @@ function showError(status, message) {
 
 async function start(_e) {
     let ok = false
-    try {
-        ok = await preparePage(new URL(document.URL))
+    //    try {
+    ok = await preparePage(new URL(document.URL))
 
-        if (!ok) { return; }
-        let ws_json = await fetch_ws();
-        let cloc_promise = fetch_cloc();
-        console.log(ws_json)
-        let url = document.location.host + "/ws/" + ws_json.id + document.location.pathname
-        let websocket = function () {
-            if (document.location.protocol === "https:") {
-                let ws = new WebSocket("wss://" + url);
-                let connected = false;
-                ws.onopen = function (event) {
-                    connected = true
-                };
-                ws.send("test")
-                return connected ? ws : new WebSocket("ws://" + url)
-            }
-            else { return new WebSocket("ws://" + url) }
-        }()
-        console.log("websocket:", url);
-        console.log(websocket)
-        // websocket.addEventListener('error', function (event) {
-        //     console.log('WebSocket error: ', event);
-        //     stopStreaming(websocket);
-        // });
-        startStreaming(websocket)
-        let cloc = await cloc_promise;
-        console.log("cloc", cloc)
-        if (cloc.length > 0) {
-            stopStreaming(websocket)
-            createTableFromResponse(cloc);
-        }
+    if (!ok) { return; }
+    let ws_json = await fetch_ws();
+    let cloc_promise = fetch_cloc();
+    console.log(ws_json)
+    let url = document.location.host + "/ws/" + ws_json.id + document.location.pathname
+    let websocket;
+    console.log("protocol", document.location.protocol)
+    if (document.location.protocol === "https:") {
+        websocket = new WebSocket("wss://" + url)
     }
-    catch (err) {
-        if (err instanceof FetchError || err instanceof PrepareError) {
-            showError(err.status, err.message)
-        } else {
-            showError(err)
-        }
+    else {
+        websocket = new WebSocket("ws://" + url)
     }
+
+    console.log("websocket:", url);
+    console.log(websocket)
+    // websocket.addEventListener('error', function (event) {
+    //     console.log('WebSocket error: ', event);
+    //     stopStreaming(websocket);
+    // });
+    startStreaming(websocket)
+    // let cloc = await cloc_promise;
+    // console.log("cloc", cloc)
+    // if (cloc.length > 0) {
+    // stopStreaming(websocket)
+    // createTableFromResponse(cloc);
+    // }
+    //    }
+    //    catch (err) {
+    //        if (err instanceof FetchError || err instanceof PrepareError) {
+    //            showError(err.status, err.message)
+    //        } else {
+    //            showError(err)
+    //        }
+    //    }
 }
 
 document.onload = start
@@ -184,6 +182,14 @@ function startStreaming(ws) {
         for (let i = 0; i < lines.length; ++i) {
             let payload = lines[i];
             console.log("payload line:", payload)
+            if (payload.includes("Done")) {
+                fetch_cloc().then((cloc) => {
+                    if (cloc.length > 0) {
+                        stopStreaming(ws)
+                        createTableFromResponse(cloc);
+                    }
+                })
+            }
             document.getElementById("hint").innerHTML = "Downloading repository into server"
             if (payload.includes("Cloning")) {
                 document.getElementById("clone").innerText = "git clone https:/" + document.location.pathname

@@ -9,7 +9,7 @@ use crate::{
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
-use hyper::{client::connect, Body, Request};
+use hyper::{Body, Request};
 use hyper_openssl::HttpsConnector;
 use retainer::Cache;
 use scopeguard::defer;

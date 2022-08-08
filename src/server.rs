@@ -1,4 +1,4 @@
-use crate::{github, providers::github_provider::GithubProvider, repository, MB};
+use crate::{github, providers::github_provider::GithubProvider};
 use axum::{
     error_handling::HandleErrorLayer,
     extract::Path,
@@ -16,7 +16,7 @@ use chrono::{DateTime, Utc};
 use hyper::{header::CONTENT_TYPE, Body, Method, Request, StatusCode, Uri};
 use mime_guess::mime::APPLICATION_JSON;
 use retainer::Cache;
-use serde_json::{json, Value};
+use serde_json::json;
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
@@ -223,7 +223,7 @@ async fn handle_error(method: Method, uri: Uri, err: std::io::Error) -> String {
     format!("{} {} failed with {}", method, uri, err)
 }
 
-pub async fn not_found(uri: axum::http::Uri) -> Response<Body> {
+pub async fn not_found(_uri: axum::http::Uri) -> Response<Body> {
     let file = std::fs::File::open("static/404.html").unwrap();
     let mut reader = std::io::BufReader::new(file);
 
