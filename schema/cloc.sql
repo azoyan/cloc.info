@@ -88,7 +88,7 @@ ALTER TABLE public.statistic OWNER TO postgres;
 
 CREATE VIEW public.recently_branches_view AS
  SELECT statistic.branch_id,
-    (array_agg(statistic."time" ORDER BY statistic."time" DESC))[1] AS time
+    (array_agg(statistic."time" ORDER BY statistic."time" DESC))[1] AS min_time
    FROM public.statistic
   GROUP BY statistic.branch_id;
 
@@ -143,7 +143,7 @@ CREATE VIEW public.all_view AS
     repositories_view.last_commit_sha,
     repositories_view.size,
     recently_branches_view.branch_id,
-    recently_branches_view.time AS "time"
+    recently_branches_view.min_time AS "time"
    FROM (public.repositories_view
      JOIN public.recently_branches_view ON ((repositories_view.id = recently_branches_view.branch_id)));
 
@@ -220,7 +220,7 @@ CREATE VIEW public.popular_repositories AS
     repositories_view.last_commit_sha,
     repositories_view.size
    FROM (public.popular_branches
-     JOIN public.repositories_view ON ((repositories_view.id = popular_branches.branch_id)));
+     JOIN public.repositories_view ON ((repositories_view.id = popular_branches.branch_id))) order by count desc;
 
 
 ALTER TABLE public.popular_repositories OWNER TO postgres;
