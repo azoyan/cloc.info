@@ -167,6 +167,7 @@ async fn handle_request(
                 update_statistic(provider, branch_id, user_agent).await;
                 Ok(response)
             } else {
+                // ws
                 let start = std::time::SystemTime::now();
                 let since_the_epoch = start
                     .duration_since(std::time::UNIX_EPOCH)
@@ -175,6 +176,11 @@ async fn handle_request(
                     .to_string();
 
                 let json = json!({ "id": since_the_epoch }).to_string();
+
+                let (response, branch_id) =
+                    raw_content(provider.clone(), owner, repository_name, branch).await?;
+                tracing::info!("Response is ready, branch_id = {}", branch_id);
+                update_statistic(provider, branch_id, user_agent).await;
 
                 Response::builder()
                     .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())

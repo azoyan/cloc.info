@@ -114,7 +114,7 @@ async function start(_e) {
 
     if (!ok) { return; }
     let ws_json = await fetch_ws();
-    let cloc_promise = fetch_cloc();
+    // let cloc_promise = fetch_cloc();
     console.log(ws_json)
     let url = document.location.host + "/ws/" + ws_json.id + document.location.pathname
     let websocket;

@@ -42,6 +42,12 @@ function reset() {
     document.getElementById("input").classList.remove("is-invalid");
     hint.style.removeProperty('display');
     document.getElementById("select").innerHTML = ''
+    document.getElementById("repoInfo").classList.add("invisible")
+    document.getElementById("github_picture").classList.remove("visible");
+    document.getElementById("github_picture").classList.add("invisible")
+
+    document.getElementById("hint").classList.remove("invisible")
+    document.getElementById("hint").classList.add("visible")
 
     submitButton.classList.add("disabled");
     submitButton.classList.add('btn-outline-success');
@@ -77,11 +83,11 @@ let branches;
 
 function check(url_str) {
     let url;
-    hint.style.display = 'invisibles'
+    hint.style.display = 'invisible'
 
     if (!url_str.match(/^[a-zA-Z]+:\/\//)) { url_str = 'https://' + url_str; }
     console.log(url_str);
-    
+
     try {
         url = new URL(url_str);
     }
@@ -91,13 +97,13 @@ function check(url_str) {
         document.getElementById("input").classList.add("is-invalid");
         return
     }
-    
+
     document.getElementById("buttonText").innerText = "Check"
     let checkSpinner = document.getElementById("checkSpinner");
     checkSpinner.hidden = false;
 
     let submitButton = document.getElementById("submitButton");
-    
+
 
     let api_url = document.URL + "api/" + url.hostname + url.pathname + "/branches";
     console.log("api_url", api_url)
@@ -128,6 +134,7 @@ function check(url_str) {
             document.getElementById("invalidFeedback").classList.add("invisible");
             document.getElementById("repoInfo").classList.remove("invisible");
             document.getElementById("buttonText").innerText = "Submit"
+            document.getElementById("hint").classList.add("invisible")
             checkSpinner.hidden = true;
         })
         .catch(function (error) {
@@ -159,19 +166,27 @@ function createSelect(all_branches, id) {
         let branchName = branches[i].name
         if (branchName === defaultBranch) {
             select += createSelectOption(branchName, true)
-            document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate">' + branches[i].commit.sha
+            document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Last commit">' + branches[i].commit.sha
+
         }
         else {
             select += createSelectOption(branchName)
         }
     }
     if (input.value.includes("https://github.com")) {
-        document.getElementById("github_picture").classList.add("visible")
-        document.getElementById("github_picture").classList.remove("invisible")
+        let github_pic = document.getElementById("github_picture")
+        github_pic.classList.add("visible")
+        github_pic.classList.remove("invisible")
+        github_pic.setAttribute("data-bs-toggle", "tooltip")
+        github_pic.setAttribute("data-bs-title", "Go to repository " + input.value)
+        github_pic.setAttribute("data-bs-placement", "top")
+        github_pic.setAttribute("href", input.value)
     }
     else if (input.value.includes("https://gitlab.com")) {
         document.getElementById("gitlab_picture").hidden = false
     }
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
     select += '</select>'
     return select;
 }

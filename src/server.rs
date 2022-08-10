@@ -1,4 +1,4 @@
-use crate::{github, providers::github_provider::GithubProvider};
+use crate::{github_service, providers::github_provider::GithubProvider};
 use axum::{
     error_handling::HandleErrorLayer,
     extract::Path,
@@ -63,10 +63,10 @@ pub fn create_server(
         .nest("/ws", websocket_service)
         .nest(
             "/api/github.com",
-            github::create_api_router(gh_provider.clone()),
+            github_service::create_api_router(gh_provider.clone()),
         )
         .nest("/api", statistic_router)
-        .nest("/github.com", github::create_router(gh_provider))
+        .nest("/github.com", github_service::create_router(gh_provider))
         .merge(spa)
         .fallback(not_found.into_service())
         .layer(

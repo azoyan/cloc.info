@@ -2,7 +2,7 @@
 #![feature(async_closure)]
 
 pub mod cloner;
-pub mod github;
+pub mod github_service;
 pub mod providers;
 pub mod repository;
 pub mod server;
