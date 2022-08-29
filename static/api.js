@@ -1,6 +1,6 @@
 function start() {
-    fetchPopular()
     fetchRecent()
+    fetchPopular()
     fetchLargest()
 }
 

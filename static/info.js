@@ -109,44 +109,44 @@ function showError(status, message) {
 
 async function start(_e) {
     let ok = false
-    //    try {
-    ok = await preparePage(new URL(document.URL))
+    // try {
+        ok = await preparePage(new URL(document.URL))
 
-    if (!ok) { return; }
-    let ws_json = await fetch_ws();
-    // let cloc_promise = fetch_cloc();
-    console.log(ws_json)
-    let url = document.location.host + "/ws/" + ws_json.id + document.location.pathname
-    let websocket;
-    console.log("protocol", document.location.protocol)
-    if (document.location.protocol === "https:") {
-        websocket = new WebSocket("wss://" + url)
-    }
-    else {
-        websocket = new WebSocket("ws://" + url)
-    }
+        if (!ok) { return; }
+        let ws_json = await fetch_ws();
+        let cloc_promise = fetch_cloc();
+        console.log(ws_json)
+        let url = document.location.host + "/ws/" + ws_json.id + document.location.pathname
+        let websocket;
+        console.log("protocol", document.location.protocol)
+        if (document.location.protocol === "https:") {
+            websocket = new WebSocket("wss://" + url)
+        }
+        else {
+            websocket = new WebSocket("ws://" + url)
+        }
 
-    console.log("websocket:", url);
-    console.log(websocket)
-    // websocket.addEventListener('error', function (event) {
-    //     console.log('WebSocket error: ', event);
-    //     stopStreaming(websocket);
-    // });
-    startStreaming(websocket)
-    // let cloc = await cloc_promise;
-    // console.log("cloc", cloc)
-    // if (cloc.length > 0) {
-    // stopStreaming(websocket)
-    // createTableFromResponse(cloc);
+        console.log("websocket:", url);
+        console.log(websocket)
+        // websocket.addEventListener('error', function (event) {
+        //     console.log('WebSocket error: ', event);
+        //     stopStreaming(websocket);
+        // });
+        startStreaming(websocket)
+        let cloc = await cloc_promise;
+        // console.log("cloc", cloc)
+        if (cloc.length > 0) {
+            stopStreaming(websocket)
+            createTableFromResponse(cloc);
+        }
     // }
-    //    }
-    //    catch (err) {
-    //        if (err instanceof FetchError || err instanceof PrepareError) {
-    //            showError(err.status, err.message)
-    //        } else {
-    //            showError(err)
-    //        }
-    //    }
+    // catch (err) {
+    //     if (err instanceof FetchError || err instanceof PrepareError) {
+    //         showError(err.status, err.message)
+    //     } else {
+    //         showError(err)
+    //     }
+    // }
 }
 
 document.onload = start
@@ -158,7 +158,7 @@ async function stopStreaming(ws) {
 function startStreaming(ws) {
     let send_ping = function () {
         if (ws.readyState === WebSocket.OPEN) {
-            console.log("ping ws")
+            // console.log("ping ws")
             ws.send("ping")
         }
     }
@@ -181,7 +181,7 @@ function startStreaming(ws) {
         let lines = p.split(/\r?\n/)
         for (let i = 0; i < lines.length; ++i) {
             let payload = lines[i];
-            console.log("payload line:", payload)
+            // console.log("payload line:", payload)
             if (payload.includes("Done")) {
                 fetch_cloc().then((cloc) => {
                     if (cloc.length > 0) {

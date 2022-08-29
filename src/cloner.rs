@@ -131,7 +131,7 @@ impl Cloner {
         repository_path: &str,
     ) -> State {
         let mut command = Command::new("git");
-        // tracing::info!("clone {} to {}", url, repository_path);
+        tracing::info!("clone --branch {branch_name} --depth 1 {} {}", url, repository_path);
 
         command.args(&[
             "clone",

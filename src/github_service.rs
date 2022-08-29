@@ -13,7 +13,6 @@ use hyper::{
     header::{self, CONTENT_TYPE, USER_AGENT},
     Body, Request, StatusCode,
 };
-
 use mime_guess::mime::{APPLICATION_JSON, TEXT_PLAIN};
 use serde_json::json;
 use snafu::{ResultExt, Snafu};
@@ -120,6 +119,10 @@ async fn handler_with_branch(
     handle_request(&owner, &repository_name, Some(branch), provider, request).await
 }
 
+// Cloudflare ограничения на выполнение запроса 100 секунд
+// Запросить ресурс, если доступен выдать ответ
+// если не доступен выдать WS
+
 async fn handle_request(
     owner: &str,
     repository_name: &str,
@@ -177,11 +180,6 @@ async fn handle_request(
 
                 let json = json!({ "id": since_the_epoch }).to_string();
 
-                let (response, branch_id) =
-                    raw_content(provider.clone(), owner, repository_name, branch).await?;
-                tracing::info!("Response is ready, branch_id = {}", branch_id);
-                update_statistic(provider, branch_id, user_agent).await;
-
                 Response::builder()
                     .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
                     .body(Body::from(json))
@@ -212,6 +210,40 @@ async fn update_statistic(
             tracing::info!("Insert to statistic. Row modified {row_modified}")
         }
         Err(error) => tracing::error!("Insert statistic error: {}", error.to_string()),
+    }
+}
+
+async fn all_branches_lookup_git(
+    Path((owner, repository_name)): Path<(String, String)>,
+    Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
+    _request: Request<Body>,
+) -> Result<Response<Body>, Error> {
+    let provider_guard = provider.read().await;
+
+    let branches_info = provider_guard
+        .remote_branches(&owner, &repository_name)
+        .await
+        .with_context(|_e| GithubProviderSnafu)?;
+
+    let default_branch = provider_guard
+        .default_branch_remote(&owner, &repository_name)
+        .await
+        .with_context(|_e| GithubProviderSnafu)?;
+
+    let all = AllBranchesInfo {
+        default_branch,
+        branches: branches_info,
+    };
+    match serde_json::to_string(&all) {
+        Ok(branches) => Response::builder()
+            .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
+            .body(Body::from(branches))
+            .context(ResponseSnafu),
+        Err(e) => Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
+            .body(Body::from(e.to_string()))
+            .context(ResponseSnafu),
     }
 }
 

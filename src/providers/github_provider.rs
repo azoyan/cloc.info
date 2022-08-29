@@ -207,18 +207,19 @@ impl GithubProvider {
                             );
                             let temp_dir =
                                 Arc::new(TempDir::new_in("cloc_repo").context(CreateTempDirSnafu)?);
-                            let repository_path = temp_dir.path().to_str().unwrap();
+                            let repository_path = temp_dir.path();
+                            let repository_path_str=  repository_path.to_str().unwrap();
                             let result = self
                                 .cloner
-                                .clone_repository(url, branch, temp_dir.path().to_str().unwrap())
+                                .clone_repository(url, branch, repository_path_str)
                                 .await;
-                            last_commit_local = utils::last_commit_local(url, repository_path)
+                            last_commit_local = utils::last_commit_local(url, repository_path_str)
                                 .with_context(|_e| LastCommitSnafu)?;
                             (result, temp_dir)
                         }
                     };
 
-                    tracing::info!("Repository {repository_name} cloned state: {:?}", result);
+                    tracing::info!("Repository {repository_name} cloned state: {:?} Path: {:?}", result, temp_dir.path());
                     let repository_path = temp_dir.path().to_str().unwrap();
                     let repository_size =
                         i64::try_from(fs_extra::dir::get_size(temp_dir.path()).unwrap()).unwrap();
@@ -287,22 +288,26 @@ impl GithubProvider {
                 assert!(self.storage_cache.read().await.get(url).is_none());
 
                 let temp_dir = Arc::new(TempDir::new_in("cloc_repo").context(CreateTempDirSnafu)?);
-                let repository_path = temp_dir.path().to_str().unwrap();
+                let repository_path = temp_dir.path();
+                let repository_path_str = repository_path.to_str().unwrap();
                 // клонируем репозиторий
                 
-                let _state = self
+                let state = self
                 .cloner
-                    .clone_repository(url, branch, repository_path)
+                    .clone_repository(url, branch, repository_path_str)
                     .await;
 
-                tracing::info!("Cloning {url} done");
+                tracing::info!("Cloning {url} state {state:?}. Path: {:?}", repository_path);
+
+                std::thread::sleep(std::time::Duration::from_secs(5));
                 
+
                 let repository_size =
-                    i64::try_from(fs_extra::dir::get_size(temp_dir.path()).unwrap()).unwrap();
+                    i64::try_from(fs_extra::dir::get_size(repository_path).unwrap()).unwrap();
                 
-                last_commit_local = utils::last_commit_local(url, repository_path)
+                last_commit_local = utils::last_commit_local(url, repository_path_str)
                     .with_context(|_e| LastCommitSnafu)?;
-                let scc_output = count_line_of_code(repository_path, "")
+                let scc_output = count_line_of_code(repository_path_str, "")
                     .await
                     .context(SccSnafu)?;
 
