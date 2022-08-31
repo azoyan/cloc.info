@@ -1,6 +1,6 @@
 use crate::{
     providers::github_provider::{self, GithubProvider},
-    repository::{info::AllBranchesInfo, utils},
+    repository::utils,
     DbId,
 };
 use axum::{
@@ -21,9 +21,11 @@ use tokio::sync::RwLock;
 
 pub fn create_api_router(provider: Arc<RwLock<GithubProvider>>) -> Router<Body> {
     Router::new()
-        .route("/:onwer/:repo", get(default_branch_info))
-        .route("/:onwer/:repo/tree/*branch", get(branch_commit_info))
-        .route("/:onwer/:repo/branches", get(all_branches_lookup))
+        .route("/:owner/:repo", get(default_branch_info))
+        .route("/:owner/:repo/tree/*branch", get(branch_commit_info))
+        .route("/:owner/:repo/-/tree/*branch", get(branch_commit_info))
+        .route("/:owner/:repo/src/*branch", get(branch_commit_info))
+        .route("/:owner/:repo/branches", get(all_branches_lookup))
         .layer(Extension(provider))
 }
 
@@ -52,14 +54,16 @@ fn static_page() -> Result<Response<Body>, Error> {
 
 async fn raw_content(
     provider: Arc<RwLock<GithubProvider>>,
+    host: &str,
     owner: &str,
     repository_name: &str,
     branch: Option<&str>,
+    user_agent: &str,
 ) -> Result<(Response<Body>, DbId), Error> {
     let result = {
         let provider_guard = provider.read().await;
         provider_guard
-            .get_with_branch(owner, repository_name, branch)
+            .get_with_branch(host, owner, repository_name, branch, user_agent)
             .await
     };
 
@@ -100,23 +104,31 @@ async fn raw_content(
 }
 
 async fn default_handler(
-    Path((owner, repository_name)): Path<(String, String)>,
+    Path((host, owner, repository_name)): Path<(String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
-    tracing::debug!("Default Handler {:?}", request);
-    handle_request(&owner, &repository_name, None, provider, request).await
+    tracing::debug!("Default Handler {:?}, host: {host}", request);
+    handle_request(&host, &owner, &repository_name, None, provider, request).await
 }
 
 async fn handler_with_branch(
-    Path((owner, repository_name, branch_name)): Path<(String, String, String)>,
+    Path((host, owner, repository_name, branch_name)): Path<(String, String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
     tracing::debug!("Handler with branch {:?}", request);
 
     let branch = &branch_name[1..];
-    handle_request(&owner, &repository_name, Some(branch), provider, request).await
+    handle_request(
+        &host,
+        &owner,
+        &repository_name,
+        Some(branch),
+        provider,
+        request,
+    )
+    .await
 }
 
 // Cloudflare ограничения на выполнение запроса 100 секунд
@@ -124,6 +136,7 @@ async fn handler_with_branch(
 // если не доступен выдать WS
 
 async fn handle_request(
+    host: &str,
     owner: &str,
     repository_name: &str,
     branch: Option<&str>,
@@ -143,10 +156,12 @@ async fn handle_request(
         || user_agent.contains("curl")
     {
         tracing::info!("Terminal browser: {:?}", user_agent);
-        let (response, branch_id) = raw_content(provider.clone(), owner, repository_name, branch)
-            .await
-            .unwrap();
-        update_statistic(provider, branch_id, user_agent).await;
+        let (response, branch_id) =
+            raw_content(provider.clone(), host, owner, repository_name, branch, user_agent)
+                .await
+                .unwrap();
+        
+        
 
         return Ok(response);
     }
@@ -165,9 +180,8 @@ async fn handle_request(
 
             if value.contains("cloc") {
                 let (response, branch_id) =
-                    raw_content(provider.clone(), owner, repository_name, branch).await?;
+                    raw_content(provider.clone(), host, owner, repository_name, branch, user_agent).await?;
                 tracing::info!("Response is ready, branch_id = {}", branch_id);
-                update_statistic(provider, branch_id, user_agent).await;
                 Ok(response)
             } else {
                 // ws
@@ -190,85 +204,20 @@ async fn handle_request(
     }
 }
 
-async fn update_statistic(
-    provider: Arc<RwLock<GithubProvider>>,
-    branch_id: DbId,
-    user_agent: &str,
-) {
-    let provider_guard = provider.read().await;
-    let connection = provider_guard.connection_pool.get().await.unwrap();
-    let query = "INSERT INTO statistic VALUES(DEFAULT, $1, $2, NOW());";
-    let r = connection
-        .execute(query, &[&user_agent, &branch_id])
-        .await
-        .with_context(|_e| SqlQuerySnafu {
-            query: query.to_string(),
-        });
-
-    match r {
-        Ok(row_modified) => {
-            tracing::info!("Insert to statistic. Row modified {row_modified}")
-        }
-        Err(error) => tracing::error!("Insert statistic error: {}", error.to_string()),
-    }
-}
-
-async fn all_branches_lookup_git(
-    Path((owner, repository_name)): Path<(String, String)>,
-    Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
-    _request: Request<Body>,
-) -> Result<Response<Body>, Error> {
-    let provider_guard = provider.read().await;
-
-    let branches_info = provider_guard
-        .remote_branches(&owner, &repository_name)
-        .await
-        .with_context(|_e| GithubProviderSnafu)?;
-
-    let default_branch = provider_guard
-        .default_branch_remote(&owner, &repository_name)
-        .await
-        .with_context(|_e| GithubProviderSnafu)?;
-
-    let all = AllBranchesInfo {
-        default_branch,
-        branches: branches_info,
-    };
-    match serde_json::to_string(&all) {
-        Ok(branches) => Response::builder()
-            .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
-            .body(Body::from(branches))
-            .context(ResponseSnafu),
-        Err(e) => Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
-            .body(Body::from(e.to_string()))
-            .context(ResponseSnafu),
-    }
-}
-
 async fn all_branches_lookup(
-    Path((owner, repository_name)): Path<(String, String)>,
+    Path((host, owner, repository_name)): Path<(String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
+    tracing::warn!("all_branches_lookup() host: {host}");
     let provider_guard = provider.read().await;
 
     let branches_info = provider_guard
-        .remote_branches(&owner, &repository_name)
+        .remote_branches(&host, &owner, &repository_name)
         .await
         .with_context(|_e| GithubProviderSnafu)?;
 
-    let default_branch = provider_guard
-        .default_branch_remote(&owner, &repository_name)
-        .await
-        .with_context(|_e| GithubProviderSnafu)?;
-
-    let all = AllBranchesInfo {
-        default_branch,
-        branches: branches_info,
-    };
-    match serde_json::to_string(&all) {
+    match serde_json::to_string(&branches_info) {
         Ok(branches) => Response::builder()
             .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
             .body(Body::from(branches))
@@ -282,17 +231,19 @@ async fn all_branches_lookup(
 }
 
 async fn default_branch_info(
-    Path((owner, repository_name)): Path<(String, String)>,
+    Path((host, owner, repository_name)): Path<(String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
+    tracing::warn!("default_branch_info() host: {host}");
     let provider_guard = provider.read().await;
-    match provider_guard
-        .default_branch_remote(&owner, &repository_name)
-        .await
-    {
-        Ok(branch) => {
-            let json = json!({ "default_branch": branch });
+    let default_branch = provider_guard
+        .default_branch_remote(&host, &owner, &repository_name)
+        .await;
+
+    match default_branch {
+        Ok(default_branch) => {
+            let json = json!({ "default_branch": default_branch });
             Response::builder()
                 .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
                 .body(Body::from(json.to_string()))
@@ -307,14 +258,16 @@ async fn default_branch_info(
 }
 
 async fn branch_commit_info(
-    Path((owner, repository_name, branch)): Path<(String, String, String)>,
+    Path((host, owner, repository_name, branch)): Path<(String, String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
 ) -> Result<Response<Body>, Error> {
+    tracing::warn!("branch_commit_info() host: {host}");
     let provider_guard = provider.read().await;
-    match provider_guard
-        .last_commit_remote(&owner, &repository_name, &branch)
-        .await
-    {
+
+    let commit = provider_guard
+        .last_commit_remote(&host, &owner, &repository_name, &branch)
+        .await;
+    match commit {
         Ok(commit) => {
             let json = json!({ "commit": commit });
             Response::builder()
@@ -324,7 +277,7 @@ async fn branch_commit_info(
         }
         Err(e) => Response::builder()
             .status(StatusCode::NOT_FOUND)
-            .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
+            .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
             .body(Body::from(e.to_string()))
             .context(ResponseSnafu),
     }
@@ -353,12 +306,6 @@ pub enum Error {
     #[snafu(display("Error at github provider: {source}"))]
     GithubProviderError {
         source: crate::providers::github_provider::Error,
-    },
-
-    #[snafu(display("Error {source} at query {query}"))]
-    SqlQuery {
-        query: String,
-        source: tokio_postgres::Error,
     },
 }
 

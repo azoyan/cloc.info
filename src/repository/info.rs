@@ -31,15 +31,15 @@ pub struct RepositoryInfo {
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct BranchValue {
     pub name: String,
-    pub commit: Option<String>,
+    pub commit: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct Branches {
-    pub default_branch: Option<String>,
+    pub default_branch: String,
     pub branches: Vec<BranchValue>,
 }
 

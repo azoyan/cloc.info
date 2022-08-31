@@ -13,8 +13,7 @@ pub async fn handler_ws(
     Path((id, path)): Path<(String, String)>,
     Extension(cloner): Extension<Cloner>,
     // request: Request<Body>,
-) -> Response { 
-    
+) -> Response {
     ws.on_upgrade(move |socket| handle_socket(id, path, socket, cloner))
 }
 
@@ -41,7 +40,7 @@ async fn handle_socket(id: String, path: String, mut socket: WebSocket, cloner: 
                                 tracing::debug!("Connection {id}/{repository_name} closed")
                             }
                             Err(e) => {
-                                tracing::error!("Error at closing  {id}/{repository_name} connection: {}", e.to_string())
+                                tracing::warn!("{} {id}/{repository_name}", e.to_string())
                             }
                         }
                         return;
@@ -66,10 +65,7 @@ async fn handle_socket(id: String, path: String, mut socket: WebSocket, cloner: 
                     "Can't receive message {}. Connection {id}/{repository_name}' closed",
                     repository_name
                 ),
-                Err(e) => tracing::error!(
-                    "Error at closing {id}/{repository_name} connection: {}",
-                    e.to_string()
-                ),
+                Err(e) => tracing::warn!("{} {id}/{repository_name}", e.to_string()),
             }
             return;
         };

@@ -6,20 +6,22 @@ let hint_url = document.getElementById("hint_url");
 const submitButton = document.getElementById('submitButton');
 
 submitButton.onclick = function () {
-    let url = new URL(input.value)
+    let url = gitUrlParse(input.value)
     let selected = document.getElementById("select-child").value;
     console.log(selected)
     let path;
     if (selected === branches.default_branch) {
-        path = url.host + url.pathname + url.search + url.hash
+        path = window.location.protocol + window.location.host + url.host + url.pathname + url.search + url.hash
 
     }
     else {
         if (url.host === "github.com") {
-            path = url.host + url.pathname + url.search + url.hash + '/tree/' + selected
+            path = window.location.protocol + window.location.host + url.host + url.pathname + url.search + url.hash + '/tree/' + selected
         }
     }
-    window.location = path
+    path = path.replace(/([^:]\/)\/+/g, "$1");
+    console.log("path", path);
+    window.location.href = path
 }
 
 hint_url.onclick = function () {
@@ -82,16 +84,22 @@ function pasteValue(e) {
 let branches;
 
 function check(url_str) {
-    let url;
     hint.style.display = 'invisible'
 
-    if (!url_str.match(/^[a-zA-Z]+:\/\//)) { url_str = 'https://' + url_str; }
-    console.log(url_str);
-
-    try {
-        url = new URL(url_str);
+    let git_extension = url_str.slice(-4);
+    if (git_extension !== ".git") {
+        url_str += ".git"
     }
-    catch (error) {
+
+    let is_git_regex = /(?:git|ssh|https?|git@[-\w.]+):(\/\/)?(.*?)(\.git)(\/?|\#[-\d\w._]+?)$/;
+    // if (!url_str.match(is_git_regex)) { url_str = 'https://' + url_str; }
+    // console.log(url_str);
+    let parsed_url = gitUrlParse(url_str)
+    console.log("parsed:", parsed_url)
+    if (url_str.match(is_git_regex)) {
+        console.log("valid git url", url_str)
+    }
+    else {
         console.log("Invalid URL:", error);
         document.getElementById("invalidFeedback").innerText = '"' + url_str + '" is not valid URL.'
         document.getElementById("input").classList.add("is-invalid");
@@ -104,8 +112,9 @@ function check(url_str) {
 
     let submitButton = document.getElementById("submitButton");
 
+    let api_url = document.URL + "api/" + parsed_url.host + parsed_url.pathname + "/branches";
+    api_url = api_url.replace(/([^:]\/)\/+/g, "$1");
 
-    let api_url = document.URL + "api/" + url.hostname + url.pathname + "/branches";
     console.log("api_url", api_url)
 
     fetch(api_url)
@@ -166,14 +175,13 @@ function createSelect(all_branches, id) {
         let branchName = branches[i].name
         if (branchName === defaultBranch) {
             select += createSelectOption(branchName, true)
-            document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Last commit">' + branches[i].commit.sha
-
+            document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Last commit">' + branches[i].commit
         }
         else {
             select += createSelectOption(branchName)
         }
     }
-    if (input.value.includes("https://github.com")) {
+    if (input.value.includes("github.com")) {
         let github_pic = document.getElementById("github_picture")
         github_pic.classList.add("visible")
         github_pic.classList.remove("invisible")

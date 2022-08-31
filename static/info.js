@@ -57,43 +57,54 @@ async function preparePage(url) {
     let repository_name = path_name_array[2]
     let branch = ""
 
-    if (repository_hostname == "github.com") {
-        try {
-            let origin_url = "https:/" + Url.pathname
-            let img = '<img alt="Open repository" src="/static/GitHub-Mark-32px.png" class="float-start">'
-            let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
-            document.getElementById("url").innerText = origin_url
-            document.getElementById("url").setAttribute("href", origin_url)
-            document.getElementById("url_pic").innerHTML = pic_ref
 
+    try {
+        let origin_url = "https:/" + Url.pathname
+        let img = ''
+        if (repository_hostname == "github.com") {
+            img = '<img alt="Open repository" src="/static/GitHub-Mark-32px.png" class="float-start">'
         }
-        catch (e) {
-            throw new Error("Can't setup URL")
+        else if (repository_hostname == "gitlab.com") {
+            img = '<img alt="Open repository" src="/static/gitlab32.png" class="float-start">'
         }
-
-        if (path_name_array[3] === undefined) {
-            branch = await fetch_branch_info(Url.protocol + Url.host + "/api" + Url.pathname)
-            document.getElementById("branch").innerText = branch.default_branch
-            let commit = await fetch_branch_commit(Url.protocol + Url.host + "/api" + Url.pathname + "/tree/" + branch.default_branch)
-            console.log("commit", commit)
-            document.getElementById("commit").innerText = commit.commit
-        }
-        else if (repository_hostname == "github.com" && path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
-            for (let i = 4; i < path_name_array.length; ++i) {
-                console.log("el:", path_name_array[i])
-                branch += path_name_array[i]
-            }
-            document.getElementById("branch").innerText = branch
-            let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/tree/" + branch
-            let commit = await fetch_branch_commit(url_str)
-            document.getElementById("commit").innerText = commit.commit
+        else if (repository_hostname == "bitbucket.org") {
+            img = '<img alt="Open repository" src="/static/bitbucket.png" class="float-start">'
         }
         else {
-            let error_msg = url + "\nAfter tree/ must be followed by a branch name"
-            console.error(error_msg)
-            throw new PrepareError("Incorrect URL", error_msg)
+            img = '<img alt="Open repository" src="/static/git32.png" class="float-start">'
         }
+        let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
+        document.getElementById("url").innerText = origin_url
+        document.getElementById("url").setAttribute("href", origin_url)
+        document.getElementById("url_pic").innerHTML = pic_ref
     }
+    catch (e) {
+        throw new Error("Can't setup URL")
+    }
+
+    if (path_name_array[3] === undefined) {
+        branch = await fetch_branch_info(Url.protocol + Url.host + "/api" + Url.pathname)
+        document.getElementById("branch").innerText = branch.default_branch
+        let commit = await fetch_branch_commit(Url.protocol + Url.host + "/api" + Url.pathname + "/tree/" + branch.default_branch)
+        console.log("commit", commit)
+        document.getElementById("commit").innerText = commit.commit
+    }
+    else if (repository_hostname == "github.com" && path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
+        for (let i = 4; i < path_name_array.length; ++i) {
+            console.log("el:", path_name_array[i])
+            branch += path_name_array[i]
+        }
+        document.getElementById("branch").innerText = branch
+        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/tree/" + branch
+        let commit = await fetch_branch_commit(url_str)
+        document.getElementById("commit").innerText = commit.commit
+    }
+    else {
+        let error_msg = url + "\nAfter tree/ must be followed by a branch name"
+        console.error(error_msg)
+        throw new PrepareError("Incorrect URL", error_msg)
+    }
+
     return true
 }
 
@@ -110,35 +121,35 @@ function showError(status, message) {
 async function start(_e) {
     let ok = false
     // try {
-        ok = await preparePage(new URL(document.URL))
+    ok = await preparePage(new URL(document.URL))
 
-        if (!ok) { return; }
-        let ws_json = await fetch_ws();
-        let cloc_promise = fetch_cloc();
-        console.log(ws_json)
-        let url = document.location.host + "/ws/" + ws_json.id + document.location.pathname
-        let websocket;
-        console.log("protocol", document.location.protocol)
-        if (document.location.protocol === "https:") {
-            websocket = new WebSocket("wss://" + url)
-        }
-        else {
-            websocket = new WebSocket("ws://" + url)
-        }
+    if (!ok) { return; }
+    let ws_json = await fetch_ws();
+    let cloc_promise = fetch_cloc();
+    console.log(ws_json)
+    let url = document.location.host + "/ws/" + ws_json.id + document.location.pathname
+    let websocket;
+    console.log("protocol", document.location.protocol)
+    if (document.location.protocol === "https:") {
+        websocket = new WebSocket("wss://" + url)
+    }
+    else {
+        websocket = new WebSocket("ws://" + url)
+    }
 
-        console.log("websocket:", url);
-        console.log(websocket)
-        // websocket.addEventListener('error', function (event) {
-        //     console.log('WebSocket error: ', event);
-        //     stopStreaming(websocket);
-        // });
-        startStreaming(websocket)
-        let cloc = await cloc_promise;
-        // console.log("cloc", cloc)
-        if (cloc.length > 0) {
-            stopStreaming(websocket)
-            createTableFromResponse(cloc);
-        }
+    console.log("websocket:", url);
+    console.log(websocket)
+    // websocket.addEventListener('error', function (event) {
+    //     console.log('WebSocket error: ', event);
+    //     stopStreaming(websocket);
+    // });
+    startStreaming(websocket)
+    let cloc = await cloc_promise;
+    // console.log("cloc", cloc)
+    if (cloc.length > 0) {
+        stopStreaming(websocket)
+        createTableFromResponse(cloc);
+    }
     // }
     // catch (err) {
     //     if (err instanceof FetchError || err instanceof PrepareError) {

@@ -1,4 +1,7 @@
-use crate::{github_service, providers::github_provider::GithubProvider};
+use crate::{
+    github_service,
+    providers::{git_provider::GitProvider, github_provider::GithubProvider},
+};
 use axum::{
     error_handling::HandleErrorLayer,
     extract::Path,
@@ -41,7 +44,8 @@ pub fn create_server(
 
     let cache = Arc::new(Cache::new());
     let cache_clone = cache.clone();
-    let github_provider = GithubProvider::new(4 * crate::GB, connection_pool.clone(), cache);
+    let git_provider = GitProvider::new(cache.clone());
+    let github_provider = GithubProvider::new(4 * crate::GB, connection_pool.clone(), git_provider);
 
     let _monitor =
         tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
@@ -61,12 +65,13 @@ pub fn create_server(
     let app = Router::new()
         .route("/", root_service)
         .nest("/ws", websocket_service)
+        .nest("/api", statistic_router)
         .nest(
-            "/api/github.com",
+            "/api/:host",
             github_service::create_api_router(gh_provider.clone()),
         )
-        .nest("/api", statistic_router)
-        .nest("/github.com", github_service::create_router(gh_provider))
+        // .nest("/github.com", github_service::create_router(gh_provider))
+        .nest("/:host", github_service::create_router(gh_provider))
         .merge(spa)
         .fallback(not_found.into_service())
         .layer(
