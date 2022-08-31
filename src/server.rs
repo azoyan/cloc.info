@@ -45,7 +45,7 @@ pub fn create_server(
     let cache = Arc::new(Cache::new());
     let cache_clone = cache.clone();
     let git_provider = GitProvider::new(cache.clone());
-    let github_provider = GithubProvider::new(4 * crate::GB, connection_pool.clone(), git_provider);
+    let github_provider = GithubProvider::new(16 * crate::GB, connection_pool.clone(), git_provider);
 
     let _monitor =
         tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });

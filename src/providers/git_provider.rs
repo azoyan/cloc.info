@@ -36,7 +36,6 @@ impl GitProvider {
 
     pub async fn last_commit(&self, url: &String, branch: &str) -> String {
         if let Some(branches) = self.cache.get(url).await {
-            tracing::warn!("{}", branches.branches.len());
             for branch_value in &branches.branches {
                 if branch_value.name == branch {
                     return branch_value.commit.clone();
@@ -64,7 +63,6 @@ pub async fn all_heads_branches(url: &str) -> Branches {
 
     let mut default_branch = String::new();
     let first_line = lines.get(0);
-    tracing::warn!("{url}  {first_line:?}");
     let default_branch_commit = first_line.unwrap();
     let default_branch_commit = default_branch_commit.split_whitespace().next().unwrap();
 
@@ -97,7 +95,6 @@ pub async fn all_heads_branches(url: &str) -> Branches {
 
 pub async fn last_commit(url: &str, branch: &str) -> String {
     let mut command = Command::new("git");
-    tracing::warn!("{url}, branch: {branch}");
     let result = command.args(&["ls-remote", url]).output().unwrap();
     let string = String::from_utf8(result.stdout).unwrap();
     let lines = string.lines();
