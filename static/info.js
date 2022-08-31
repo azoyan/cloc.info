@@ -60,21 +60,31 @@ async function preparePage(url) {
 
     try {
         let origin_url = "https:/" + Url.pathname
+        
+        let parsed_url = gitUrlParse(origin_url)
+        console.log("parsed_url", parsed_url);
         let img = ''
         if (repository_hostname == "github.com") {
             img = '<img alt="Open repository" src="/static/GitHub-Mark-32px.png" class="float-start">'
+            if (repository_name.slice(-4) === ".git") { repository_name = repository_name.slice(0, -4) }
         }
         else if (repository_hostname == "gitlab.com") {
             img = '<img alt="Open repository" src="/static/gitlab32.png" class="float-start">'
+            if (repository_name.slice(-4) === ".git") { repository_name = repository_name.slice(0, -4) }
         }
         else if (repository_hostname == "bitbucket.org") {
             img = '<img alt="Open repository" src="/static/bitbucket.png" class="float-start">'
+            if (repository_name.slice(-4) === ".git") { repository_name = repository_name.slice(0, -4) }
         }
         else {
             img = '<img alt="Open repository" src="/static/git32.png" class="float-start">'
+            if (repository_name.slice(-4) !== ".git") { origin_url += ".git" }
         }
         let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
-        document.getElementById("url").innerText = origin_url
+        let show_url = "https://" + repository_hostname + '/' + onwer + '/' + repository_name
+        console.log("repository_name", repository_name)
+        for (let i = 3; i < path_name_array.length; ++i) { show_url += '/' + path_name_array[i]}
+        document.getElementById("url").innerText = show_url
         document.getElementById("url").setAttribute("href", origin_url)
         document.getElementById("url_pic").innerHTML = pic_ref
     }
@@ -89,7 +99,7 @@ async function preparePage(url) {
         console.log("commit", commit)
         document.getElementById("commit").innerText = commit.commit
     }
-    else if (repository_hostname == "github.com" && path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
+    else if ((repository_hostname === "github.com" || repository_hostname === "gitlab.com") && path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
         for (let i = 4; i < path_name_array.length; ++i) {
             console.log("el:", path_name_array[i])
             branch += path_name_array[i]

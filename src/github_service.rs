@@ -104,21 +104,26 @@ async fn raw_content(
 }
 
 async fn default_handler(
-    Path((host, owner, repository_name)): Path<(String, String, String)>,
+    Path((host, owner, mut repository_name)): Path<(String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
     tracing::debug!("Default Handler {:?}, host: {host}", request);
+    if !repository_name.ends_with(".git") {
+        repository_name = format!("{repository_name}.git");
+    }
     handle_request(&host, &owner, &repository_name, None, provider, request).await
 }
 
 async fn handler_with_branch(
-    Path((host, owner, repository_name, branch_name)): Path<(String, String, String, String)>,
+    Path((host, owner, mut repository_name, branch_name)): Path<(String, String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
     tracing::debug!("Handler with branch {:?}", request);
-
+    if !repository_name.ends_with(".git") {
+        repository_name = format!("{repository_name}.git");
+    }
     let branch = &branch_name[1..];
     handle_request(
         &host,
@@ -156,12 +161,16 @@ async fn handle_request(
         || user_agent.contains("curl")
     {
         tracing::info!("Terminal browser: {:?}", user_agent);
-        let (response, branch_id) =
-            raw_content(provider.clone(), host, owner, repository_name, branch, user_agent)
-                .await
-                .unwrap();
-        
-        
+        let (response, branch_id) = raw_content(
+            provider.clone(),
+            host,
+            owner,
+            repository_name,
+            branch,
+            user_agent,
+        )
+        .await
+        .unwrap();
 
         return Ok(response);
     }
@@ -179,8 +188,15 @@ async fn handle_request(
             };
 
             if value.contains("cloc") {
-                let (response, branch_id) =
-                    raw_content(provider.clone(), host, owner, repository_name, branch, user_agent).await?;
+                let (response, branch_id) = raw_content(
+                    provider.clone(),
+                    host,
+                    owner,
+                    repository_name,
+                    branch,
+                    user_agent,
+                )
+                .await?;
                 tracing::info!("Response is ready, branch_id = {}", branch_id);
                 Ok(response)
             } else {
@@ -205,13 +221,15 @@ async fn handle_request(
 }
 
 async fn all_branches_lookup(
-    Path((host, owner, repository_name)): Path<(String, String, String)>,
+    Path((host, owner, mut repository_name)): Path<(String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("all_branches_lookup() host: {host}");
     let provider_guard = provider.read().await;
-
+    if !repository_name.ends_with(".git") {
+        repository_name = format!("{repository_name}.git");
+    }
     let branches_info = provider_guard
         .remote_branches(&host, &owner, &repository_name)
         .await
@@ -231,12 +249,15 @@ async fn all_branches_lookup(
 }
 
 async fn default_branch_info(
-    Path((host, owner, repository_name)): Path<(String, String, String)>,
+    Path((host, owner, mut repository_name)): Path<(String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("default_branch_info() host: {host}");
     let provider_guard = provider.read().await;
+    if !repository_name.ends_with(".git") {
+        repository_name = format!("{repository_name}.git");
+    }
     let default_branch = provider_guard
         .default_branch_remote(&host, &owner, &repository_name)
         .await;
@@ -258,12 +279,14 @@ async fn default_branch_info(
 }
 
 async fn branch_commit_info(
-    Path((host, owner, repository_name, branch)): Path<(String, String, String, String)>,
+    Path((host, owner, mut repository_name, branch)): Path<(String, String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("branch_commit_info() host: {host}");
     let provider_guard = provider.read().await;
-
+    if !repository_name.ends_with(".git") {
+        repository_name = format!("{repository_name}.git");
+    }
     let commit = provider_guard
         .last_commit_remote(&host, &owner, &repository_name, &branch)
         .await;

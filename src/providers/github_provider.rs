@@ -273,7 +273,6 @@ impl GithubProvider {
                             .write()
                             .await
                             .insert(url, temp_dir.clone());
-                        self.update_statistic(branch_id, user_agent).await;
                     }
                     Processed {
                         branch_id,
@@ -387,8 +386,7 @@ impl GithubProvider {
                     self.storage_cache
                         .write()
                         .await
-                        .insert(url, temp_dir.clone());
-                    self.update_statistic(branch_id, user_agent).await;
+                        .insert(url, temp_dir.clone()); 
                 }
                 Processed {
                     branch_id,
@@ -397,6 +395,10 @@ impl GithubProvider {
                 }
             }
         };
+
+        if is_default_branch{
+            self.update_statistic(processed.branch_id, user_agent).await;
+        }
 
         Ok(processed)
     }

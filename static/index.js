@@ -9,18 +9,19 @@ submitButton.onclick = function () {
     let url = gitUrlParse(input.value)
     let selected = document.getElementById("select-child").value;
     console.log(selected)
-    let path;
-    if (selected === branches.default_branch) {
-        path = window.location.protocol + window.location.host + url.host + url.pathname + url.search + url.hash
-
-    }
-    else {
-        if (url.host === "github.com") {
-            path = window.location.protocol + window.location.host + url.host + url.pathname + url.search + url.hash + '/tree/' + selected
+    console.log(url)
+    let path =
+        url.host + '/' + url.owner + '/' + url.name + '.git'
+    if (selected !== branches.default_branch) {
+        if (url.host === "github.com" || url.host==="gitlab.com") {
+            path += '/tree/' + selected
         }
     }
-    path = path.replace(/([^:]\/)\/+/g, "$1");
+
+    path = path.replace(/\/\//g, "/")
+
     console.log("path", path);
+
     window.location.href = path
 }
 
@@ -45,8 +46,8 @@ function reset() {
     hint.style.removeProperty('display');
     document.getElementById("select").innerHTML = ''
     document.getElementById("repoInfo").classList.add("invisible")
-    document.getElementById("github_picture").classList.remove("visible");
-    document.getElementById("github_picture").classList.add("invisible")
+    document.getElementById("repository_pic").classList.remove("visible");
+    document.getElementById("repository_pic").classList.add("invisible")
 
     document.getElementById("hint").classList.remove("invisible")
     document.getElementById("hint").classList.add("visible")
@@ -181,18 +182,18 @@ function createSelect(all_branches, id) {
             select += createSelectOption(branchName)
         }
     }
-    if (input.value.includes("github.com")) {
-        let github_pic = document.getElementById("github_picture")
-        github_pic.classList.add("visible")
-        github_pic.classList.remove("invisible")
-        github_pic.setAttribute("data-bs-toggle", "tooltip")
-        github_pic.setAttribute("data-bs-title", "Go to repository " + input.value)
-        github_pic.setAttribute("data-bs-placement", "top")
-        github_pic.setAttribute("href", input.value)
-    }
-    else if (input.value.includes("https://gitlab.com")) {
-        document.getElementById("gitlab_picture").hidden = false
-    }
+    let pic = document.getElementById("repository_pic")
+    pic.classList.add("visible")
+    pic.classList.remove("invisible")
+    pic.setAttribute("data-bs-toggle", "tooltip")
+    pic.setAttribute("data-bs-title", "Go to repository " + input.value)
+    pic.setAttribute("data-bs-placement", "top")
+    pic.setAttribute("href", input.value)
+    if (input.value.includes("github.com")) { pic.innerHTML = '<img src="static/GitHub-Mark-32px.png" class="float-start">' }
+    else if (input.value.includes("gitlab.com")) { pic.innerHTML = '<img src="static/gitlab32.png" class="float-start">' }
+    else if (input.value.includes("bitbucket.org")) { pic.innerHTML = '<img src="static/bitbucket.png" class="float-start">' }
+    else { pic.innerHTML = '<img src="static/git32.png" class="float-start">' }
+
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
     const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
     select += '</select>'

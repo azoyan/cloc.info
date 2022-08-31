@@ -152,6 +152,9 @@ function createGitExternalLink(repository) {
 
 
 function createRecentListItem(repository) {
+    if (repository.repository_name.slice(-4) === ".git") {
+        repository.repository_name = repository.repository_name.slice(0, -4);
+    }
     let item = '<li class="list-group-item d-flex align-items-center">'
     let local_href = "/" + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
     item += '<a target="_blank" rel="noopener noreferrer canonical" href="' + local_href + '" class="link-dark me-1">' + repository.repository_name + '</a>'
@@ -181,6 +184,9 @@ function createRecentListItem(repository) {
 
 function createPopularListItem(repository) {
     let item = '<li class="list-group-item d-flex align-items-center">'
+    if (repository.repository_name.slice(-4) === ".git") {
+        repository.repository_name = repository.repository_name.slice(0, -4)
+    }
     let local_href = "/" + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
     item += '<a target="_blank" rel="noopener noreferrer canonical" href="' + local_href + '" class="link-dark me-1">' + repository.repository_name + '</a>'
 
@@ -208,6 +214,9 @@ function createPopularListItem(repository) {
 }
 
 function createLargestListItem(repository) {
+    if (repository.repository_name.slice(-4) === ".git") {
+        repository.repository_name = repository.repository_name.slice(0, -4);
+    }
     let item = '<li class="list-group-item d-flex align-items-center">'
     let local_href = "/" + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
     item += '<a target="_blank" rel="noopener noreferrer canonical" href="' + local_href + '" class="link-dark me-1">' + repository.repository_name + '</a>'
