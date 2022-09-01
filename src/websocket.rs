@@ -10,15 +10,15 @@ use axum::{
 
 pub async fn handler_ws(
     ws: WebSocketUpgrade,
-    Path((id, path)): Path<(String, String)>,
+    Path(path): Path<String>,
     Extension(cloner): Extension<Cloner>,
     // request: Request<Body>,
 ) -> Response {
-    ws.on_upgrade(move |socket| handle_socket(id, path, socket, cloner))
+    ws.on_upgrade(move |socket| handle_socket(path, socket, cloner))
 }
 
-async fn handle_socket(id: String, path: String, mut socket: WebSocket, cloner: Cloner) {
-    tracing::info!("Connect websocket {id}/{path}");
+async fn handle_socket(path: String, mut socket: WebSocket, cloner: Cloner) {
+    tracing::info!("Connect websocket {path}");
     let repository_name = format!("https://{}", &path[1..]); //  crop first slash
     cloner.clear_state_buffer(&repository_name).await;
     while let Some(msg) = socket.recv().await {
@@ -37,10 +37,10 @@ async fn handle_socket(id: String, path: String, mut socket: WebSocket, cloner: 
                         tracing::debug!("Repository {} downloading done", repository_name);
                         match socket.send(Message::Text("Done".to_string())).await {
                             Ok(()) => {
-                                tracing::debug!("Connection {id}/{repository_name} closed")
+                                tracing::debug!("Connection {repository_name} closed")
                             }
                             Err(e) => {
-                                tracing::warn!("{} {id}/{repository_name}", e.to_string())
+                                tracing::warn!("{} {repository_name}", e.to_string())
                             }
                         }
                         return;
@@ -62,10 +62,10 @@ async fn handle_socket(id: String, path: String, mut socket: WebSocket, cloner: 
             // client disconnected
             match socket.close().await {
                 Ok(()) => tracing::debug!(
-                    "Can't receive message {}. Connection {id}/{repository_name}' closed",
+                    "Can't receive message {}. Connection '{repository_name}' closed",
                     repository_name
                 ),
-                Err(e) => tracing::warn!("{} {id}/{repository_name}", e.to_string()),
+                Err(e) => tracing::warn!("{} {repository_name}", e.to_string()),
             }
             return;
         };

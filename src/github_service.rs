@@ -1,7 +1,6 @@
 use crate::{
     providers::github_provider::{self, GithubProvider},
     repository::utils,
-    DbId,
 };
 use axum::{
     extract::Path,
@@ -59,7 +58,7 @@ async fn raw_content(
     repository_name: &str,
     branch: Option<&str>,
     user_agent: &str,
-) -> Result<(Response<Body>, DbId), Error> {
+) -> Result<Response<Body>, Error> {
     let result = {
         let provider_guard = provider.read().await;
         provider_guard
@@ -67,7 +66,7 @@ async fn raw_content(
             .await
     };
 
-    let (response, branch_id) = match result {
+    let (response, _branch_id) = match result {
         Ok((branch_id, scc_output)) => (
             Response::builder()
                 .status(StatusCode::OK)
@@ -100,7 +99,7 @@ async fn raw_content(
             }
         }
     };
-    Ok((response, branch_id))
+    Ok(response)
 }
 
 async fn default_handler(
@@ -161,7 +160,7 @@ async fn handle_request(
         || user_agent.contains("curl")
     {
         tracing::info!("Terminal browser: {:?}", user_agent);
-        let (response, branch_id) = raw_content(
+        let response = raw_content(
             provider.clone(),
             host,
             owner,
@@ -188,7 +187,7 @@ async fn handle_request(
             };
 
             if value.contains("cloc") {
-                let (response, branch_id) = raw_content(
+                let response = raw_content(
                     provider.clone(),
                     host,
                     owner,
@@ -197,22 +196,12 @@ async fn handle_request(
                     user_agent,
                 )
                 .await?;
-                tracing::info!("Response is ready, branch_id = {}", branch_id);
+                tracing::info!("Response Ready for {host}/{owner}/{repository_name}/{branch:?}");
                 Ok(response)
             } else {
                 // ws
-                let start = std::time::SystemTime::now();
-                let since_the_epoch = start
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .expect("Time went backwards")
-                    .as_micros()
-                    .to_string();
-
-                let json = json!({ "id": since_the_epoch }).to_string();
-
                 Response::builder()
-                    .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
-                    .body(Body::from(json))
+                    .body(Body::empty())
                     .context(ResponseSnafu)
             }
         }
@@ -225,7 +214,7 @@ async fn all_branches_lookup(
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
-    tracing::warn!("all_branches_lookup() host: {host}");
+    tracing::warn!("all_branches_lookup() host: {host}, owner: {owner}, repo: {repository_name}");
     let provider_guard = provider.read().await;
     if !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
@@ -253,7 +242,7 @@ async fn default_branch_info(
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
-    tracing::warn!("default_branch_info() host: {host}");
+    tracing::warn!("default_branch_info() host: {host}, owner: {owner}, repo: {repository_name}");
     let provider_guard = provider.read().await;
     if !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
@@ -282,7 +271,7 @@ async fn branch_commit_info(
     Path((host, owner, mut repository_name, branch)): Path<(String, String, String, String)>,
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
 ) -> Result<Response<Body>, Error> {
-    tracing::warn!("branch_commit_info() host: {host}");
+    tracing::warn!("branch_commit_info() host: {host}, owner: {owner}, repo: {repository_name}, branch: {branch}");
     let provider_guard = provider.read().await;
     if !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");

@@ -187,19 +187,19 @@ impl Cloner {
 
             let stages_string = stages.to_string();
 
-            // tracing::debug!(
-            //     "{repository_name} <-> ASCII:{} {}>>\n{}\n<<",
-            //     stages_string.is_ascii(),
-            //     stages_string.len(),
-            //     &stages_string
-            // );
+            tracing::debug!(
+                "ASCII:{} {}>>\n{}\n<<",
+                stages_string.is_ascii(),
+                stages_string.len(),
+                &stages_string
+            );
             self.clone_state
                 .write()
                 .await
                 .insert(url.to_string(), State::Buffered(stages_string));
             buffer.clear();
         }
-        let _c = child.wait().await; // try
+        // let _c = child.wait().await; // try
 
         State::Done
     }

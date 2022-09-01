@@ -10,8 +10,8 @@ async function fetch_cloc() {
     return extractContent(response_cloc, "Error at fetching lines of code");
 }
 
-function extractContent(response, msg) {
-    message = msg ? msg + ":\n" : ""
+function extractContent(response, error_msg) {
+    message = error_msg ? error_msg + ":\n" : ""
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.indexOf("application/json") !== -1) {
         return response.json().then(data => {
@@ -60,7 +60,7 @@ async function preparePage(url) {
 
     try {
         let origin_url = "https:/" + Url.pathname
-        
+        console.log("origin_url", origin_url)
         let parsed_url = gitUrlParse(origin_url)
         console.log("parsed_url", parsed_url);
         let img = ''
@@ -83,13 +83,13 @@ async function preparePage(url) {
         let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
         let show_url = "https://" + repository_hostname + '/' + onwer + '/' + repository_name
         console.log("repository_name", repository_name)
-        for (let i = 3; i < path_name_array.length; ++i) { show_url += '/' + path_name_array[i]}
+        for (let i = 3; i < path_name_array.length; ++i) { show_url += '/' + path_name_array[i] }
         document.getElementById("url").innerText = show_url
         document.getElementById("url").setAttribute("href", origin_url)
         document.getElementById("url_pic").innerHTML = pic_ref
     }
     catch (e) {
-        throw new Error("Can't setup URL")
+        throw new Error("Can't setup URL" + e)
     }
 
     if (path_name_array[3] === undefined) {
@@ -102,10 +102,10 @@ async function preparePage(url) {
     else if ((repository_hostname === "github.com" || repository_hostname === "gitlab.com") && path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
         for (let i = 4; i < path_name_array.length; ++i) {
             console.log("el:", path_name_array[i])
-            branch += path_name_array[i]
+            branch += '/' + path_name_array[i]
         }
-        document.getElementById("branch").innerText = branch
-        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/tree/" + branch
+        document.getElementById("branch").innerText = branch.slice(1)
+        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/tree" + branch
         let commit = await fetch_branch_commit(url_str)
         document.getElementById("commit").innerText = commit.commit
     }
@@ -137,7 +137,8 @@ async function start(_e) {
     let ws_json = await fetch_ws();
     let cloc_promise = fetch_cloc();
     console.log(ws_json)
-    let url = document.location.host + "/ws/" + ws_json.id + document.location.pathname
+    let url = document.location.host + "/ws" + document.location.pathname
+    if (url.slice(-4) !== ".git") { url += ".git" }
     let websocket;
     console.log("protocol", document.location.protocol)
     if (document.location.protocol === "https:") {
@@ -202,7 +203,7 @@ function startStreaming(ws) {
         let lines = p.split(/\r?\n/)
         for (let i = 0; i < lines.length; ++i) {
             let payload = lines[i];
-            // console.log("payload line:", payload)
+            console.log("payload line:", payload)
             if (payload.includes("Done")) {
                 fetch_cloc().then((cloc) => {
                     if (cloc.length > 0) {
@@ -211,6 +212,7 @@ function startStreaming(ws) {
                     }
                 })
             }
+            document.getElementById("status").innerText += payload
             document.getElementById("hint").innerHTML = "Downloading repository into server"
             if (payload.includes("Cloning")) {
                 document.getElementById("clone").innerText = "git clone https:/" + document.location.pathname

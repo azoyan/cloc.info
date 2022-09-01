@@ -386,7 +386,7 @@ impl GithubProvider {
                     self.storage_cache
                         .write()
                         .await
-                        .insert(url, temp_dir.clone()); 
+                        .insert(url, temp_dir.clone());
                 }
                 Processed {
                     branch_id,
@@ -396,7 +396,7 @@ impl GithubProvider {
             }
         };
 
-        if is_default_branch{
+        if is_default_branch {
             self.update_statistic(processed.branch_id, user_agent).await;
         }
 
@@ -534,7 +534,7 @@ impl GithubProvider {
                     // tracing::debug!("Processing {url} done. No other waiters");
                 }
             },
-            Err(e) => {
+            Err(_e) => {
                 // tracing::error!("Processing notificator Error at write lock for {url}: {e}");
             }
         }
@@ -561,7 +561,7 @@ impl GithubProvider {
         branch: &str,
     ) -> Result<String, Error> {
         let url = format!("https://{host}/{owner}/{repository_name}");
-        let branch = branch.trim_start_matches("/");
+        let branch = branch.trim_start_matches('/');
         let last_commit = self.git_provider.last_commit(&url, branch).await;
         Ok(last_commit)
     }

@@ -44,14 +44,14 @@ pub fn create_server(
 
     let cache = Arc::new(Cache::new());
     let cache_clone = cache.clone();
-    let git_provider = GitProvider::new(cache.clone());
+    let git_provider = GitProvider::new(cache);
     let github_provider = GithubProvider::new(16 * crate::GB, connection_pool.clone(), git_provider);
 
     let _monitor =
         tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
 
     let websocket_service = Router::new().route(
-        "/:id/*path",
+        "/*path",
         axum::routing::get(crate::websocket::handler_ws)
             .layer(Extension(github_provider.cloner.clone())),
     );

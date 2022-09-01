@@ -13,12 +13,14 @@ submitButton.onclick = function () {
     let path =
         url.host + '/' + url.owner + '/' + url.name + '.git'
     if (selected !== branches.default_branch) {
-        if (url.host === "github.com" || url.host==="gitlab.com") {
-            path += '/tree/' + selected
+        if (url.host === "github.com" || url.host === "gitlab.com") {
+            path += '/tree/' + extractBranchFromGitUrl(url)
+        } else if (url.host === "bitbucket.org") {
+            path += '/src/' + extractBranchFromGitUrl(url)
         }
     }
 
-    path = path.replace(/\/\//g, "/")
+    path = path.replace(/\/+$/g, '')
 
     console.log("path", path);
 
@@ -86,21 +88,19 @@ let branches;
 
 function check(url_str) {
     hint.style.display = 'invisible'
+    url_str = url_str.replace(/\/+$/g, '')
 
     let git_extension = url_str.slice(-4);
-    if (git_extension !== ".git") {
-        url_str += ".git"
-    }
+    // if (git_extension !== ".git") {
+    //     url_str += ".git"
+    // }
 
-    let is_git_regex = /(?:git|ssh|https?|git@[-\w.]+):(\/\/)?(.*?)(\.git)(\/?|\#[-\d\w._]+?)$/;
+    // let is_git_regex = /(?:git|ssh|https?|git@[-\w.]+):(\/\/)?(.*?)(\.git)(\/?|\#[-\d\w._]+?)$/;
     // if (!url_str.match(is_git_regex)) { url_str = 'https://' + url_str; }
     // console.log(url_str);
     let parsed_url = gitUrlParse(url_str)
     console.log("parsed:", parsed_url)
-    if (url_str.match(is_git_regex)) {
-        console.log("valid git url", url_str)
-    }
-    else {
+    if (parsed_url.parse_failed) {
         console.log("Invalid URL:", error);
         document.getElementById("invalidFeedback").innerText = '"' + url_str + '" is not valid URL.'
         document.getElementById("input").classList.add("is-invalid");
@@ -112,19 +112,23 @@ function check(url_str) {
     checkSpinner.hidden = false;
 
     let submitButton = document.getElementById("submitButton");
+    let repository_name = parsed_url.name
+    if (repository_name.slice(-4) !== ".git") { repository_name += ".git" }
+    let branches_api = document.URL + "api/" + parsed_url.host + '/' + parsed_url.owner + '/' + repository_name + "/branches";
+    branches_api = branches_api.replace(/([^:]\/)\/+/g, "$1");
+    let current_branch = extractBranchFromGitUrl(parsed_url)
 
-    let api_url = document.URL + "api/" + parsed_url.host + parsed_url.pathname + "/branches";
-    api_url = api_url.replace(/([^:]\/)\/+/g, "$1");
 
-    console.log("api_url", api_url)
+    console.log("branches_api", branches_api, parsed_url.toString())
+    console.log("current_branch", current_branch)
 
-    fetch(api_url)
+    fetch(branches_api)
         .then((response) => response.json())
         .then((response) => {
             branches = response;
 
             let select = document.getElementById("select");
-            let html_select = createSelect(branches, "select-child");
+            let html_select = createSelect(branches, "select-child", current_branch);
             select.appendChild(createElementFromHTML(html_select));
 
             submitButton.classList.remove("disabled");
@@ -167,14 +171,20 @@ function check(url_str) {
         });
 }
 
-function createSelect(all_branches, id) {
+function createSelect(all_branches, id, preselected_branch) {
     let branches = all_branches.branches;
     let defaultBranch = all_branches.default_branch;
     document.getElementById(id)?.remove() // delete previous if exists
     let select = '<select class="form-select form-select-sm" aria-label=".form-select-sm example" id="' + id + '" onchange="setCommit(this.value)">'
+    console.log("branches", branches, "preselected", preselected_branch)
     for (var i = 0; i < branches.length; ++i) {
         let branchName = branches[i].name
-        if (branchName === defaultBranch) {
+        if (preselected_branch === branchName) {
+            console.log("branchName", branchName)
+            select += createSelectOption(branchName, true)
+            document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Last commit">' + branches[i].commit
+        }
+        else if (branchName === defaultBranch && preselected_branch === undefined) {
             select += createSelectOption(branchName, true)
             document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Last commit">' + branches[i].commit
         }
@@ -206,9 +216,14 @@ function substitute() {
 
 function setCommit(branchName) {
     // let branchName = e.value
-    for (let i = 0; i < branches.length; ++i) {
-        if (branches[i].name === branchName) {
-            document.getElementById("commit").innerText = "Last commit: " + branches[i].commit.sha
+    console.log("branchName", branchName, branches)
+    let branches_array = branches.branches;
+    for (let i = 0; i < branches_array.length; ++i) {
+        console.log("branch", branches_array[i])
+        if (branches_array[i].name === branchName) {
+            document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Last commit">' + branches_array[i].commit
+            const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+            const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
         }
     }
 }
@@ -221,10 +236,33 @@ function createSelectOption(branch, isMain) {
         return "<option>" + branch + "</option>"
     }
 }
+
 function createElementFromHTML(htmlString) {
     var div = document.createElement('div');
     div.innerHTML = htmlString.trim();
 
     // Change this to div.childNodes to support multiple top-level nodes.
     return div.firstChild;
+}
+
+function extractBranchFromGitUrl(git_url) {
+    let branch_word
+
+    if (git_url.host === "gitlab.com" || git_url.host === "github.com") {
+        branch_word = "tree"
+    }
+    else if (git_url.host === "bitbucket.org") {
+        branch_word = "src"
+    }
+    let branch_word_idx = git_url.pathname.indexOf(branch_word)
+    if (git_url.owner === branch_word) {
+        branch_word_idx = git_url.pathname.indexOf(branch_word, branch_word_idx + branch_word.length)
+    }
+    if (git_url.name === branch_word) {
+        branch_word_idx = git_url.pathname.indexOf(branch_word, branch_word_idx + branch_word.length)
+    }
+
+    console.log("branch_word", branch_word, branch_word_idx)
+    return branch_word_idx > 0 ? git_url.pathname.slice(branch_word_idx + branch_word.length + 1) : undefined
+
 }

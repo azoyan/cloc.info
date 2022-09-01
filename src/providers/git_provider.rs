@@ -41,7 +41,7 @@ impl GitProvider {
                     return branch_value.commit.clone();
                 }
             }
-            unreachable!();
+            unreachable!("Branch {branch} not found in branches list for {url}");
         } else {
             let branches = self.all_branches(url).await;
             for branch_value in &branches.branches {
@@ -49,7 +49,7 @@ impl GitProvider {
                     return branch_value.commit.clone();
                 }
             }
-            unreachable!();
+            unreachable!("Branch {branch} not found in branches list for {url}");
         }
     }
 }
@@ -62,7 +62,7 @@ pub async fn all_heads_branches(url: &str) -> Branches {
     let lines: Vec<&str> = string.lines().collect();
 
     let mut default_branch = String::new();
-    let first_line = lines.get(0);
+    let first_line = lines.first();
     let default_branch_commit = first_line.unwrap();
     let default_branch_commit = default_branch_commit.split_whitespace().next().unwrap();
 
