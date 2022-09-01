@@ -109,6 +109,16 @@ async function preparePage(url) {
         let commit = await fetch_branch_commit(url_str)
         document.getElementById("commit").innerText = commit.commit
     }
+    else if (repository_hostname === "bitbucket.org" && path_name_array[3] === "src" && path_name_array[4] !== undefined) {
+        for (let i = 4; i < path_name_array.length; ++i) {
+            console.log("el:", path_name_array[i])
+            branch += '/' + path_name_array[i]
+        }
+        document.getElementById("branch").innerText = branch.slice(1)
+        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/src" + branch
+        let commit = await fetch_branch_commit(url_str)
+        document.getElementById("commit").innerText = commit.commit
+    }
     else {
         let error_msg = url + "\nAfter tree/ must be followed by a branch name"
         console.error(error_msg)
@@ -138,7 +148,7 @@ async function start(_e) {
     let cloc_promise = fetch_cloc();
     console.log(ws_json)
     let url = document.location.host + "/ws" + document.location.pathname
-    if (url.slice(-4) !== ".git") { url += ".git" }
+    // if (url.slice(-4) !== ".git") { url += ".git" }
     let websocket;
     console.log("protocol", document.location.protocol)
     if (document.location.protocol === "https:") {
@@ -212,7 +222,7 @@ function startStreaming(ws) {
                     }
                 })
             }
-            document.getElementById("status").innerText += payload
+            // document.getElementById("status").innerText += payload
             document.getElementById("hint").innerHTML = "Downloading repository into server"
             if (payload.includes("Cloning")) {
                 document.getElementById("clone").innerText = "git clone https:/" + document.location.pathname
@@ -372,35 +382,35 @@ function createCocomoFromResponse(cocomo_data) {
 
 }
 
-function createAboutInfo(url_s, branch_s, commit_s) {
-    let url_str = url_s.split(' ')[1]
-    let ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + url_str + '">' + url_str + '</a>'
+// function createAboutInfo(url_s, branch_s, commit_s) {
+//     let url_str = url_s.split(' ')[1]
+//     let ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + url_str + '">' + url_str + '</a>'
 
-    let urlRow = '<div class="row align-items-center">'
-    urlRow += '<div class="col col-sm-auto"><strong>URL:</strong></div>'
-    urlRow += '<div class="col col-sm-auto text-truncate float-start">' + ref + '</div>'
+//     let urlRow = '<div class="row align-items-center">'
+//     urlRow += '<div class="col col-sm-auto"><strong>URL:</strong></div>'
+//     urlRow += '<div class="col col-sm-auto text-truncate float-start">' + ref + '</div>'
 
-    if (url_str.includes("github.com")) {
-        let img = '<img alt="Open repository" src="/static/GitHub-Mark-32px.png" class="float-start">'
-        let ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + url_str + '">' + img + '</a>'
-        urlRow += '<div class="col col-sm-auto">' + ref + '</div>'
-    }
+//     if (url_str.includes("github.com")) {
+//         let img = '<img alt="Open repository" src="/static/GitHub-Mark-32px.png" class="float-start">'
+//         let ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + url_str + '">' + img + '</a>'
+//         urlRow += '<div class="col col-sm-auto">' + ref + '</div>'
+//     }
 
-    urlRow += '</div>'
-    console.log(urlRow)
+//     urlRow += '</div>'
+//     console.log(urlRow)
 
-    let branch_str = branch_s.split(' ')[1]
-    let branchRow = '<div class="row pt-2">'
-    branchRow += '<div class="col col-sm-auto"><strong>Branch:</strong></div>'
-    branchRow += '<div class="col">' + branch_str + '</div>'
-    branchRow += '</div> '
+//     let branch_str = branch_s.split(' ')[1]
+//     let branchRow = '<div class="row pt-2">'
+//     branchRow += '<div class="col col-sm-auto"><strong>Branch:</strong></div>'
+//     branchRow += '<div class="col">' + branch_str + '</div>'
+//     branchRow += '</div> '
 
-    let commit_str = commit_s.split(' ')[1]
-    let commitRow = '<div class="row pt-2"><div class="col col-sm-auto">Commit:</div><div class="col text-truncate float-start">' + commit_str + '</div></div>'
+//     let commit_str = commit_s.split(' ')[1]
+//     let commitRow = '<div class="row pt-2"><div class="col col-sm-auto">Commit:</div><div class="col text-truncate float-start">' + commit_str + '</div></div>'
 
-    let res = urlRow + branchRow + commitRow;
-    document.getElementById("about").innerHTML = res
-}
+//     let res = urlRow + branchRow + commitRow;
+//     document.getElementById("about").innerHTML = res
+// }
 
 document.addEventListener("DOMContentLoaded", start);
 

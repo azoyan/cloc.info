@@ -31,7 +31,8 @@ pub fn create_api_router(provider: Arc<RwLock<GithubProvider>>) -> Router<Body> 
 pub fn create_router(provider: Arc<RwLock<GithubProvider>>) -> Router<Body> {
     let router = Router::new()
         .route("/", get(default_handler))
-        .route("/tree/*branch", get(handler_with_branch));
+        .route("/tree/*branch", get(handler_with_branch))
+        .route("/src/*branch", get(handler_with_branch));
 
     Router::new()
         .nest("/:owner/:repo", router)
