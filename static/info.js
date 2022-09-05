@@ -235,7 +235,7 @@ function startStreaming(ws) {
         let lines = p.split(/\r?\n/)
         for (let i = 0; i < lines.length; ++i) {
             let payload = lines[i];
-            console.log("payload line:", payload)
+            // console.log("payload line:", payload)
             if (payload.includes("Done")) {
                 fetch_cloc().then((cloc) => {
                     if (cloc.length > 0) {
