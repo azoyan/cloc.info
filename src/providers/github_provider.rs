@@ -1,8 +1,8 @@
-use super::git_provider::GitProvider;
+use super::git_provider::{self, GitProvider};
 use crate::{
     cloner::Cloner,
     repository::{
-        info::Branches,
+        info::{to_unique_name, to_url, Branches},
         storage_cache::StorageCache,
         utils::{self, count_line_of_code},
     },
@@ -79,6 +79,9 @@ pub enum Error {
 
     #[snafu(display("Repository downloading already in progress"))]
     InProgress { url: String },
+
+    #[snafu(display("Error at 'git ls-remote': {source}"))]
+    GitProviderError { source: git_provider::Error },
 }
 
 #[derive(Debug, Default)]
@@ -119,7 +122,7 @@ impl GithubProvider {
 
     pub async fn processing(
         &self,
-        url: &str,
+        unique_name: &str,
         host: &str,
         owner: &str,
         repository_name: &str,
@@ -183,17 +186,25 @@ impl GithubProvider {
                 } else {
                     tracing::info!("Current branch '{db_branch_name}' and commit '{db_last_commit}' are not actual '{last_commit_remote}'");
 
-                    let (result, temp_dir) = match self.storage_cache.read().await.get(url) {
+                    let (result, temp_dir) = match self.storage_cache.read().await.get(unique_name)
+                    {
                         Some(temp_dir) => {
                             let repository_path = temp_dir.path().to_str().unwrap();
                             tracing::info!("Repository {repository_name} cached in disk storage: {repository_path}");
                             // если есть, обновляем репозиторий
                             let result = self
                                 .cloner
-                                .pull_repository(url, repository_path, branch)
+                                .pull_repository(
+                                    host,
+                                    owner,
+                                    repository_name,
+                                    repository_path,
+                                    branch,
+                                )
                                 .await;
-                            last_commit_local = utils::last_commit_local(url, repository_path)
-                                .with_context(|_e| LastCommitSnafu)?;
+                            last_commit_local =
+                                utils::last_commit_local(unique_name, repository_path)
+                                    .with_context(|_e| LastCommitSnafu)?;
                             (result, temp_dir.clone())
                         }
                         None => {
@@ -206,10 +217,17 @@ impl GithubProvider {
                             let repository_path_str = repository_path.to_str().unwrap();
                             let result = self
                                 .cloner
-                                .clone_repository(url, branch, repository_path_str)
+                                .clone_repository(
+                                    host,
+                                    owner,
+                                    repository_name,
+                                    branch,
+                                    repository_path_str,
+                                )
                                 .await;
-                            last_commit_local = utils::last_commit_local(url, repository_path_str)
-                                .with_context(|_e| LastCommitSnafu)?;
+                            last_commit_local =
+                                utils::last_commit_local(unique_name, repository_path_str)
+                                    .with_context(|_e| LastCommitSnafu)?;
                             (result, temp_dir)
                         }
                     };
@@ -272,7 +290,7 @@ impl GithubProvider {
                         self.storage_cache
                             .write()
                             .await
-                            .insert(url, temp_dir.clone());
+                            .insert(unique_name, temp_dir.clone());
                     }
                     Processed {
                         branch_id,
@@ -283,8 +301,10 @@ impl GithubProvider {
             }
             // Если в БД отсутствует
             None => {
-                tracing::warn!("Repository {url} doesn't exist in database and storage cache");
-                assert!(self.storage_cache.read().await.get(url).is_none());
+                tracing::warn!(
+                    "Repository {unique_name} doesn't exist in database and storage cache"
+                );
+                assert!(self.storage_cache.read().await.get(unique_name).is_none());
 
                 let temp_dir = Arc::new(TempDir::new_in("cloc_repo").context(CreateTempDirSnafu)?);
                 let repository_path = temp_dir.path();
@@ -293,17 +313,31 @@ impl GithubProvider {
 
                 let state = self
                     .cloner
-                    .clone_repository(url, branch, repository_path_str)
+                    .clone_repository(host, owner, repository_name, branch, repository_path_str)
                     .await;
 
-                tracing::info!("Cloning {url} state {state:?}. Path: {:?}", repository_path);
+                tracing::info!(
+                    "Clone state {state:?} for {unique_name}, path: {:?}",
+                    repository_path
+                );
 
-                std::thread::sleep(std::time::Duration::from_secs(5));
+                // std::thread::sleep(std::time::Duration::from_secs(25));
 
-                let repository_size =
-                    i64::try_from(fs_extra::dir::get_size(repository_path).unwrap()).unwrap();
+                let repository_size = match fs_extra::dir::get_size(repository_path) {
+                    Ok(size) => match i64::try_from(size) {
+                        Ok(size) => size,
+                        Err(e) => {
+                            tracing::error!("{}. Repository will be set 0", e.to_string());
+                            0
+                        }
+                    },
+                    Err(e) => {
+                        tracing::error!("{}. Repository will be set 0", e.to_string());
+                        0
+                    }
+                };
 
-                last_commit_local = utils::last_commit_local(url, repository_path_str)
+                last_commit_local = utils::last_commit_local(unique_name, repository_path_str)
                     .with_context(|_e| LastCommitSnafu)?;
                 let scc_output = count_line_of_code(repository_path_str, "")
                     .await
@@ -380,13 +414,15 @@ impl GithubProvider {
 
                     row.get("id")
                 };
-                tracing::info!("Inserting {url} info to database done. Returning scc_output");
+                tracing::info!(
+                    "Inserting {unique_name} info to database done. Returning scc_output"
+                );
                 // добовалем в хранилище на жёстком диске
                 if is_default_branch {
                     self.storage_cache
                         .write()
                         .await
-                        .insert(url, temp_dir.clone());
+                        .insert(unique_name, temp_dir.clone());
                 }
                 Processed {
                     branch_id,
@@ -411,44 +447,49 @@ impl GithubProvider {
         branch: Option<&str>,
         user_agent: &str,
     ) -> Result<(DbId, Vec<u8>), Error> {
-        let url = format!("https://{host}/{owner}/{repository_name}");
         tracing::debug!(
-            "\nGet with branch: {} {} {:?}",
+            "get_with_branch({} {} {:?})",
             owner,
             repository_name,
             branch
         );
-        let default_branch = self.git_provider.default_branch(&url).await;
+        let url = to_url(host, owner, repository_name);
+        let default_branch = self
+            .git_provider
+            .default_branch(&url)
+            .await
+            .with_context(|_e| GitProviderSnafu)?;
 
         let branch = match branch {
             Some(branch) => branch,
             None => &default_branch,
         };
+        let unique_name = to_unique_name(host, owner, repository_name, branch);
         // self.cloner.clear_state_buffer(&url).await;  // try remove later and check progress view
         defer! {
             match self.processed.try_read() {
                 Ok(guard) => {
-                    match guard.get(&url) {
+                    match guard.get(&unique_name) {
                         Some(visit) => {
-                            tracing::debug!("Trying Remove notificator for {url}");
+                            tracing::debug!("Trying Remove notificator for {unique_name}");
                             let counter = visit.counter.load(SeqCst);
                             assert!(counter >=0);
                             if counter == 0 {
                                drop(guard);
                                match self.processed.try_write() {
                                     Ok(mut guard) => {
-                                        guard.remove(&url);
-                                        tracing::debug!("Remove Done notificator for {url}");
+                                        guard.remove(&unique_name);
+                                        tracing::debug!("Remove Done notificator for {unique_name}");
 
                                     },
                                     Err(e) =>  tracing::error!(
-                                        "Remove notificator Error at write lock for {url}: {e}"
+                                        "Remove notificator Error at write lock for {unique_name}: {e}"
                                     ),
                                 }
                             }
                             else {
                                 let prev = visit.counter.fetch_sub(1, SeqCst);
-                                tracing::debug!("Can't Remove notificator for {url}, visitors: {}", prev);
+                                tracing::debug!("Can't Remove notificator for {unique_name}, visitors: {}", prev);
                             }
                         },
                         None => {},
@@ -456,23 +497,23 @@ impl GithubProvider {
                 }
                 Err(e) => {
                     tracing::error!(
-                        "Remove notificator Error at read lock for {url}: {e}"
+                        "Remove notificator Error at read lock for {unique_name}: {e}"
                     );
                 }
             }
 
-            tracing::info!("Out of the scope {url} get_with_branch\n");
+            tracing::info!("Out of the scope {unique_name} get_with_branch\n");
         }
 
         match self.processed.try_read() {
-            Ok(guard) => match guard.get(&url) {
+            Ok(guard) => match guard.get(&unique_name) {
                 None => {
-                    tracing::debug!("First processing repository {url}");
+                    tracing::debug!("First processing repository {unique_name}");
                     drop(guard);
                     match self.processed.try_write() {
                         Ok(mut guard) => {
                             guard.insert(
-                                url.clone(),
+                                unique_name.clone(),
                                 Arc::new(VisitCounter {
                                     counter: AtomicI64::new(0),
                                     notify: Default::default(),
@@ -480,7 +521,7 @@ impl GithubProvider {
                             );
                         }
                         Err(e) => tracing::error!(
-                            "First notificator Error at write lock for {url}: {}",
+                            "First notificator Error at write lock for {unique_name}: {}",
                             e
                         ),
                     }
@@ -490,7 +531,7 @@ impl GithubProvider {
                     drop(guard);
                     let prev = visit.counter.fetch_add(1, SeqCst);
                     tracing::debug!(
-                        "Someone else ({}) request but In prgress {url} ...",
+                        "Someone else ({}) request but In prgress {unique_name} ...",
                         prev + 1
                     );
                     visit.notify.notified().await;
@@ -498,7 +539,7 @@ impl GithubProvider {
                 }
             },
             Err(e) => {
-                tracing::error!("Someone else Error at read lock for {url}: {}", e);
+                tracing::error!("Someone else Error at read lock for {unique_name}: {}", e);
             }
         }
 
@@ -509,7 +550,7 @@ impl GithubProvider {
             directory: _directory,
         } = self
             .processing(
-                &url,
+                &unique_name,
                 host,
                 owner,
                 repository_name,
@@ -522,10 +563,10 @@ impl GithubProvider {
         // tracing::info!("End Processing {url}. Done: {}", result.is_ok());
 
         match self.processed.try_read() {
-            Ok(guard) => match guard.get(&url) {
+            Ok(guard) => match guard.get(&unique_name) {
                 Some(notify) => {
                     // tracing::debug!("Processing {url} done. Notify to other waiters");
-                    self.cloner.set_done(&url).await;
+                    self.cloner.set_done(&unique_name).await;
                     let n = notify.clone();
                     drop(guard);
                     n.notify.notify_waiters();
@@ -549,7 +590,11 @@ impl GithubProvider {
         repository_name: &str,
     ) -> Result<String, Error> {
         let url = format!("https://{host}/{owner}/{repository_name}");
-        let default_branch = self.git_provider.default_branch(&url).await;
+        let default_branch = self
+            .git_provider
+            .default_branch(&url)
+            .await
+            .with_context(|_e| GitProviderSnafu)?;
         Ok(default_branch)
     }
 
@@ -562,7 +607,11 @@ impl GithubProvider {
     ) -> Result<String, Error> {
         let url = format!("https://{host}/{owner}/{repository_name}");
         let branch = branch.trim_start_matches('/');
-        let last_commit = self.git_provider.last_commit(&url, branch).await;
+        let last_commit = self
+            .git_provider
+            .last_commit(&url, branch)
+            .await
+            .with_context(|_e| GitProviderSnafu)?;
         Ok(last_commit)
     }
 
@@ -573,7 +622,11 @@ impl GithubProvider {
         repository_name: &str,
     ) -> Result<Branches, Error> {
         let url = format!("https://{host}/{owner}/{repository_name}");
-        let branches = self.git_provider.all_branches(&url).await;
+        let branches = self
+            .git_provider
+            .all_branches(&url)
+            .await
+            .with_context(|_e| GitProviderSnafu)?;
         Ok(branches)
     }
 

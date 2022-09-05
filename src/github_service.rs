@@ -32,6 +32,7 @@ pub fn create_router(provider: Arc<RwLock<GithubProvider>>) -> Router<Body> {
     let router = Router::new()
         .route("/", get(default_handler))
         .route("/tree/*branch", get(handler_with_branch))
+        .route("/-/tree/*branch", get(handler_with_branch))
         .route("/src/*branch", get(handler_with_branch));
 
     Router::new()
@@ -120,11 +121,12 @@ async fn handler_with_branch(
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
-    tracing::debug!("Handler with branch {:?}", request);
     if !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
     let branch = &branch_name[1..];
+    let branch = branch.trim_end_matches("/");
+    tracing::debug!("Handler with branch {:?}, branch: {branch}", request, );
     handle_request(
         &host,
         &owner,

@@ -99,10 +99,33 @@ async function preparePage(url) {
         console.log("commit", commit)
         document.getElementById("commit").innerText = commit.commit
     }
-    else if ((repository_hostname === "github.com" || repository_hostname === "gitlab.com") && path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
+    else if (repository_hostname === "github.com" && path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
         for (let i = 4; i < path_name_array.length; ++i) {
             console.log("el:", path_name_array[i])
             branch += '/' + path_name_array[i]
+        }
+        document.getElementById("branch").innerText = branch.slice(1)
+        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/tree" + branch
+        let commit = await fetch_branch_commit(url_str)
+        document.getElementById("commit").innerText = commit.commit
+    }
+    else if (repository_hostname === "gitlab.com") {
+        if (path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
+            for (let i = 4; i < path_name_array.length; ++i) {
+                console.log("el:", path_name_array[i])
+                branch += '/' + path_name_array[i]
+            }
+        }
+        else if (path_name_array[3] === "-" && path_name_array[4] === "tree" && path_name_array[5] !== undefined) {
+            for (let i = 5; i < path_name_array.length; ++i) {
+                console.log("el:", path_name_array[i])
+                branch += '/' + path_name_array[i]
+            }
+        }
+        else {
+            let error_msg = url + "\nAfter tree/ must be followed by a branch name"
+            console.error(error_msg)
+            throw new PrepareError("Incorrect URL", error_msg)
         }
         document.getElementById("branch").innerText = branch.slice(1)
         let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/tree" + branch
@@ -140,45 +163,44 @@ function showError(status, message) {
 
 async function start(_e) {
     let ok = false
-    // try {
-    ok = await preparePage(new URL(document.URL))
+    try {
+        ok = await preparePage(new URL(document.URL))
 
-    if (!ok) { return; }
-    let ws_json = await fetch_ws();
-    let cloc_promise = fetch_cloc();
-    console.log(ws_json)
-    let url = document.location.host + "/ws" + document.location.pathname
-    // if (url.slice(-4) !== ".git") { url += ".git" }
-    let websocket;
-    console.log("protocol", document.location.protocol)
-    if (document.location.protocol === "https:") {
-        websocket = new WebSocket("wss://" + url)
-    }
-    else {
-        websocket = new WebSocket("ws://" + url)
-    }
+        if (!ok) { return; }
+        let ws_json = await fetch_ws();
+        let cloc_promise = fetch_cloc();
+        console.log(ws_json)
+        let url = document.location.host + "/ws" + document.location.pathname
+        let websocket;
+        console.log("protocol", document.location.protocol)
+        if (document.location.protocol === "https:") {
+            websocket = new WebSocket("wss://" + url)
+        }
+        else {
+            websocket = new WebSocket("ws://" + url)
+        }
 
-    console.log("websocket:", url);
-    console.log(websocket)
-    // websocket.addEventListener('error', function (event) {
-    //     console.log('WebSocket error: ', event);
-    //     stopStreaming(websocket);
-    // });
-    startStreaming(websocket)
-    let cloc = await cloc_promise;
-    // console.log("cloc", cloc)
-    if (cloc.length > 0) {
-        stopStreaming(websocket)
-        createTableFromResponse(cloc);
+        console.log("websocket:", url);
+        console.log(websocket)
+        // websocket.addEventListener('error', function (event) {
+        //     console.log('WebSocket error: ', event);
+        //     stopStreaming(websocket);
+        // });
+        startStreaming(websocket)
+        let cloc = await cloc_promise;
+        // console.log("cloc", cloc)
+        if (cloc.length > 0) {
+            stopStreaming(websocket)
+            createTableFromResponse(cloc);
+        }
     }
-    // }
-    // catch (err) {
-    //     if (err instanceof FetchError || err instanceof PrepareError) {
-    //         showError(err.status, err.message)
-    //     } else {
-    //         showError(err)
-    //     }
-    // }
+    catch (err) {
+        if (err instanceof FetchError || err instanceof PrepareError) {
+            showError(err.status, err.message)
+        } else {
+            showError(err)
+        }
+    }
 }
 
 document.onload = start

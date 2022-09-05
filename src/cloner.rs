@@ -5,6 +5,8 @@ use tokio::{
     sync::RwLock,
 };
 
+use crate::repository::info::{to_unique_name, to_url};
+
 #[derive(Debug, Clone)]
 pub enum State {
     Buffered(String),
@@ -74,12 +76,15 @@ impl Cloner {
 
     pub async fn pull_repository(
         &self,
-        url: &str,
+        host: &str,
+        owner: &str,
+        repository_name: &str,
         repository_path: &str,
         branch_name: &str,
     ) -> State {
         let mut command = Command::new("git");
-        tracing::info!("pull {} to {}", url, repository_path);
+        let unique_name = to_unique_name(host, owner, repository_name, branch_name);
+        tracing::info!("pull {unique_name} to {}", repository_path);
 
         command.args(&[
             "-C",
@@ -91,10 +96,10 @@ impl Cloner {
             "origin",
             branch_name,
         ]);
-        self.execute_pull(command, url).await
+        self.execute_pull(command, &unique_name).await
     }
 
-    pub async fn execute_pull(&self, mut command: Command, url: &str) -> State {
+    pub async fn execute_pull(&self, mut command: Command, unique_name: &str) -> State {
         command.stderr(Stdio::piped());
 
         let mut child = command.spawn().unwrap();
@@ -108,7 +113,7 @@ impl Cloner {
             result.push_str(&buffer);
 
             tracing::debug!(
-                "{url} <-> ASCII:{} {}>>\n{}\n<<",
+                "{unique_name} <-> ASCII:{} {}>>\n{}\n<<",
                 &result.is_ascii(),
                 result.len(),
                 &result
@@ -116,7 +121,7 @@ impl Cloner {
             self.clone_state
                 .write()
                 .await
-                .insert(url.to_string(), State::Buffered(result.clone()));
+                .insert(unique_name.to_string(), State::Buffered(result.clone()));
             buffer.clear();
         }
         let _c = child.wait().await; // try
@@ -126,28 +131,44 @@ impl Cloner {
 
     pub async fn clone_repository(
         &self,
-        url: &str,
+        host: &str,
+        owner: &str,
+        repository_name: &str,
         branch_name: &str,
         repository_path: &str,
     ) -> State {
         let mut command = Command::new("git");
-        tracing::info!("clone --branch {branch_name} --depth 1 {} {}", url, repository_path);
+        let url = to_url(host, owner, repository_name);
+        tracing::info!(
+            "clone --branch {branch_name} --depth 1 {} {}",
+            url,
+            repository_path
+        );
 
         command.args(&[
             "clone",
             "--progress",
             "--depth=1",
-            url,
+            &url,
             "--branch",
             branch_name,
             repository_path,
         ]);
-        self.execute(command, url).await
+        self.execute(command, host, owner, repository_name, branch_name)
+            .await
     }
 
-    pub async fn execute(&self, mut command: Command, url: &str) -> State {
+    pub async fn execute(
+        &self,
+        mut command: Command,
+        host: &str,
+        owner: &str,
+        repository_name: &str,
+        branch: &str,
+    ) -> State {
         command.stdout(Stdio::piped());
         command.stderr(Stdio::piped());
+        let unique_name = to_unique_name(host, owner, repository_name, branch);
 
         let mut child = command.spawn().unwrap();
         let stderr = child.stderr.take().unwrap();
@@ -187,16 +208,17 @@ impl Cloner {
 
             let stages_string = stages.to_string();
 
-            tracing::debug!(
-                "ASCII:{} {}>>\n{}\n<<",
-                stages_string.is_ascii(),
-                stages_string.len(),
-                &stages_string
-            );
+            // tracing::debug!(
+            //     "ASCII:{} {}>>\n{}\n<<",
+            //     stages_string.is_ascii(),
+            //     stages_string.len(),
+            //     &stages_string
+            // );
+
             self.clone_state
                 .write()
                 .await
-                .insert(url.to_string(), State::Buffered(stages_string));
+                .insert(unique_name.clone(), State::Buffered(stages_string));
             buffer.clear();
         }
         // let _c = child.wait().await; // try

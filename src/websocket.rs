@@ -1,4 +1,8 @@
-use crate::cloner::Cloner;
+use crate::{
+    cloner::Cloner,
+    providers::git_provider::GitProvider,
+    repository::info::{to_unique_name, to_url},
+};
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -10,16 +14,45 @@ use axum::{
 
 pub async fn handler_ws(
     ws: WebSocketUpgrade,
-    Path(path): Path<String>,
+    Path((host, owner, mut repository_name)): Path<(String, String, String)>,
     Extension(cloner): Extension<Cloner>,
+    Extension(provider): Extension<GitProvider>,
     // request: Request<Body>,
 ) -> Response {
+    if !repository_name.ends_with(".git") {
+        repository_name = format!("{repository_name}.git");
+    }
+
+    let url = to_url(&host, &owner, &repository_name);
+    let branch = provider.default_branch(&url).await;
+
+    match branch {
+        Ok(branch) => {
+            let path = to_unique_name(&host, &owner, &repository_name, &branch);
+            ws.on_upgrade(move |socket| handle_socket(path, socket, cloner))
+        }
+        Err(e) => panic!("{}", e.to_string()),
+    }
+}
+
+pub async fn handler_ws_with_branch(
+    ws: WebSocketUpgrade,
+    Path((host, owner, mut repository_name, branch)): Path<(String, String, String, String)>,
+    Extension(cloner): Extension<Cloner>,
+    Extension(_provider): Extension<GitProvider>,
+    // request: Request<Body>,
+) -> Response {
+    if !repository_name.ends_with(".git") {
+        repository_name = format!("{repository_name}.git");
+    }
+    let branch = branch.trim_start_matches("/").trim_end_matches("/");
+    let path = to_unique_name(&host, &owner, &repository_name, &branch);
     ws.on_upgrade(move |socket| handle_socket(path, socket, cloner))
 }
 
 async fn handle_socket(path: String, mut socket: WebSocket, cloner: Cloner) {
     tracing::info!("Connect websocket {path}");
-    let repository_name = format!("https://{}", &path[1..]); //  crop first slash
+    let repository_name = path;
     cloner.clear_state_buffer(&repository_name).await;
     while let Some(msg) = socket.recv().await {
         if let Ok(_msg) = msg {

@@ -1,5 +1,24 @@
-function gitUrlParse(url) {
+function extractBranchFromGitUrl(git_url) {
+    let branch_word
 
+    if (git_url.host === "gitlab.com" || git_url.host === "github.com") {
+        branch_word = "tree"
+    }
+    else if (git_url.host === "bitbucket.org") {
+        branch_word = "src"
+    }
+    let branch_word_idx = git_url.pathname.indexOf(branch_word)
+    if (git_url.owner === branch_word) {
+        branch_word_idx = git_url.pathname.indexOf(branch_word, branch_word_idx + branch_word.length)
+    }
+    if (git_url.name === branch_word) {
+        branch_word_idx = git_url.pathname.indexOf(branch_word, branch_word_idx + branch_word.length)
+    }
+
+    console.log("branch_word", branch_word, branch_word_idx)
+    return branch_word_idx > 0 ? git_url.pathname.slice(branch_word_idx + branch_word.length + 1) : undefined
+}
+function gitUrlParse(url) {
     if (typeof url !== "string") {
         throw new Error("The url must be a string.");
     }

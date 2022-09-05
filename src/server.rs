@@ -1,6 +1,7 @@
 use crate::{
     github_service,
     providers::{git_provider::GitProvider, github_provider::GithubProvider},
+    websocket,
 };
 use axum::{
     error_handling::HandleErrorLayer,
@@ -45,32 +46,48 @@ pub fn create_server(
     let cache = Arc::new(Cache::new());
     let cache_clone = cache.clone();
     let git_provider = GitProvider::new(cache);
-    let github_provider = GithubProvider::new(16 * crate::GB, connection_pool.clone(), git_provider);
+    let github_provider = GithubProvider::new(
+        16 * crate::GB,
+        connection_pool.clone(),
+        git_provider.clone(),
+    );
 
     let _monitor =
         tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
 
-    let websocket_service = Router::new().route(
-        "/*path",
-        axum::routing::get(crate::websocket::handler_ws)
-            .layer(Extension(github_provider.cloner.clone())),
-    );
+    let websocket_service = Router::new()
+        .route("/", axum::routing::get(websocket::handler_ws))
+        .route(
+            "/tree/*branch",
+            axum::routing::get(websocket::handler_ws_with_branch),
+        )
+        .route(
+            "/-/tree/*branch",
+            axum::routing::get(websocket::handler_ws_with_branch),
+        )
+        .route(
+            "/src/*branch",
+            axum::routing::get(websocket::handler_ws_with_branch),
+        )
+        .layer(Extension(github_provider.cloner.clone()))
+        .layer(Extension(git_provider.clone()));
 
     let statistic_router = Router::new()
         .route("/largest/:limit", get(largest))
         .route("/recent/:limit", get(recent))
         .route("/popular/:limit", get(popular))
         .layer(Extension(connection_pool));
+
     let gh_provider = Arc::new(RwLock::new(github_provider));
+
     let app = Router::new()
         .route("/", root_service)
-        .nest("/ws", websocket_service)
+        .nest("/ws/:host/:owner/:repo", websocket_service)
         .nest("/api", statistic_router)
         .nest(
             "/api/:host",
             github_service::create_api_router(gh_provider.clone()),
         )
-        // .nest("/github.com", github_service::create_router(gh_provider))
         .nest("/:host", github_service::create_router(gh_provider))
         .merge(spa)
         .fallback(not_found.into_service())

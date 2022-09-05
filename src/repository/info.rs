@@ -83,14 +83,18 @@ pub struct RequiredStatusChecks {
     pub contexts: Vec<String>,
 }
 
-pub fn to_url(hostname: &str, owner: &str, repository_name: &str, branch: &str) -> String {
-    format!("https://{hostname}/{owner}/{repository_name}/{branch}")
+pub fn to_url(hostname: &str, owner: &str, repository_name: &str) -> String {
+    format!("https://{hostname}/{owner}/{repository_name}")
 }
 
 // pub fn to_filename(hostname: &str, owner: &str, repository_name: &str, branch: &str) -> String {
 //     let branch = branch.replace('/', "_");
 //     format!("{hostname}_{owner}_{repository_name}_branch_{branch}")
 // }
+
+pub fn to_unique_name(host: &str, owner: &str, repository_name: &str, branch: &str)->String{
+    format!("{host}/{owner}/{repository_name}/{branch}")
+}
 
 #[derive(Debug, Clone, PartialOrd, PartialEq, Eq)]
 pub struct CocomoInfo {
