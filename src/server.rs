@@ -1,15 +1,16 @@
 use crate::{
     github_service,
     providers::{git_provider::GitProvider, github_provider::GithubProvider},
+    repository::utils::count_line_of_code,
     websocket,
 };
 use axum::{
     error_handling::HandleErrorLayer,
-    extract::Path,
+    extract::{self, Path},
     handler::Handler,
     middleware::Next,
     response::{IntoResponse, Response},
-    routing::{get, get_service},
+    routing::{get, get_service, post},
     Extension, Router,
 };
 use axum_extra::routing::SpaRouter;
@@ -21,7 +22,8 @@ use hyper::{header::CONTENT_TYPE, Body, Method, Request, StatusCode, Uri};
 use mime_guess::mime::APPLICATION_JSON;
 use retainer::Cache;
 use serde_json::json;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{io::Write, net::SocketAddr, sync::Arc, time::Duration};
+use tempfile::tempdir_in;
 use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
 use tower::{BoxError, ServiceBuilder};
@@ -41,6 +43,16 @@ pub fn create_server(
             )
         },
     );
+
+    let upload_service = get_service(ServeFile::new("static/upload.html")).handle_error(
+        |error: std::io::Error| async move {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Unhandled internal error: {}", error),
+            )
+        },
+    );
+
     let spa = SpaRouter::new("/static", "static").handle_error(handle_error);
 
     let cache = Arc::new(Cache::new());
@@ -82,6 +94,8 @@ pub fn create_server(
 
     let app = Router::new()
         .route("/", root_service)
+        .route("/upload", upload_service)
+        .route("/post", post(upload))
         .nest("/ws/:host/:owner/:repo", websocket_service)
         .nest("/api", statistic_router)
         .nest(
@@ -318,4 +332,29 @@ where
     }
 
     Ok(bytes)
+}
+
+async fn upload(mut multipart: extract::Multipart) -> Response<Body> {
+    let tempdir = tempdir_in("cloc_repo").unwrap();
+    let path = tempdir.path().to_str().unwrap();
+    while let Some(field) = multipart.next_field().await.unwrap() {
+        let name = field.name().unwrap().to_string();
+        let data = field.bytes().await.unwrap();
+
+        // let mut tempfile = std::fs::OpenOptions::new().write(true)
+        //     .open(&format!("{path}/{name}"))
+        //     .unwrap();
+
+        // tempfile.write_all(&data).unwrap();
+        // tempfile.flush().unwrap();
+
+        std::fs::write(&format!("{path}/{name}"), &data).unwrap();
+
+        tracing::debug!("write file '{name}' ")
+    }
+    let scc_output = count_line_of_code(path, "").await.unwrap();
+    Response::builder()
+        .header("Content-Type", "text/plain")
+        .body(Body::from(scc_output))
+        .unwrap()
 }

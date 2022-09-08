@@ -163,7 +163,7 @@ function createRecentListItem(repository) {
     let date = Date.parse(repository.time)
     let diff = delta_time(now, date)
 
-    item += diff
+    item += '<small class="text-muted">' + diff + '</small>'
 
     if (repository.hostname === "github.com") {
         item += createGithubExternalLink(repository)
@@ -191,7 +191,7 @@ function createPopularListItem(repository) {
     item += '<a target="_blank" rel="noopener noreferrer canonical" href="' + local_href + '" class="link-dark me-1">' + repository.repository_name + '</a>'
 
 
-    let count = "(" + repository.count + " views)"
+    let count = '<small class="text-muted">' + repository.count + ' views</small>'
 
 
     item += count
@@ -222,7 +222,7 @@ function createLargestListItem(repository) {
     item += '<a target="_blank" rel="noopener noreferrer canonical" href="' + local_href + '" class="link-dark me-1">' + repository.repository_name + '</a>'
 
 
-    let size = "(" + formatBytes(repository.size) + ")"
+    let size = '<small class="text-muted">' + formatBytes(repository.size) + '</small>'
 
 
     item += size
@@ -249,16 +249,16 @@ function delta_time(now, date) {
     let dt = (now - date) / 1000
     console.log(dt)
     if (dt > 60 && dt < 7200) {
-        dt = "(" + Math.round(dt / 60) + " minutes ago)"
+        dt = Math.round(dt / 60) + " minutes ago"
     }
     else if (dt > 7200 && dt < 86400) {
-        dt = "(" + Math.round(dt / 3600) + " hours ago)"
+        dt = Math.round(dt / 3600) + " hours ago"
     }
     else if (dt > 86400) {
-        dt = "(" + Math.round(dt / 86400) + " days ago)"
+        dt = Math.round(dt / 86400) + " days ago"
     }
     else {
-        dt = "(" + Math.round(dt) + " seconds ago)"
+        dt = Math.round(dt) + " seconds ago"
     }
     return dt
 }
