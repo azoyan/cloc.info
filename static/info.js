@@ -63,23 +63,11 @@ async function preparePage(url) {
         console.log("origin_url", origin_url)
         let parsed_url = gitUrlParse(origin_url)
         console.log("parsed_url", parsed_url);
-        let img = ''
-        if (repository_hostname == "github.com") {
-            img = '<img alt="Open repository" src="/static/GitHub-Mark-32px.png" class="float-start">'
-            if (repository_name.slice(-4) === ".git") { repository_name = repository_name.slice(0, -4) }
-        }
-        else if (repository_hostname == "gitlab.com") {
-            img = '<img alt="Open repository" src="/static/gitlab32.png" class="float-start">'
-            if (repository_name.slice(-4) === ".git") { repository_name = repository_name.slice(0, -4) }
-        }
-        else if (repository_hostname == "bitbucket.org") {
-            img = '<img alt="Open repository" src="/static/bitbucket.png" class="float-start">'
-            if (repository_name.slice(-4) === ".git") { repository_name = repository_name.slice(0, -4) }
-        }
-        else {
-            img = '<img alt="Open repository" src="/static/git32.png" class="float-start">'
-            if (repository_name.slice(-4) !== ".git") { origin_url += ".git" }
-        }
+        let img = createRepositoryIcon(repository_hostname, 32, 32)
+
+        // if (repository_name.slice(-4) === ".git") { repository_name = repository_name.slice(0, -4) }
+        // else if (repository_name.slice(-4) !== ".git") { origin_url += ".git" }
+
         let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
         let show_url = "https://" + repository_hostname + '/' + onwer + '/' + repository_name
         console.log("repository_name", repository_name)

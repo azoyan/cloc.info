@@ -96,7 +96,7 @@ function createGitlabExternalLink(repository) {
     link += `<span
     class="badge rounded-pill bg-white text-body ms-1"
     style="border: 1px solid; border-color: #CCC;">
-    <img alt="Open repository" width="16px" height="16px" src="/static/gitlab-3.svg" class="float-start pe-1 ">
+    <img alt="Open repository" width="18px" height="18px" src="/static/gitlab-3.svg" class="float-start pe-1 ">
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
         fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
         <path fill-rule="evenodd"
@@ -132,13 +132,36 @@ function createBitbucketExternalLink(repository) {
     return link
 }
 
+function createCodebergExternalLink(repository) {
+    let codeberg_href = 'https://' + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
+    let link = '<a target="_blank" rel="noopener noreferrer canonical" href="' + codeberg_href + '" class="link-dark">'
+    // <img alt="Open repository" style="color: #2185d0" width="17px" height="17px" src="https://design.codeberg.org/logo-kit/icon_inverted.svg" class="float-start pe-1 ">
+
+    link += `<span
+    class="badge rounded-pill bg-white text-body ms-1"
+    style="border: 1px solid; border-color: #CCC;">
+    <svg style="color: #2185d0" role="img" width="16px" height="15px" viewBox="-3 0 27 27" xmlns="http://www.w3.org/2000/svg"><title>Codeberg</title><path d="M11.955.49A12 12 0 0 0 0 12.49a12 12 0 0 0 1.832 6.373L11.838 5.928a.187.14 0 0 1 .324 0l10.006 12.935A12 12 0 0 0 24 12.49a12 12 0 0 0-12-12 12 12 0 0 0-.045 0zm.375 6.467l4.416 16.553a12 12 0 0 0 5.137-4.213z" fill="#2185d0"></path></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+        fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
+        <path fill-rule="evenodd"
+            d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z" />
+        <path fill-rule="evenodd"
+            d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z" />
+    </svg>
+</span>`
+
+    link += '</a>'
+    return link
+
+}
+
 function createGitExternalLink(repository) {
     let gitlab_href = 'https://' + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
     let link = '<a target="_blank" rel="noopener noreferrer canonical" href="' + gitlab_href + '" class="link-dark">'
     link += `<span
     class="badge rounded-pill bg-white text-body ms-1"
     style="border: 1px solid; border-color: #CCC;">
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" style="color: orangered;" height="16" fill="currentColor" class="bi bi-git" viewBox="0 0 16 16">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" style="color: #f34f29;" height="16" fill="currentColor" class="bi bi-git" viewBox="0 0 16 16">
   <path d="M15.698 7.287 8.712.302a1.03 1.03 0 0 0-1.457 0l-1.45 1.45 1.84 1.84a1.223 1.223 0 0 1 1.55 1.56l1.773 1.774a1.224 1.224 0 0 1 1.267 2.025 1.226 1.226 0 0 1-2.002-1.334L8.58 5.963v4.353a1.226 1.226 0 1 1-1.008-.036V5.887a1.226 1.226 0 0 1-.666-1.608L5.093 2.465l-4.79 4.79a1.03 1.03 0 0 0 0 1.457l6.986 6.986a1.03 1.03 0 0 0 1.457 0l6.953-6.953a1.031 1.031 0 0 0 0-1.457"/>
 </svg>
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -152,6 +175,24 @@ function createGitExternalLink(repository) {
 
     link += '</a>'
     return link
+}
+
+function createExternalLinks(repository) {
+    if (repository.hostname === "github.com") {
+        return createGithubExternalLink(repository)
+    }
+    else if (repository.hostname === "gitlab.com") {
+        return createGitlabExternalLink(repository)
+    }
+    else if (repository.hostname === "bitbucket.org") {
+        return createBitbucketExternalLink(repository)
+    }
+    else if (repository.hostname == "codeberg.org") {
+        return createCodebergExternalLink(repository)
+    }
+    else {
+        return createGitExternalLink(repository)
+    }
 }
 
 
@@ -169,18 +210,7 @@ function createRecentListItem(repository) {
 
     item += '<small class="text-muted">' + diff + '</small>'
 
-    if (repository.hostname === "github.com") {
-        item += createGithubExternalLink(repository)
-    }
-    else if (repository.hostname === "gitlab.com") {
-        item += createGitlabExternalLink(repository)
-    }
-    else if (repository.hostname === "bitbucket.org") {
-        item += createBitbucketExternalLink(repository)
-    }
-    else {
-        item += createGitExternalLink(repository)
-    }
+    item += createExternalLinks(repository)
 
     item += '</li>'
     return item
@@ -200,18 +230,7 @@ function createPopularListItem(repository) {
 
     item += count
 
-    if (repository.hostname === "github.com") {
-        item += createGithubExternalLink(repository)
-    }
-    else if (repository.hostname === "gitlab.com") {
-        item += createGitlabExternalLink(repository)
-    }
-    else if (repository.hostname === "bitbucket.org") {
-        item += createBitbucketExternalLink(repository)
-    }
-    else {
-        item += createGitExternalLink(repository)
-    }
+    item += createExternalLinks(repository)
 
     item += '</li>'
     return item
@@ -231,18 +250,7 @@ function createLargestListItem(repository) {
 
     item += size
 
-    if (repository.hostname === "github.com") {
-        item += createGithubExternalLink(repository)
-    }
-    else if (repository.hostname === "gitlab.com") {
-        item += createGitlabExternalLink(repository)
-    }
-    else if (repository.hostname === "bitbucket.org") {
-        item += createBitbucketExternalLink(repository)
-    }
-    else {
-        item += createGitExternalLink(repository)
-    }
+    item += createExternalLinks(repository)
 
     item += '</li>'
     return item

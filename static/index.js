@@ -200,10 +200,7 @@ function createSelect(all_branches, id, preselected_branch) {
     pic.setAttribute("data-bs-title", "Go to repository " + input.value)
     pic.setAttribute("data-bs-placement", "top")
     pic.setAttribute("href", input.value)
-    if (input.value.includes("github.com")) { pic.innerHTML = '<img src="static/GitHub-Mark-32px.png" class="float-start">' }
-    else if (input.value.includes("gitlab.com")) { pic.innerHTML = '<img src="static/gitlab32.png" class="float-start">' }
-    else if (input.value.includes("bitbucket.org")) { pic.innerHTML = '<img src="static/bitbucket.png" class="float-start">' }
-    else { pic.innerHTML = '<img src="static/git32.png" class="float-start">' }
+    pic.innerHTML = createRepositoryIcon(input.value, 32, 32);
 
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
     const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
