@@ -7,7 +7,7 @@ edition = "2021"
 futures = {version = "0.3", default-features = false, features = ["alloc"]}
 tokio = {version = "1.0", features = ["rt-multi-thread", "time", "fs", "macros", "net", "process", "signal" ]}
 futures-util = {version = "0.3.21"}
-axum = { version =  "0.5", features = ["ws"] }
+axum = { version =  "0.5", features = ["ws", "multipart"] }
 axum-extra = { version = "0.3.6", features = ["spa"] }
 hyper = "0.14"
 structopt = "0.3"

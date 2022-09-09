@@ -41,25 +41,30 @@ function handleFiles(files) {
 
         const area = document.getElementById("area")
         area.style.border = "1px silver solid"
-        area.style.cursor = "usnet"
+        area.style.cursor = "unset"
         area.onclick = () => false
         document.getElementById("label").hidden = true
         document.getElementById("label2").hidden = true
 
         submitButton.addEventListener('click', function (event) {
-            document.getElementById("progress").hidden = false
+            document.getElementById("processing").hidden = false
             const progress = document.getElementById('progress-bar');
             const data = new FormData();
-
+            let delta = Math.floor(100 / files.length)
             for (const file of files) {
                 data.append(file.name, file, file.name);
             }
 
             const request = new XMLHttpRequest();
             request.open('POST', '/post');
-
+            let i = 0
+            document.getElementById("status").innerHTML += '<div class="card-text p-0">Load ' + files[i].name + '</div>'
             request.upload.addEventListener('progress', function (e) {
-                const percent = (e.loaded / e.total) * 100;
+                const percent = Math.floor((e.loaded / e.total) * 100)
+                if (files[i] !== undefined && Math.floor(percent / delta) === 0) {
+                    i += 1
+                    document.getElementById("status").innerHTML += '<div class="card-text p-0">Load ' + files[i].name + '</div>'
+                }
                 progress.style.width = percent + '%';
             })
 
@@ -67,7 +72,7 @@ function handleFiles(files) {
                 console.log(request.status);
                 createTableFromResponse(request.response)
                 document.getElementById("area").hidden = true
-                document.getElementById("progress").hidden = true;
+                document.getElementById("processing").hidden = true;
             })
 
             submitButton.hidden = true

@@ -328,7 +328,7 @@ where
     };
 
     if let Ok(body) = std::str::from_utf8(&bytes) {
-        tracing::debug!("{} body = {:?}", direction, body);
+        // tracing::debug!("{} body = {:?}", direction, body);
     }
 
     Ok(bytes)

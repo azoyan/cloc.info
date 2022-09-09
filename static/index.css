@@ -6,7 +6,7 @@ main>.container {
 
 header {
     font-family: monospace;
-    padding-bottom: 40px;  
+    padding-bottom: 40px;
 }
 
 .bd-placeholder-img {
@@ -95,4 +95,16 @@ header {
 #cocomo {
     font-family: "Ubuntu", sans-serif, monospace;
     font-size: medium;
+}
+
+.circle {
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    border-radius: 50%;
+    font-size: 40px;
+    font-family: "Ubuntu Mono", monospace;
+    color: black;
+    text-align: center;
+    background: rgb(255, 255, 255)
 }
