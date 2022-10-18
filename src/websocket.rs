@@ -19,7 +19,7 @@ pub async fn handler_ws(
     Extension(provider): Extension<GitProvider>,
     // request: Request<Body>,
 ) -> Response {
-    if !repository_name.ends_with(".git") {
+    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
 
@@ -42,9 +42,14 @@ pub async fn handler_ws_with_branch(
     Extension(_provider): Extension<GitProvider>,
     // request: Request<Body>,
 ) -> Response {
-    if !repository_name.ends_with(".git") {
+    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
+    let branch = if host == "codeberg.org" {
+        branch.trim_start_matches("/branch")
+    } else {
+        &branch
+    };
     let branch = branch.trim_start_matches("/").trim_end_matches("/");
     let path = to_unique_name(&host, &owner, &repository_name, &branch);
     ws.on_upgrade(move |socket| handle_socket(path, socket, cloner))

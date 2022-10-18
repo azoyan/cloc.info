@@ -33,11 +33,17 @@ impl StorageCache {
         }
     }
 
-    pub fn get(&self, url: &str) -> Option<Arc<TempDir>> {
-        self.storage
-            .iter()
-            .find(|el| el.url.eq(url))
-            .map(|local| local.directory.clone())
+    pub fn take(&mut self, url: &str) -> Option<Arc<TempDir>> {
+        match self.storage.iter().position(|el| el.url.eq(url)) {
+            Some(pos) => {
+                let local_dir = self.storage.swap_remove(pos);
+                self.size -= local_dir.size;
+
+                self.storage.sort_by(|el1, el2| el2.size.cmp(&el1.size));
+                Some(local_dir.directory)
+            }
+            None => None,
+        }
     }
 
     pub fn insert(&mut self, url: &str, repository_directory: Arc<TempDir>) -> Success {

@@ -22,7 +22,7 @@ use hyper::{header::CONTENT_TYPE, Body, Method, Request, StatusCode, Uri};
 use mime_guess::mime::APPLICATION_JSON;
 use retainer::Cache;
 use serde_json::json;
-use std::{io::Write, net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tempfile::tempdir_in;
 use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
@@ -327,9 +327,9 @@ where
         }
     };
 
-    if let Ok(body) = std::str::from_utf8(&bytes) {
-        // tracing::debug!("{} body = {:?}", direction, body);
-    }
+    // if let Ok(body) = std::str::from_utf8(&bytes) {
+    // tracing::debug!("{} body = {:?}", direction, body);
+    // }
 
     Ok(bytes)
 }

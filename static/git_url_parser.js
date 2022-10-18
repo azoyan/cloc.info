@@ -10,6 +10,7 @@ function extractBranchFromGitUrl(git_url) {
     else if (git_url.host === "codeberg.org") {
         branch_word = "src/branch"
     }
+
     let branch_word_idx = git_url.pathname.indexOf(branch_word)
     if (git_url.owner === branch_word) {
         branch_word_idx = git_url.pathname.indexOf(branch_word, branch_word_idx + branch_word.length)
@@ -18,7 +19,7 @@ function extractBranchFromGitUrl(git_url) {
         branch_word_idx = git_url.pathname.indexOf(branch_word, branch_word_idx + branch_word.length)
     }
 
-    console.log("branch_word", branch_word, branch_word_idx)
+    console.log(git_url.pathname, "branch_word", branch_word, branch_word_idx)
     return branch_word_idx > 0 ? git_url.pathname.slice(branch_word_idx + branch_word.length + 1) : undefined
 }
 function gitUrlParse(url) {
@@ -27,18 +28,18 @@ function gitUrlParse(url) {
     }
 
     let urlInfo = gitUp(url)
-      , sourceParts = urlInfo.resource.split(".")
-      , splits = null
-      ;
+        , sourceParts = urlInfo.resource.split(".")
+        , splits = null
+        ;
 
     urlInfo.toString = function (type) {
         return gitUrlParse.stringify(this, type);
     };
 
     urlInfo.source = sourceParts.length > 2
-                   ? sourceParts.slice(1 - sourceParts.length).join(".")
-                   : urlInfo.source = urlInfo.resource
-                   ;
+        ? sourceParts.slice(1 - sourceParts.length).join(".")
+        : urlInfo.source = urlInfo.resource
+        ;
 
     // Note: Some hosting services (e.g. Visual Studio Team Services) allow whitespace characters
     // in the repository and owner names so we decode the URL pieces to get the correct result
@@ -57,10 +58,10 @@ function gitUrlParse(url) {
             if (urlInfo.resource === 'vs-ssh.visualstudio.com') {
                 splits = urlInfo.name.split("/");
                 if (splits.length === 4) {
-                  urlInfo.organization = splits[1];
-                  urlInfo.owner = splits[2];
-                  urlInfo.name = splits[3];
-                  urlInfo.full_name = splits[2] + '/' + splits[3];
+                    urlInfo.organization = splits[1];
+                    urlInfo.owner = splits[2];
+                    urlInfo.name = splits[3];
+                    urlInfo.full_name = splits[2] + '/' + splits[3];
                 }
                 break;
             } else {
@@ -70,20 +71,20 @@ function gitUrlParse(url) {
                     urlInfo.name = splits[1];
                     urlInfo.full_name = '_git/' + urlInfo.name;
                 } else if (splits.length === 3) {
-                  urlInfo.name = splits[2];
-                  if (splits[0] === 'DefaultCollection') {
-                    urlInfo.owner = splits[2];
-                    urlInfo.organization = splits[0];
-                    urlInfo.full_name = urlInfo.organization + '/_git/' + urlInfo.name;
-                  } else {
-                    urlInfo.owner = splits[0];
-                    urlInfo.full_name = urlInfo.owner + '/_git/' + urlInfo.name;
-                  }
+                    urlInfo.name = splits[2];
+                    if (splits[0] === 'DefaultCollection') {
+                        urlInfo.owner = splits[2];
+                        urlInfo.organization = splits[0];
+                        urlInfo.full_name = urlInfo.organization + '/_git/' + urlInfo.name;
+                    } else {
+                        urlInfo.owner = splits[0];
+                        urlInfo.full_name = urlInfo.owner + '/_git/' + urlInfo.name;
+                    }
                 } else if (splits.length === 4) {
-                  urlInfo.organization = splits[0];
-                  urlInfo.owner = splits[1];
-                  urlInfo.name = splits[3];
-                  urlInfo.full_name = urlInfo.organization + '/' + urlInfo.owner + '/_git/' + urlInfo.name;
+                    urlInfo.organization = splits[0];
+                    urlInfo.owner = splits[1];
+                    urlInfo.name = splits[3];
+                    urlInfo.full_name = urlInfo.organization + '/' + urlInfo.owner + '/_git/' + urlInfo.name;
                 }
                 break;
             }
@@ -92,43 +93,43 @@ function gitUrlParse(url) {
         case "dev.azure.com":
         case "azure.com":
             if (urlInfo.resource === 'ssh.dev.azure.com') {
-              splits = urlInfo.name.split("/");
-              if (splits.length === 4) {
-                urlInfo.organization = splits[1];
-                urlInfo.owner = splits[2];
-                urlInfo.name = splits[3];
-              }
-              break;
-            } else {
-              splits = urlInfo.name.split("/");
-              if (splits.length === 5) {
-                  urlInfo.organization = splits[0];
-                  urlInfo.owner = splits[1];
-                  urlInfo.name = splits[4];
-                  urlInfo.full_name = '_git/' + urlInfo.name;
-              } else if (splits.length === 3) {
-                urlInfo.name = splits[2];
-                if (splits[0] === 'DefaultCollection') {
-                  urlInfo.owner =  splits[2];
-                  urlInfo.organization = splits[0];
-                  urlInfo.full_name = urlInfo.organization + '/_git/' + urlInfo.name;
-                } else {
-                  urlInfo.owner = splits[0];
-                  urlInfo.full_name = urlInfo.owner + '/_git/' + urlInfo.name;
+                splits = urlInfo.name.split("/");
+                if (splits.length === 4) {
+                    urlInfo.organization = splits[1];
+                    urlInfo.owner = splits[2];
+                    urlInfo.name = splits[3];
                 }
-              } else if (splits.length === 4) {
-                urlInfo.organization = splits[0];
-                urlInfo.owner = splits[1];
-                urlInfo.name = splits[3];
-                urlInfo.full_name = urlInfo.organization + '/' + urlInfo.owner + '/_git/' + urlInfo.name;
-              }
-              if(urlInfo.query && urlInfo.query['path']) {
-                urlInfo.filepath = urlInfo.query['path'].replace(/^\/+/g, ''); // Strip leading slash (/)
-              }
-              if(urlInfo.query && urlInfo.query['version']) {  // version=GB<branch>
-                urlInfo.ref = urlInfo.query['version'].replace(/^GB/, ''); // remove GB
-              }
-              break;
+                break;
+            } else {
+                splits = urlInfo.name.split("/");
+                if (splits.length === 5) {
+                    urlInfo.organization = splits[0];
+                    urlInfo.owner = splits[1];
+                    urlInfo.name = splits[4];
+                    urlInfo.full_name = '_git/' + urlInfo.name;
+                } else if (splits.length === 3) {
+                    urlInfo.name = splits[2];
+                    if (splits[0] === 'DefaultCollection') {
+                        urlInfo.owner = splits[2];
+                        urlInfo.organization = splits[0];
+                        urlInfo.full_name = urlInfo.organization + '/_git/' + urlInfo.name;
+                    } else {
+                        urlInfo.owner = splits[0];
+                        urlInfo.full_name = urlInfo.owner + '/_git/' + urlInfo.name;
+                    }
+                } else if (splits.length === 4) {
+                    urlInfo.organization = splits[0];
+                    urlInfo.owner = splits[1];
+                    urlInfo.name = splits[3];
+                    urlInfo.full_name = urlInfo.organization + '/' + urlInfo.owner + '/_git/' + urlInfo.name;
+                }
+                if (urlInfo.query && urlInfo.query['path']) {
+                    urlInfo.filepath = urlInfo.query['path'].replace(/^\/+/g, ''); // Strip leading slash (/)
+                }
+                if (urlInfo.query && urlInfo.query['version']) {  // version=GB<branch>
+                    urlInfo.ref = urlInfo.query['version'].replace(/^GB/, ''); // remove GB
+                }
+                break;
             }
         default:
             splits = urlInfo.name.split("/");
@@ -141,12 +142,12 @@ function gitUrlParse(url) {
                 const srcIndex = splits.indexOf("src", 2);
                 const rawIndex = splits.indexOf("raw", 2);
                 nameIndex = dashIndex > 0 ? dashIndex - 1
-                          : blobIndex > 0 ? blobIndex - 1
-                          : treeIndex > 0 ? treeIndex - 1
-                          : commitIndex > 0 ? commitIndex - 1
-                          : srcIndex > 0 ? srcIndex - 1
-                          : rawIndex > 0 ? rawIndex - 1
-                          : nameIndex;
+                    : blobIndex > 0 ? blobIndex - 1
+                        : treeIndex > 0 ? treeIndex - 1
+                            : commitIndex > 0 ? commitIndex - 1
+                                : srcIndex > 0 ? srcIndex - 1
+                                    : rawIndex > 0 ? rawIndex - 1
+                                        : nameIndex;
 
                 urlInfo.owner = splits.slice(0, nameIndex).join('/');
                 urlInfo.name = splits[nameIndex];
@@ -158,8 +159,8 @@ function gitUrlParse(url) {
             urlInfo.ref = "";
             urlInfo.filepathtype = "";
             urlInfo.filepath = "";
-            const offsetNameIndex = splits.length > nameIndex && splits[nameIndex+1] === "-" ? nameIndex + 1 : nameIndex;
-            if ((splits.length > offsetNameIndex + 2) && (["raw","src","blob", "tree"].indexOf(splits[offsetNameIndex + 1]) >= 0)) {
+            const offsetNameIndex = splits.length > nameIndex && splits[nameIndex + 1] === "-" ? nameIndex + 1 : nameIndex;
+            if ((splits.length > offsetNameIndex + 2) && (["raw", "src", "blob", "tree"].indexOf(splits[offsetNameIndex + 1]) >= 0)) {
                 urlInfo.filepathtype = splits[offsetNameIndex + 1];
                 urlInfo.ref = splits[offsetNameIndex + 2];
                 if (splits.length > offsetNameIndex + 3) {
@@ -178,16 +179,16 @@ function gitUrlParse(url) {
         }
     }
     // Bitbucket Server
-    if(urlInfo.owner.startsWith("scm/")) {
+    if (urlInfo.owner.startsWith("scm/")) {
         urlInfo.source = "bitbucket-server";
-        urlInfo.owner = urlInfo.owner.replace("scm/","");
+        urlInfo.owner = urlInfo.owner.replace("scm/", "");
         urlInfo.organization = urlInfo.owner;
         urlInfo.full_name = `${urlInfo.owner}/${urlInfo.name}`
     }
 
     const bitbucket = /(projects|users)\/(.*?)\/repos\/(.*?)((\/.*$)|$)/
     const matches = bitbucket.exec(urlInfo.pathname)
-    if(matches != null) {
+    if (matches != null) {
         urlInfo.source = "bitbucket-server";
         if (matches[1] === "users") {
             urlInfo.owner = "~" + matches[2];
@@ -199,19 +200,19 @@ function gitUrlParse(url) {
         urlInfo.name = matches[3];
 
         splits = matches[4].split("/");
-        if(splits.length > 1) {
-          if(["raw","browse"].indexOf(splits[1]) >= 0) {
-            urlInfo.filepathtype = splits[1];
-            if (splits.length > 2) {
-              urlInfo.filepath = splits.slice(2).join('/');
+        if (splits.length > 1) {
+            if (["raw", "browse"].indexOf(splits[1]) >= 0) {
+                urlInfo.filepathtype = splits[1];
+                if (splits.length > 2) {
+                    urlInfo.filepath = splits.slice(2).join('/');
+                }
+            } else if (splits[1] === "commits" && splits.length > 2) {
+                urlInfo.commit = splits[2];
             }
-          } else if(splits[1] === "commits" && splits.length > 2) {
-            urlInfo.commit = splits[2];
-          }
         }
         urlInfo.full_name = `${urlInfo.owner}/${urlInfo.name}`
 
-        if(urlInfo.query.at) {
+        if (urlInfo.query.at) {
             urlInfo.ref = urlInfo.query.at;
         } else {
             urlInfo.ref = "";
@@ -249,8 +250,8 @@ gitUrlParse.stringify = function (obj, type) {
         case "http":
         case "https":
             const auth = obj.token
-              ? buildToken(obj) : obj.user && (obj.protocols.includes('http') || obj.protocols.includes('https'))
-                ? `${obj.user}@` : "";
+                ? buildToken(obj) : obj.user && (obj.protocols.includes('http') || obj.protocols.includes('https'))
+                    ? `${obj.user}@` : "";
             return `${type}://${auth}${obj.resource}${port}/${buildPath(obj)}${maybeGitSuffix}`;
         default:
             return obj.href;
@@ -268,21 +269,21 @@ gitUrlParse.stringify = function (obj, type) {
  */
 function buildToken(obj) {
     switch (obj.source) {
-      case "bitbucket.org":
-        return `x-token-auth:${obj.token}@`;
-      default:
-        return `${obj.token}@`
+        case "bitbucket.org":
+            return `x-token-auth:${obj.token}@`;
+        default:
+            return `${obj.token}@`
     }
 }
 
 function buildPath(obj) {
-  switch(obj.source) {
-    case "bitbucket-server":
-      return `scm/${obj.full_name}`;
-    default:
-      return `${obj.full_name}`;
+    switch (obj.source) {
+        case "bitbucket-server":
+            return `scm/${obj.full_name}`;
+        default:
+            return `${obj.full_name}`;
 
-  }
+    }
 }
 
 function gitUp(input) {

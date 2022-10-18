@@ -102,7 +102,7 @@ pub struct GithubProvider {
     pub connection_pool: Pool<PostgresConnectionManager<NoTls>>,
     pub git_provider: GitProvider,
     pub cloner: Cloner,
-    processed: Arc<RwLock<HashMap<String, Arc<VisitCounter>>>>,
+    processed_repostitoires: Arc<RwLock<HashMap<String, Arc<VisitCounter>>>>,
 }
 
 impl GithubProvider {
@@ -116,7 +116,7 @@ impl GithubProvider {
             connection_pool,
             git_provider,
             cloner: Cloner::new(),
-            processed: Default::default(),
+            processed_repostitoires: Default::default(),
         }
     }
 
@@ -168,7 +168,7 @@ impl GithubProvider {
             })?;
 
         let processed = match row {
-            // Есть в БД
+            // Если в БД присутствует
             Some(row) => {
                 // проверяем актуальность коммита
                 let db_last_commit: String = row.get("last_commit_sha");
@@ -186,7 +186,7 @@ impl GithubProvider {
                 } else {
                     tracing::info!("Current branch '{db_branch_name}' and commit '{db_last_commit}' are not actual '{last_commit_remote}'");
 
-                    let (result, temp_dir) = match self.storage_cache.read().await.get(unique_name)
+                    let (result, temp_dir) = match self.storage_cache.write().await.take(unique_name)
                     {
                         Some(temp_dir) => {
                             let repository_path = temp_dir.path().to_str().unwrap();
@@ -304,7 +304,9 @@ impl GithubProvider {
                 tracing::warn!(
                     "Repository {unique_name} doesn't exist in database and storage cache"
                 );
-                assert!(self.storage_cache.read().await.get(unique_name).is_none());
+                {
+                    assert!(self.storage_cache.write().await.take(unique_name).is_none());
+                }
 
                 let temp_dir = Arc::new(TempDir::new_in("cloc_repo").context(CreateTempDirSnafu)?);
                 let repository_path = temp_dir.path();
@@ -467,7 +469,7 @@ impl GithubProvider {
         let unique_name = to_unique_name(host, owner, repository_name, branch);
         // self.cloner.clear_state_buffer(&url).await;  // try remove later and check progress view
         defer! {
-            match self.processed.try_read() {
+            match self.processed_repostitoires.try_read() {
                 Ok(guard) => {
                     match guard.get(&unique_name) {
                         Some(visit) => {
@@ -476,7 +478,7 @@ impl GithubProvider {
                             assert!(counter >=0);
                             if counter == 0 {
                                drop(guard);
-                               match self.processed.try_write() {
+                               match self.processed_repostitoires.try_write() {
                                     Ok(mut guard) => {
                                         guard.remove(&unique_name);
                                         tracing::debug!("Remove Done notificator for {unique_name}");
@@ -505,12 +507,12 @@ impl GithubProvider {
             tracing::info!("Out of the scope {unique_name} get_with_branch\n");
         }
 
-        match self.processed.try_read() {
+        match self.processed_repostitoires.try_read() {
             Ok(guard) => match guard.get(&unique_name) {
                 None => {
                     tracing::debug!("First processing repository {unique_name}");
                     drop(guard);
-                    match self.processed.try_write() {
+                    match self.processed_repostitoires.try_write() {
                         Ok(mut guard) => {
                             guard.insert(
                                 unique_name.clone(),
@@ -562,7 +564,7 @@ impl GithubProvider {
 
         // tracing::info!("End Processing {url}. Done: {}", result.is_ok());
 
-        match self.processed.try_read() {
+        match self.processed_repostitoires.try_read() {
             Ok(guard) => match guard.get(&unique_name) {
                 Some(notify) => {
                     // tracing::debug!("Processing {url} done. Notify to other waiters");

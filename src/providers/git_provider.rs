@@ -14,7 +14,7 @@ pub enum Error {
     #[snafu(display("Can't deserialize git ls-remote output for {url} as utf8 string: {source}"))]
     Utf8 { url: String, source: FromUtf8Error },
 
-    #[snafu(display("Error 'git ls-remote output' for {url}: {desc}"))]
+    #[snafu(display("Error 'git ls-remote' output for {url}: {desc}"))]
     Line { url: String, desc: String },
 }
 
@@ -33,7 +33,7 @@ impl GitProvider {
             branches.clone()
         } else {
             tracing::info!("all_branches() Insert branches into git_provider cache for {url}");
-            let branches = self::all_heads_branches(url).await?;
+            let branches = self::all_heads_branches(url)?;
             self.cache
                 .insert(url.to_string(), branches.clone(), Duration::from_secs(60))
                 .await;
@@ -74,7 +74,7 @@ impl GitProvider {
     }
 }
 
-pub async fn all_heads_branches(url: &str) -> Result<Branches, Error> {
+pub fn all_heads_branches(url: &str) -> Result<Branches, Error> {
     let mut command = Command::new("git");
 
     let result = command
@@ -89,7 +89,7 @@ pub async fn all_heads_branches(url: &str) -> Result<Branches, Error> {
             desc: String::from_utf8(result.stderr).with_context(|_e| Utf8Snafu { url })?,
         });
     }
-    
+
     let string = String::from_utf8(result.stdout).with_context(|_e| Utf8Snafu { url })?;
     let lines: Vec<&str> = string.lines().collect();
 

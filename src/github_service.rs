@@ -110,7 +110,7 @@ async fn default_handler(
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
     tracing::debug!("Default Handler {:?}, host: {host}", request);
-    if !repository_name.ends_with(".git") {
+    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
     handle_request(&host, &owner, &repository_name, None, provider, request).await
@@ -121,12 +121,18 @@ async fn handler_with_branch(
     Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
-    if !repository_name.ends_with(".git") {
+    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
+    let branch_name = if host == "codeberg.org" {
+        tracing::warn!("{branch_name}");
+        branch_name.trim_start_matches("/branch")
+    } else {
+        &branch_name
+    };
     let branch = &branch_name[1..];
     let branch = branch.trim_end_matches("/");
-    tracing::debug!("Handler with branch {:?}, branch: {branch}", request, );
+    tracing::debug!("Handler with branch {:?}, branch: {branch}", request,);
     handle_request(
         &host,
         &owner,
@@ -219,7 +225,7 @@ async fn all_branches_lookup(
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("all_branches_lookup() host: {host}, owner: {owner}, repo: {repository_name}");
     let provider_guard = provider.read().await;
-    if !repository_name.ends_with(".git") {
+    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
     let branches_info = provider_guard
@@ -247,7 +253,7 @@ async fn default_branch_info(
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("default_branch_info() host: {host}, owner: {owner}, repo: {repository_name}");
     let provider_guard = provider.read().await;
-    if !repository_name.ends_with(".git") {
+    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
     let default_branch = provider_guard
@@ -276,9 +282,14 @@ async fn branch_commit_info(
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("branch_commit_info() host: {host}, owner: {owner}, repo: {repository_name}, branch: {branch}");
     let provider_guard = provider.read().await;
-    if !repository_name.ends_with(".git") {
+    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
+    let branch = if host == "codeberg.org" {
+        branch.trim_start_matches("/branch")
+    } else {
+        &branch
+    };
     let commit = provider_guard
         .last_commit_remote(&host, &owner, &repository_name, &branch)
         .await;

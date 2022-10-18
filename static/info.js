@@ -130,6 +130,25 @@ async function preparePage(url) {
         let commit = await fetch_branch_commit(url_str)
         document.getElementById("commit").innerText = commit.commit
     }
+    else if (repository_hostname == "codeberg.org" && path_name_array[3] === "src") {
+        let index;
+        if (path_name_array[4] === "branch" && path_name_array[5] !== undefined) {
+            index = 5
+        }
+        else if (path_name_array[4] !== undefined) {
+            index = 4
+        }
+        for (let i = index; i < path_name_array.length; ++i) {
+            console.log("el:", path_name_array[i])
+            branch += '/' + path_name_array[i]
+        }
+
+        document.getElementById("branch").innerText = branch.slice(1)
+        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/src" + branch
+        let commit = await fetch_branch_commit(url_str)
+        document.getElementById("commit").innerText = commit.commit
+
+    }
     else {
         let error_msg = url + "\nAfter tree/ must be followed by a branch name"
         console.error(error_msg)

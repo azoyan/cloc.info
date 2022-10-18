@@ -8,17 +8,21 @@ const submitButton = document.getElementById('submitButton');
 submitButton.onclick = function () {
     let url = gitUrlParse(input.value)
     let selected = document.getElementById("select-child").value;
-    console.log(selected)
-    console.log(url)
+    console.log("SubmitButton onclick()", selected, url)
     let path =
         url.host + '/' + url.owner + '/' + url.name;
-    if (url.name.slice(-4) !== ".git") { path += ".git" }
+    // if (url.name.slice(-4) !== ".git") { path += ".git" }
     if (selected !== branches.default_branch) {
         if (url.host === "github.com" || url.host === "gitlab.com") {
-            path += '/tree/' + extractBranchFromGitUrl(url)
+            path += '/tree/'
         } else if (url.host === "bitbucket.org") {
-            path += '/src/' + extractBranchFromGitUrl(url)
+            path += '/src/'
         }
+        else if (url.host === "codeberg.org") {
+            path += "/src/branch/"
+        }
+
+        path += selected;
     }
 
     path = path.replace(/\/+$/g, '')
@@ -114,7 +118,7 @@ function check(url_str) {
 
     let submitButton = document.getElementById("submitButton");
     let repository_name = parsed_url.name
-    if (repository_name.slice(-4) !== ".git") { repository_name += ".git" }
+    // if (repository_name.slice(-4) !== ".git") { repository_name += ".git" }
     let branches_api = document.URL + "api/" + parsed_url.host + '/' + parsed_url.owner + '/' + repository_name + "/branches";
     branches_api = branches_api.replace(/([^:]\/)\/+/g, "$1");
     let current_branch = extractBranchFromGitUrl(parsed_url)
