@@ -23,6 +23,12 @@ pub struct GitProvider {
     pub cache: Arc<Cache<String, Branches>>,
 }
 
+impl AsRef<GitProvider> for GitProvider {
+    fn as_ref(&self) -> &GitProvider {
+        self
+    }
+}
+
 impl GitProvider {
     pub fn new(cache: Arc<Cache<String, Branches>>) -> Self {
         Self { cache }

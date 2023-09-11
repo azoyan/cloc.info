@@ -67,6 +67,12 @@ pub struct Cloner {
     clone_state: Arc<RwLock<HashMap<String, State>>>,
 }
 
+impl AsRef<Cloner> for Cloner {
+    fn as_ref(&self) -> &Cloner {
+        self
+    }
+}
+
 impl Cloner {
     pub fn new() -> Self {
         Self {

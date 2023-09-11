@@ -3,14 +3,14 @@ use crate::{
     repository::utils,
 };
 use axum::{
-    extract::Path,
+    extract::{Path, State},
     response::{IntoResponse, Response},
     routing::get,
     Extension, Json, Router,
 };
 use hyper::{
     header::{self, CONTENT_TYPE, USER_AGENT},
-    Body, Request, StatusCode,
+    Request, StatusCode, Body,
 };
 use mime_guess::mime::{APPLICATION_JSON, TEXT_PLAIN};
 use serde_json::json;
@@ -18,17 +18,17 @@ use snafu::{ResultExt, Snafu};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-pub fn create_api_router(provider: Arc<RwLock<GithubProvider>>) -> Router<Body> {
+pub fn create_api_router(provider: Arc<RwLock<GithubProvider>>) -> Router<(), Body> {
     Router::new()
         .route("/:owner/:repo", get(default_branch_info))
         .route("/:owner/:repo/tree/*branch", get(branch_commit_info))
         .route("/:owner/:repo/-/tree/*branch", get(branch_commit_info))
         .route("/:owner/:repo/src/*branch", get(branch_commit_info))
         .route("/:owner/:repo/branches", get(all_branches_lookup))
-        .layer(Extension(provider))
+        .with_state(provider)
 }
 
-pub fn create_router(provider: Arc<RwLock<GithubProvider>>) -> Router<Body> {
+pub fn create_router(provider: Arc<RwLock<GithubProvider>>) -> Router<(), Body> {
     let router = Router::new()
         .route("/", get(default_handler))
         .route("/tree/*branch", get(handler_with_branch))
@@ -37,7 +37,7 @@ pub fn create_router(provider: Arc<RwLock<GithubProvider>>) -> Router<Body> {
 
     Router::new()
         .nest("/:owner/:repo", router)
-        .layer(Extension(provider))
+        .with_state(provider)
 }
 
 fn static_page() -> Result<Response<Body>, Error> {
@@ -220,7 +220,7 @@ async fn handle_request(
 
 async fn all_branches_lookup(
     Path((host, owner, mut repository_name)): Path<(String, String, String)>,
-    Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
+    State(provider): State<Arc<RwLock<GithubProvider>>>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("all_branches_lookup() host: {host}, owner: {owner}, repo: {repository_name}");
@@ -248,7 +248,7 @@ async fn all_branches_lookup(
 
 async fn default_branch_info(
     Path((host, owner, mut repository_name)): Path<(String, String, String)>,
-    Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
+    State(provider): State<Arc<RwLock<GithubProvider>>>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("default_branch_info() host: {host}, owner: {owner}, repo: {repository_name}");
@@ -278,7 +278,7 @@ async fn default_branch_info(
 
 async fn branch_commit_info(
     Path((host, owner, mut repository_name, branch)): Path<(String, String, String, String)>,
-    Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
+    State(provider): State<Arc<RwLock<GithubProvider>>>,
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("branch_commit_info() host: {host}, owner: {owner}, repo: {repository_name}, branch: {branch}");
     let provider_guard = provider.read().await;

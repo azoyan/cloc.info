@@ -6,19 +6,18 @@ use crate::{
 use axum::{
     extract::{
         ws::{Message, WebSocket},
-        Path, WebSocketUpgrade,
+        ConnectInfo, Path, State, WebSocketUpgrade,
     },
-    response::Response,
-    Extension,
+    headers,
+    response::{IntoResponse, Response},
+    Extension, TypedHeader,
 };
 
 pub async fn handler_ws(
     ws: WebSocketUpgrade,
     Path((host, owner, mut repository_name)): Path<(String, String, String)>,
-    Extension(cloner): Extension<Cloner>,
-    Extension(provider): Extension<GitProvider>,
-    // request: Request<Body>,
-) -> Response {
+    State((cloner, provider)): State<(Cloner, GitProvider)>,
+) -> impl IntoResponse {
     if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }

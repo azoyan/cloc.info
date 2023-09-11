@@ -5,15 +5,15 @@ use crate::{
     websocket,
 };
 use axum::{
-    error_handling::HandleErrorLayer,
-    extract::{self, Path},
-    handler::Handler,
+    error_handling::{HandleError, HandleErrorLayer},
+    extract::{self, Path, State},
+    handler::{Handler, HandlerWithoutStateExt},
     middleware::Next,
     response::{IntoResponse, Response},
     routing::{get, get_service, post},
     Extension, Router,
 };
-use axum_extra::routing::SpaRouter;
+use axum_extra::routing::{Resource, RouterExt};
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use bytes::Bytes;
@@ -22,21 +22,33 @@ use hyper::{header::CONTENT_TYPE, Body, Method, Request, StatusCode, Uri};
 use mime_guess::mime::APPLICATION_JSON;
 use retainer::Cache;
 use serde_json::json;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 use tempfile::tempdir_in;
 use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
 use tower::{BoxError, ServiceBuilder};
 use tower_http::{
-    compression::CompressionLayer, cors::CorsLayer, services::ServeFile, trace::TraceLayer,
+    compression::CompressionLayer,
+    cors::CorsLayer,
+    services::{ServeDir, ServeFile},
+    trace::TraceLayer,
 };
 
 pub fn create_server(
     socket: SocketAddr,
     connection_pool: Pool<PostgresConnectionManager<NoTls>>,
 ) -> impl futures::Future<Output = Result<(), std::io::Error>> {
-    let root_service = get_service(ServeFile::new("static/index.html")).handle_error(
-        |error: std::io::Error| async move {
+    let root_service =
+        get_service(ServeFile::new("static/index.html")).handle_error(|error| async move {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Unhandled internal error: {}", error),
+            )
+        });
+
+    let upload_service = HandleError::new(
+        get_service(ServeFile::new("static/upload.html")),
+        |error| async move {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Unhandled internal error: {}", error),
@@ -44,16 +56,17 @@ pub fn create_server(
         },
     );
 
-    let upload_service = get_service(ServeFile::new("static/upload.html")).handle_error(
-        |error: std::io::Error| async move {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Unhandled internal error: {}", error),
-            )
-        },
-    );
-
-    let spa = SpaRouter::new("/static", "static").handle_error(handle_error);
+    // let assets_dir = PathBuf::from("static");
+    // let static_files_service = HandleError::new(
+    //     get_service(ServeFile::new(assets_dir)),
+    //     |error| async move {
+    //         (
+    //             StatusCode::INTERNAL_SERVER_ERROR,
+    //             format!("Unhandled internal error: {}", error),
+    //         )
+    //     },
+    // );
+    // let st= Router::new().nest_service("/static", ServeDir::new("static"))
 
     let cache = Arc::new(Cache::new());
     let cache_clone = cache.clone();
@@ -66,6 +79,8 @@ pub fn create_server(
 
     let _monitor =
         tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
+
+    let state = (github_provider.cloner.clone(), git_provider.clone());
 
     let websocket_service = Router::new()
         .route("/", axum::routing::get(websocket::handler_ws))
@@ -81,30 +96,29 @@ pub fn create_server(
             "/src/*branch",
             axum::routing::get(websocket::handler_ws_with_branch),
         )
-        .layer(Extension(github_provider.cloner.clone()))
-        .layer(Extension(git_provider.clone()));
+        .with_state(state);
 
     let statistic_router = Router::new()
         .route("/largest/:limit", get(largest))
         .route("/recent/:limit", get(recent))
         .route("/popular/:limit", get(popular))
-        .layer(Extension(connection_pool));
+        .with_state(connection_pool);
 
     let gh_provider = Arc::new(RwLock::new(github_provider));
 
+    let api_router = github_service::create_api_router(gh_provider.clone());
+    let router = github_service::create_router(gh_provider);
+
     let app = Router::new()
-        .route("/", root_service)
-        .route("/upload", upload_service)
-        .route("/post", post(upload))
+        .route_service("/", root_service)
+        .route_service("/upload", upload_service)
+        .route_service("/post", post(upload))
         .nest("/ws/:host/:owner/:repo", websocket_service)
         .nest("/api", statistic_router)
-        .nest(
-            "/api/:host",
-            github_service::create_api_router(gh_provider.clone()),
-        )
-        .nest("/:host", github_service::create_router(gh_provider))
-        .merge(spa)
-        .fallback(not_found.into_service())
+        .nest("/api/:host", api_router)
+        .nest("/:host", router)
+        .nest_service("/static", ServeDir::new("static"))
+        .fallback_service(not_found.into_service())
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(handle_errors))
@@ -215,7 +229,7 @@ async fn recent(
 
 async fn popular(
     Path(limit): Path<i64>,
-    Extension(connection_pool): Extension<Pool<PostgresConnectionManager<NoTls>>>,
+    State(connection_pool): State<Pool<PostgresConnectionManager<NoTls>>>,
 ) -> Response<Body> {
     let pool = connection_pool.get().await.unwrap();
 

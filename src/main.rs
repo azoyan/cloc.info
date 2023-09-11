@@ -11,7 +11,7 @@ fn main() {
     //Set the RUST_LOG, if it hasn't been explicitly defined
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "cloc=debug,tower_http=debug".into()),
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "cloc=trace,tower_http=trace".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
