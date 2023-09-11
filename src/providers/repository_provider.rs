@@ -97,7 +97,7 @@ pub struct Processed {
     directory: Option<Arc<TempDir>>, // need to drop after all processing done // TODO refactor
 }
 #[derive(Clone)]
-pub struct GithubProvider {
+pub struct RepositoryProvider {
     storage_cache: Arc<RwLock<StorageCache>>,
     pub connection_pool: Pool<PostgresConnectionManager<NoTls>>,
     pub git_provider: GitProvider,
@@ -105,13 +105,13 @@ pub struct GithubProvider {
     processed_repostitoires: Arc<RwLock<HashMap<String, Arc<VisitCounter>>>>,
 }
 
-impl AsRef<GithubProvider> for GithubProvider {
-    fn as_ref(&self) -> &GithubProvider {
+impl AsRef<RepositoryProvider> for RepositoryProvider {
+    fn as_ref(&self) -> &RepositoryProvider {
         self
     }
 }
 
-impl GithubProvider {
+impl RepositoryProvider {
     pub fn new(
         cache_size: u64,
         connection_pool: Pool<PostgresConnectionManager<NoTls>>,

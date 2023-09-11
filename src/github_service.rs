@@ -1,5 +1,5 @@
 use crate::{
-    providers::github_provider::{self, GithubProvider},
+    providers::repository_provider::{self, RepositoryProvider},
     repository::utils,
 };
 use axum::{
@@ -18,7 +18,7 @@ use snafu::{ResultExt, Snafu};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-pub fn create_api_router(provider: Arc<RwLock<GithubProvider>>) -> Router<(), Body> {
+pub fn create_api_router(provider: Arc<RwLock<RepositoryProvider>>) -> Router<(), Body> {
     Router::new()
         .route("/:owner/:repo", get(default_branch_info))
         .route("/:owner/:repo/tree/*branch", get(branch_commit_info))
@@ -28,7 +28,7 @@ pub fn create_api_router(provider: Arc<RwLock<GithubProvider>>) -> Router<(), Bo
         .with_state(provider)
 }
 
-pub fn create_router(provider: Arc<RwLock<GithubProvider>>) -> Router<(), Body> {
+pub fn create_router(provider: Arc<RwLock<RepositoryProvider>>) -> Router<(), Body> {
     let router = Router::new()
         .route("/", get(default_handler))
         .route("/tree/*branch", get(handler_with_branch))
@@ -54,7 +54,7 @@ fn static_page() -> Result<Response<Body>, Error> {
 }
 
 async fn raw_content(
-    provider: Arc<RwLock<GithubProvider>>,
+    provider: Arc<RwLock<RepositoryProvider>>,
     host: &str,
     owner: &str,
     repository_name: &str,
@@ -78,7 +78,7 @@ async fn raw_content(
             branch_id,
         ),
         Err(e) => {
-            if let github_provider::Error::InProgress { url } = e {
+            if let repository_provider::Error::InProgress { url } = e {
                 tracing::warn!("Repository {url} dowonloading already in progress");
                 (
                     Response::builder()
@@ -106,7 +106,7 @@ async fn raw_content(
 
 async fn default_handler(
     Path((host, owner, mut repository_name)): Path<(String, String, String)>,
-    Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
+    Extension(provider): Extension<Arc<RwLock<RepositoryProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
     tracing::debug!("Default Handler {:?}, host: {host}", request);
@@ -118,7 +118,7 @@ async fn default_handler(
 
 async fn handler_with_branch(
     Path((host, owner, mut repository_name, branch_name)): Path<(String, String, String, String)>,
-    Extension(provider): Extension<Arc<RwLock<GithubProvider>>>,
+    Extension(provider): Extension<Arc<RwLock<RepositoryProvider>>>,
     request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
     if host != "git.sr.ht" && !repository_name.ends_with(".git") {
@@ -153,7 +153,7 @@ async fn handle_request(
     owner: &str,
     repository_name: &str,
     branch: Option<&str>,
-    provider: Arc<RwLock<GithubProvider>>,
+    provider: Arc<RwLock<RepositoryProvider>>,
     request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
     let user_agent = match request.headers().get(USER_AGENT) {
@@ -220,7 +220,7 @@ async fn handle_request(
 
 async fn all_branches_lookup(
     Path((host, owner, mut repository_name)): Path<(String, String, String)>,
-    State(provider): State<Arc<RwLock<GithubProvider>>>,
+    State(provider): State<Arc<RwLock<RepositoryProvider>>>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("all_branches_lookup() host: {host}, owner: {owner}, repo: {repository_name}");
@@ -248,7 +248,7 @@ async fn all_branches_lookup(
 
 async fn default_branch_info(
     Path((host, owner, mut repository_name)): Path<(String, String, String)>,
-    State(provider): State<Arc<RwLock<GithubProvider>>>,
+    State(provider): State<Arc<RwLock<RepositoryProvider>>>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("default_branch_info() host: {host}, owner: {owner}, repo: {repository_name}");
@@ -278,7 +278,7 @@ async fn default_branch_info(
 
 async fn branch_commit_info(
     Path((host, owner, mut repository_name, branch)): Path<(String, String, String, String)>,
-    State(provider): State<Arc<RwLock<GithubProvider>>>,
+    State(provider): State<Arc<RwLock<RepositoryProvider>>>,
 ) -> Result<Response<Body>, Error> {
     tracing::warn!("branch_commit_info() host: {host}, owner: {owner}, repo: {repository_name}, branch: {branch}");
     let provider_guard = provider.read().await;
@@ -331,7 +331,7 @@ pub enum Error {
 
     #[snafu(display("Error at github provider: {source}"))]
     GithubProviderError {
-        source: crate::providers::github_provider::Error,
+        source: crate::providers::repository_provider::Error,
     },
 }
 

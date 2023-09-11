@@ -1,6 +1,6 @@
 use crate::{
     github_service,
-    providers::{git_provider::GitProvider, github_provider::GithubProvider},
+    providers::{git_provider::GitProvider, repository_provider::RepositoryProvider},
     repository::utils::count_line_of_code,
     websocket,
 };
@@ -70,7 +70,7 @@ pub fn create_server(
     let cache = Arc::new(Cache::new());
     let cache_clone = cache.clone();
     let git_provider = GitProvider::new(cache);
-    let github_provider = GithubProvider::new(
+    let github_provider = RepositoryProvider::new(
         16 * crate::GB,
         connection_pool.clone(),
         git_provider.clone(),
