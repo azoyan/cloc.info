@@ -105,12 +105,6 @@ pub struct RepositoryProvider {
     processed_repostitoires: Arc<RwLock<HashMap<String, Arc<VisitCounter>>>>,
 }
 
-impl AsRef<RepositoryProvider> for RepositoryProvider {
-    fn as_ref(&self) -> &RepositoryProvider {
-        self
-    }
-}
-
 impl RepositoryProvider {
     pub fn new(
         cache_size: u64,
