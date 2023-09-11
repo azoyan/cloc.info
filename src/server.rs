@@ -1,9 +1,9 @@
 use crate::{
+    application,
     providers::{git_provider::GitProvider, repository_provider::RepositoryProvider},
     repository::utils::count_line_of_code,
-    application,
     statistic::{largest, popular, recent},
-    websocket,
+    websocket::{handler_ws, handler_ws_with_branch},
 };
 use axum::{
     error_handling::{HandleError, HandleErrorLayer},
@@ -53,18 +53,6 @@ pub fn create_server(
         },
     );
 
-    // let assets_dir = PathBuf::from("static");
-    // let static_files_service = HandleError::new(
-    //     get_service(ServeFile::new(assets_dir)),
-    //     |error| async move {
-    //         (
-    //             StatusCode::INTERNAL_SERVER_ERROR,
-    //             format!("Unhandled internal error: {}", error),
-    //         )
-    //     },
-    // );
-    // let st= Router::new().nest_service("/static", ServeDir::new("static"))
-
     let cache = Arc::new(Cache::new());
     let cache_clone = cache.clone();
     let git_provider = GitProvider::new(cache);
@@ -80,19 +68,10 @@ pub fn create_server(
     let state = (github_provider.cloner.clone(), git_provider.clone());
 
     let websocket_service = Router::new()
-        .route("/", axum::routing::get(websocket::handler_ws))
-        .route(
-            "/tree/*branch",
-            axum::routing::get(websocket::handler_ws_with_branch),
-        )
-        .route(
-            "/-/tree/*branch",
-            axum::routing::get(websocket::handler_ws_with_branch),
-        )
-        .route(
-            "/src/*branch",
-            axum::routing::get(websocket::handler_ws_with_branch),
-        )
+        .route("/", get(handler_ws))
+        .route("/tree/*branch", get(handler_ws_with_branch))
+        .route("/-/tree/*branch", get(handler_ws_with_branch))
+        .route("/src/*branch", get(handler_ws_with_branch))
         .with_state(state);
 
     let statistic_router = Router::new()
@@ -203,10 +182,6 @@ where
         }
     };
 
-    // if let Ok(body) = std::str::from_utf8(&bytes) {
-    // tracing::debug!("{} body = {:?}", direction, body);
-    // }
-
     Ok(bytes)
 }
 
@@ -216,13 +191,6 @@ async fn upload(mut multipart: extract::Multipart) -> Response<Body> {
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
         let data = field.bytes().await.unwrap();
-
-        // let mut tempfile = std::fs::OpenOptions::new().write(true)
-        //     .open(&format!("{path}/{name}"))
-        //     .unwrap();
-
-        // tempfile.write_all(&data).unwrap();
-        // tempfile.flush().unwrap();
 
         std::fs::write(&format!("{path}/{name}"), &data).unwrap();
 
