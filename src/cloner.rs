@@ -62,7 +62,7 @@ impl Default for Stages {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Cloner {
     clone_state: Arc<RwLock<HashMap<String, State>>>,
 }
@@ -92,7 +92,7 @@ impl Cloner {
         let unique_name = to_unique_name(host, owner, repository_name, branch_name);
         tracing::info!("pull {unique_name} to {}", repository_path);
 
-        command.args(&[
+        command.args([
             "-C",
             repository_path,
             "pull",
@@ -151,7 +151,7 @@ impl Cloner {
             repository_path
         );
 
-        command.args(&[
+        command.args([
             "clone",
             "--progress",
             "--depth=1",
@@ -246,12 +246,11 @@ impl Cloner {
 
     pub async fn clear_state_buffer(&self, url: &str) {
         let mut guard = self.clone_state.write().await;
-        match guard.get_mut(url) {
-            Some(state) => match state {
+        if let Some(state) = guard.get_mut(url) {
+            match state {
                 State::Buffered(buffer) => buffer.clear(),
                 State::Done => {}
-            },
-            None => {}
+            }
         }
     }
 }

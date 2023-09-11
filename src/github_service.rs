@@ -10,7 +10,7 @@ use axum::{
 };
 use hyper::{
     header::{self, CONTENT_TYPE, USER_AGENT},
-    Request, StatusCode, Body,
+    Body, Request, StatusCode,
 };
 use mime_guess::mime::{APPLICATION_JSON, TEXT_PLAIN};
 use serde_json::json;
@@ -131,7 +131,7 @@ async fn handler_with_branch(
         &branch_name
     };
     let branch = &branch_name[1..];
-    let branch = branch.trim_end_matches("/");
+    let branch = branch.trim_end_matches('/');
     tracing::debug!("Handler with branch {:?}, branch: {branch}", request,);
     handle_request(
         &host,
@@ -291,7 +291,7 @@ async fn branch_commit_info(
         &branch
     };
     let commit = provider_guard
-        .last_commit_remote(&host, &owner, &repository_name, &branch)
+        .last_commit_remote(&host, &owner, &repository_name, branch)
         .await;
     match commit {
         Ok(commit) => {

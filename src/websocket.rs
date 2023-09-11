@@ -6,11 +6,10 @@ use crate::{
 use axum::{
     extract::{
         ws::{Message, WebSocket},
-        ConnectInfo, Path, State, WebSocketUpgrade,
+        Path, State, WebSocketUpgrade,
     },
-    headers,
     response::{IntoResponse, Response},
-    Extension, TypedHeader,
+    Extension,
 };
 
 pub async fn handler_ws(
@@ -49,8 +48,8 @@ pub async fn handler_ws_with_branch(
     } else {
         &branch
     };
-    let branch = branch.trim_start_matches("/").trim_end_matches("/");
-    let path = to_unique_name(&host, &owner, &repository_name, &branch);
+    let branch = branch.trim_start_matches('/').trim_end_matches('/');
+    let path = to_unique_name(&host, &owner, &repository_name, branch);
     ws.on_upgrade(move |socket| handle_socket(path, socket, cloner))
 }
 

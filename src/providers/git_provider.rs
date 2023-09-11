@@ -84,7 +84,7 @@ pub fn all_heads_branches(url: &str) -> Result<Branches, Error> {
     let mut command = Command::new("git");
 
     let result = command
-        .args(&["ls-remote", url])
+        .args(["ls-remote", url])
         .output()
         .with_context(|_e| IoSnafu {
             url: url.to_string(),

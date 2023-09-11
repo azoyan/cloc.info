@@ -126,6 +126,7 @@ impl GithubProvider {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn processing(
         &self,
         unique_name: &str,
@@ -192,7 +193,11 @@ impl GithubProvider {
                 } else {
                     tracing::info!("Current branch '{db_branch_name}' and commit '{db_last_commit}' are not actual '{last_commit_remote}'");
 
-                    let (result, temp_dir) = match self.storage_cache.write().await.take(unique_name)
+                    let (result, temp_dir) = match self
+                        .storage_cache
+                        .write()
+                        .await
+                        .take(unique_name)
                     {
                         Some(temp_dir) => {
                             let repository_path = temp_dir.path().to_str().unwrap();
@@ -477,30 +482,27 @@ impl GithubProvider {
         defer! {
             match self.processed_repostitoires.try_read() {
                 Ok(guard) => {
-                    match guard.get(&unique_name) {
-                        Some(visit) => {
-                            tracing::debug!("Trying Remove notificator for {unique_name}");
-                            let counter = visit.counter.load(SeqCst);
-                            assert!(counter >=0);
-                            if counter == 0 {
-                               drop(guard);
-                               match self.processed_repostitoires.try_write() {
-                                    Ok(mut guard) => {
-                                        guard.remove(&unique_name);
-                                        tracing::debug!("Remove Done notificator for {unique_name}");
+                    if let Some(visit) = guard.get(&unique_name) {
+                        tracing::debug!("Trying Remove notificator for {unique_name}");
+                        let counter = visit.counter.load(SeqCst);
+                        assert!(counter >=0);
+                        if counter == 0 {
+                            drop(guard);
+                            match self.processed_repostitoires.try_write() {
+                                Ok(mut guard) => {
+                                    guard.remove(&unique_name);
+                                    tracing::debug!("Remove Done notificator for {unique_name}");
 
-                                    },
-                                    Err(e) =>  tracing::error!(
-                                        "Remove notificator Error at write lock for {unique_name}: {e}"
-                                    ),
-                                }
+                                },
+                                Err(e) =>  tracing::error!(
+                                    "Remove notificator Error at write lock for {unique_name}: {e}"
+                                ),
                             }
-                            else {
-                                let prev = visit.counter.fetch_sub(1, SeqCst);
-                                tracing::debug!("Can't Remove notificator for {unique_name}, visitors: {}", prev);
-                            }
-                        },
-                        None => {},
+                        }
+                        else {
+                            let prev = visit.counter.fetch_sub(1, SeqCst);
+                            tracing::debug!("Can't Remove notificator for {unique_name}, visitors: {}", prev);
+                        }
                     }
                 }
                 Err(e) => {

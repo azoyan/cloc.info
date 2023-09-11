@@ -92,7 +92,7 @@ pub fn to_url(hostname: &str, owner: &str, repository_name: &str) -> String {
 //     format!("{hostname}_{owner}_{repository_name}_branch_{branch}")
 // }
 
-pub fn to_unique_name(host: &str, owner: &str, repository_name: &str, branch: &str)->String{
+pub fn to_unique_name(host: &str, owner: &str, repository_name: &str, branch: &str) -> String {
     format!("{host}/{owner}/{repository_name}/{branch}")
 }
 

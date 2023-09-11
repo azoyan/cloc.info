@@ -7,22 +7,21 @@ use crate::{
 use axum::{
     error_handling::{HandleError, HandleErrorLayer},
     extract::{self, Path, State},
-    handler::{Handler, HandlerWithoutStateExt},
+    handler::HandlerWithoutStateExt,
     middleware::Next,
     response::{IntoResponse, Response},
     routing::{get, get_service, post},
     Extension, Router,
 };
-use axum_extra::routing::{Resource, RouterExt};
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use hyper::{header::CONTENT_TYPE, Body, Method, Request, StatusCode, Uri};
+use hyper::{header::CONTENT_TYPE, Body, Request, StatusCode};
 use mime_guess::mime::APPLICATION_JSON;
 use retainer::Cache;
 use serde_json::json;
-use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tempfile::tempdir_in;
 use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
@@ -267,10 +266,6 @@ async fn popular(
             .body(Body::from(e.to_string()))
             .unwrap(),
     }
-}
-
-async fn handle_error(method: Method, uri: Uri, err: std::io::Error) -> String {
-    format!("{} {} failed with {}", method, uri, err)
 }
 
 pub async fn not_found(_uri: axum::http::Uri) -> Response<Body> {
