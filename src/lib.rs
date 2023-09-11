@@ -2,11 +2,12 @@
 #![feature(async_closure)]
 
 pub mod cloner;
-pub mod github_service;
+pub mod application;
 pub mod providers;
 pub mod repository;
 pub mod server;
 pub mod websocket;
+pub mod statistic;
 
 pub const KB: u64 = 1024;
 pub const MB: u64 = 1024 * KB;
