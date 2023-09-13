@@ -1,6 +1,5 @@
 use crate::{
-    cloner::Cloner,
-    providers::git_provider::GitProvider,
+    providers::repository_provider::RepositoryProvider,
     repository::info::{to_unique_name, to_url},
 };
 use axum::{
@@ -9,26 +8,31 @@ use axum::{
         Path, State, WebSocketUpgrade,
     },
     response::{IntoResponse, Response},
-    Extension,
 };
 
 pub async fn handler_ws(
     ws: WebSocketUpgrade,
     Path((host, owner, mut repository_name)): Path<(String, String, String)>,
-    State((cloner, provider)): State<(Cloner, GitProvider)>,
+    State(provider): State<RepositoryProvider>,
 ) -> impl IntoResponse {
     if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
 
     let url = to_url(&host, &owner, &repository_name);
-    let branch = provider.default_branch(&url).await;
+    let branch = provider.git_provider.default_branch(&url).await;
 
     match branch {
-        Ok(branch) => {
-            let path = to_unique_name(&host, &owner, &repository_name, &branch);
-            ws.on_upgrade(move |socket| handle_socket(path, socket, cloner))
-        }
+        Ok(branch) => ws.on_upgrade(move |socket| {
+            handle_socket(
+                host,
+                owner,
+                repository_name,
+                branch,
+                socket,
+                State(provider),
+            )
+        }),
         Err(e) => panic!("{}", e.to_string()),
     }
 }
@@ -36,9 +40,7 @@ pub async fn handler_ws(
 pub async fn handler_ws_with_branch(
     ws: WebSocketUpgrade,
     Path((host, owner, mut repository_name, branch)): Path<(String, String, String, String)>,
-    Extension(cloner): Extension<Cloner>,
-    Extension(_provider): Extension<GitProvider>,
-    // request: Request<Body>,
+    State(provider): State<RepositoryProvider>,
 ) -> Response {
     if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
@@ -48,18 +50,37 @@ pub async fn handler_ws_with_branch(
     } else {
         &branch
     };
-    let branch = branch.trim_start_matches('/').trim_end_matches('/');
-    let path = to_unique_name(&host, &owner, &repository_name, branch);
-    ws.on_upgrade(move |socket| handle_socket(path, socket, cloner))
+    let branch = branch
+        .trim_start_matches('/')
+        .trim_end_matches('/')
+        .to_string();
+
+    ws.on_upgrade(move |socket| {
+        handle_socket(
+            host,
+            owner,
+            repository_name,
+            branch.to_string(),
+            socket,
+            State(provider),
+        )
+    })
 }
 
-async fn handle_socket(path: String, mut socket: WebSocket, cloner: Cloner) {
+async fn handle_socket(
+    host: String,
+    owner: String,
+    repository_name: String,
+    branch: String,
+    mut socket: WebSocket,
+    provider: State<RepositoryProvider>,
+) {
+    let path = to_unique_name(&host, &owner, &repository_name, &branch);
     tracing::info!("Connect websocket {path}");
-    let repository_name = path;
-    cloner.clear_state_buffer(&repository_name).await;
+
     while let Some(msg) = socket.recv().await {
         if let Ok(_msg) = msg {
-            if let Some(state) = cloner.current_state(&repository_name).await {
+            if let Some(state) = provider.cloner.current_state(&path).await {
                 match state {
                     crate::cloner::State::Buffered(state) => {
                         // tracing::debug!("Websocket {id}/{path} send: {}", state);
@@ -83,16 +104,16 @@ async fn handle_socket(path: String, mut socket: WebSocket, cloner: Cloner) {
                     }
                 }
             } else {
-                // tracing::debug!("Not found repository {}", repository_name);
-                // match socket.close().await {
-                //     Ok(()) => {
-                //         tracing::debug!("Connection 'ws://{repository_name}/ws' closed")
-                //     }
-                //     Err(e) => {
-                //         tracing::error!("Error at closing connection: {}", e.to_string())
-                //     }
-                // }
-                // return;
+                tracing::debug!("Not found repository {}", repository_name);
+                match socket.close().await {
+                    Ok(()) => {
+                        tracing::debug!("Connection 'ws://{repository_name}/ws' closed")
+                    }
+                    Err(e) => {
+                        tracing::error!("Error at closing connection: {}", e.to_string())
+                    }
+                }
+                return;
             }
         } else {
             // client disconnected

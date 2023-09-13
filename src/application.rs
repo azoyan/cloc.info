@@ -1,351 +1,245 @@
 use crate::{
-    providers::repository_provider::{self, RepositoryProvider},
-    repository::utils,
+    cloner::Cloner,
+    providers::{git_provider::GitProvider, repository_provider::RepositoryProvider},
+    repository::utils::count_line_of_code,
+    service,
+    statistic::{largest, popular, recent},
+    websocket::{handler_ws, handler_ws_with_branch},
 };
 use axum::{
-    extract::{Path, State},
+    error_handling::{HandleError, HandleErrorLayer},
+    extract,
+    handler::HandlerWithoutStateExt,
+    middleware::Next,
     response::{IntoResponse, Response},
-    routing::get,
-    Extension, Json, Router,
+    routing::{get, get_service, post},
+    Router, Server,
 };
-use hyper::{
-    header::{self, CONTENT_TYPE, USER_AGENT},
-    Body, Request, StatusCode,
-};
-use mime_guess::mime::{APPLICATION_JSON, TEXT_PLAIN};
-use serde_json::json;
-use snafu::{ResultExt, Snafu};
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use bb8::Pool;
+use bb8_postgres::PostgresConnectionManager;
+use bytes::Bytes;
 
-pub fn create_api_router(provider: Arc<RwLock<RepositoryProvider>>) -> Router<(), Body> {
-    Router::new()
-        .route("/:owner/:repo", get(default_branch_info))
-        .route("/:owner/:repo/tree/*branch", get(branch_commit_info))
-        .route("/:owner/:repo/-/tree/*branch", get(branch_commit_info))
-        .route("/:owner/:repo/src/*branch", get(branch_commit_info))
-        .route("/:owner/:repo/branches", get(all_branches_lookup))
-        .with_state(provider)
+use hyper::{Body, Request, StatusCode};
+use retainer::Cache;
+use std::{net::SocketAddr, sync::Arc, time::Duration};
+use tempfile::tempdir_in;
+use tokio::{
+    signal::{self, ctrl_c},
+    sync::RwLock,
+};
+use tokio_postgres::NoTls;
+use tower::{BoxError, ServiceBuilder};
+use tower_http::{
+    compression::CompressionLayer,
+    cors::CorsLayer,
+    services::{ServeDir, ServeFile},
+    trace::TraceLayer,
+};
+
+pub async fn start_application(
+    socket: SocketAddr,
+    connection_pool: Pool<PostgresConnectionManager<NoTls>>,
+) {
+    let root_service =
+        get_service(ServeFile::new("static/index.html")).handle_error(|error| async move {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Unhandled internal error: {}", error),
+            )
+        });
+
+    let upload_service = HandleError::new(
+        get_service(ServeFile::new("static/upload.html")),
+        |error| async move {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Unhandled internal error: {}", error),
+            )
+        },
+    );
+
+    let cache = Arc::new(Cache::new());
+    let cache_clone = cache.clone();
+    let git_provider = GitProvider::new(cache);
+    let cloner = Cloner::new();
+
+    let repository_provider = RepositoryProvider::new(
+        16 * crate::GB,
+        connection_pool.clone(),
+        git_provider.clone(),
+        cloner.clone(),
+    );
+
+    let _monitor =
+        tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
+
+    let state = repository_provider.clone();
+
+    let websocket_service = Router::new()
+        .route("/", get(handler_ws))
+        .route("/tree/*branch", get(handler_ws_with_branch))
+        .route("/-/tree/*branch", get(handler_ws_with_branch))
+        .route("/src/*branch", get(handler_ws_with_branch))
+        .with_state(state);
+
+    let statistic_router = Router::new()
+        .route("/largest/:limit", get(largest))
+        .route("/recent/:limit", get(recent))
+        .route("/popular/:limit", get(popular))
+        .with_state(connection_pool);
+
+    let gh_provider = Arc::new(RwLock::new(repository_provider));
+
+    let api_router = service::create_api_router(gh_provider.clone());
+    let general_router = service::create_general_router(gh_provider);
+
+    let app = Router::new()
+        .route_service("/", root_service)
+        .route_service("/upload", upload_service)
+        .route_service("/post", post(upload))
+        .nest("/ws/:host/:owner/:repo", websocket_service)
+        .nest("/api", statistic_router)
+        .nest("/api/:host", api_router)
+        .nest("/:host", general_router)
+        .nest_service("/static", ServeDir::new("static"))
+        .fallback_service(not_found.into_service())
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(handle_errors))
+                .timeout(std::time::Duration::from_secs(600)),
+        )
+        .layer(CorsLayer::new().allow_credentials(true))
+        .layer(CompressionLayer::new().br(true).gzip(true))
+        .layer(axum::middleware::from_fn(print_request_response))
+        .layer(TraceLayer::new_for_http());
+
+    let server = Server::bind(&socket)
+        .serve(app.into_make_service())
+        .with_graceful_shutdown(shutdown_signal());
+
+    let r = server.await;
+    match r {
+        Ok(_) => tracing::debug!("Exit"),
+        Err(e) => tracing::error!("Error at stopping server: {e}"),
+    }
 }
 
-pub fn create_router(provider: Arc<RwLock<RepositoryProvider>>) -> Router<(), Body> {
-    let router = Router::new()
-        .route("/", get(default_handler))
-        .route("/tree/*branch", get(handler_with_branch))
-        .route("/-/tree/*branch", get(handler_with_branch))
-        .route("/src/*branch", get(handler_with_branch));
-
-    Router::new()
-        .nest("/:owner/:repo", router)
-        .with_state(provider)
-}
-
-fn static_page() -> Result<Response<Body>, Error> {
-    let file = std::fs::File::open("static/info.html").unwrap();
+pub async fn not_found(_uri: axum::http::Uri) -> Response<Body> {
+    let file = std::fs::File::open("static/404.html").unwrap();
     let mut reader = std::io::BufReader::new(file);
 
     let mut buffer = vec![];
 
     std::io::Read::read_to_end(&mut reader, &mut buffer).unwrap();
     Response::builder()
+        .status(StatusCode::NOT_FOUND)
         .header("Cache-Control", "no-cache,private,max-age=0") // TODO, maybe rewrite AddHeader
         .body(Body::from(buffer))
-        .context(StaticPageSnafu)
+        .unwrap()
 }
 
-async fn raw_content(
-    provider: Arc<RwLock<RepositoryProvider>>,
-    host: &str,
-    owner: &str,
-    repository_name: &str,
-    branch: Option<&str>,
-    user_agent: &str,
-) -> Result<Response<Body>, Error> {
-    let result = {
-        let provider_guard = provider.read().await;
-        provider_guard
-            .get_with_branch(host, owner, repository_name, branch, user_agent)
-            .await
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        ctrl_c().await.expect("failed to install Ctrl+C handler");
     };
 
-    let (response, _branch_id) = match result {
-        Ok((branch_id, scc_output)) => (
-            Response::builder()
-                .status(StatusCode::OK)
-                .header("Content-Type", "text/plain")
-                .body(Body::from(scc_output))
-                .context(ResponseSnafu)?,
-            branch_id,
-        ),
-        Err(e) => {
-            if let repository_provider::Error::InProgress { url } = e {
-                tracing::warn!("Repository {url} dowonloading already in progress");
-                (
-                    Response::builder()
-                        .status(StatusCode::NO_CONTENT)
-                        .header("Content-Type", "text/plain")
-                        .body(Body::empty())
-                        .context(ResponseSnafu)?,
-                    0,
-                )
-            } else {
-                tracing::error!("{}", e);
-                (
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .header("Content-Type", "text/plain")
-                        .body(Body::from(e.to_string()))
-                        .context(ResponseSnafu)?,
-                    0,
-                )
-            }
-        }
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
     };
-    Ok(response)
-}
+    let hangup = async {
+        signal::unix::signal(signal::unix::SignalKind::hangup())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
 
-async fn default_handler(
-    Path((host, owner, mut repository_name)): Path<(String, String, String)>,
-    Extension(provider): Extension<Arc<RwLock<RepositoryProvider>>>,
-    request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
-) -> Result<Response<Body>, Error> {
-    tracing::debug!("Default Handler {:?}, host: {host}", request);
-    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
-        repository_name = format!("{repository_name}.git");
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    
+    tokio::select! {
+        _ = ctrl_c => {
+            println!();
+            tracing::debug!("SIGINT received, starting graceful shutdown");
+        },
+        _ = terminate => {
+            println!();
+            tracing::debug!("SIGTERM received, starting graceful shutdown");
+        },
+        _ = hangup => {
+            println!();
+            tracing::debug!("SIGHUP received, starting graceful shutdown");
+        },
     }
-    handle_request(&host, &owner, &repository_name, None, provider, request).await
 }
 
-async fn handler_with_branch(
-    Path((host, owner, mut repository_name, branch_name)): Path<(String, String, String, String)>,
-    Extension(provider): Extension<Arc<RwLock<RepositoryProvider>>>,
-    request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
-) -> Result<Response<Body>, Error> {
-    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
-        repository_name = format!("{repository_name}.git");
-    }
-    let branch_name = if host == "codeberg.org" {
-        tracing::warn!("{branch_name}");
-        branch_name.trim_start_matches("/branch")
-    } else {
-        &branch_name
-    };
-    let branch = &branch_name[1..];
-    let branch = branch.trim_end_matches('/');
-    tracing::debug!("Handler with branch {:?}, branch: {branch}", request,);
-    handle_request(
-        &host,
-        &owner,
-        &repository_name,
-        Some(branch),
-        provider,
-        request,
-    )
-    .await
-}
-
-// Cloudflare ограничения на выполнение запроса 100 секунд
-// Запросить ресурс, если доступен выдать ответ
-// если не доступен выдать WS
-
-async fn handle_request(
-    host: &str,
-    owner: &str,
-    repository_name: &str,
-    branch: Option<&str>,
-    provider: Arc<RwLock<RepositoryProvider>>,
-    request: Request<Body>,
-) -> Result<Response<Body>, Error> {
-    let user_agent = match request.headers().get(USER_AGENT) {
-        Some(value) => value.to_str().unwrap_or("not valid utf-8"),
-        None => "unknown",
-    };
-
-    if user_agent.contains("Lynx")
-        || user_agent.contains("w3m")
-        || user_agent.contains("Links")
-        // Netrik User agent
-        || user_agent.contains("Not mandatory")
-        || user_agent.contains("curl")
-    {
-        tracing::info!("Terminal browser: {:?}", user_agent);
-        let response = raw_content(
-            provider.clone(),
-            host,
-            owner,
-            repository_name,
-            branch,
-            user_agent,
+async fn handle_errors(err: BoxError) -> (StatusCode, String) {
+    if err.is::<tower::timeout::error::Elapsed>() {
+        (
+            StatusCode::REQUEST_TIMEOUT,
+            "Request took too long".to_string(),
         )
-        .await
-        .unwrap();
-
-        return Ok(response);
-    }
-
-    match request.headers().get(header::IF_MATCH) {
-        Some(value) => {
-            let value = match value.to_str() {
-                Ok(v) => v,
-                Err(e) => {
-                    return Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from(e.to_string()))
-                        .context(ResponseSnafu)
-                }
-            };
-
-            if value.contains("cloc") {
-                let response = raw_content(
-                    provider.clone(),
-                    host,
-                    owner,
-                    repository_name,
-                    branch,
-                    user_agent,
-                )
-                .await?;
-                tracing::info!("Response Ready for {host}/{owner}/{repository_name}/{branch:?}");
-                Ok(response)
-            } else {
-                // ws
-                Response::builder()
-                    .body(Body::empty())
-                    .context(ResponseSnafu)
-            }
-        }
-        None => static_page(),
-    }
-}
-
-async fn all_branches_lookup(
-    Path((host, owner, mut repository_name)): Path<(String, String, String)>,
-    State(provider): State<Arc<RwLock<RepositoryProvider>>>,
-    _request: Request<Body>,
-) -> Result<Response<Body>, Error> {
-    tracing::warn!("all_branches_lookup() host: {host}, owner: {owner}, repo: {repository_name}");
-    let provider_guard = provider.read().await;
-    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
-        repository_name = format!("{repository_name}.git");
-    }
-    let branches_info = provider_guard
-        .remote_branches(&host, &owner, &repository_name)
-        .await
-        .with_context(|_e| GithubProviderSnafu)?;
-
-    match serde_json::to_string(&branches_info) {
-        Ok(branches) => Response::builder()
-            .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
-            .body(Body::from(branches))
-            .context(ResponseSnafu),
-        Err(e) => Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
-            .body(Body::from(e.to_string()))
-            .context(ResponseSnafu),
-    }
-}
-
-async fn default_branch_info(
-    Path((host, owner, mut repository_name)): Path<(String, String, String)>,
-    State(provider): State<Arc<RwLock<RepositoryProvider>>>,
-    _request: Request<Body>,
-) -> Result<Response<Body>, Error> {
-    tracing::warn!("default_branch_info() host: {host}, owner: {owner}, repo: {repository_name}");
-    let provider_guard = provider.read().await;
-    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
-        repository_name = format!("{repository_name}.git");
-    }
-    let default_branch = provider_guard
-        .default_branch_remote(&host, &owner, &repository_name)
-        .await;
-
-    match default_branch {
-        Ok(default_branch) => {
-            let json = json!({ "default_branch": default_branch });
-            Response::builder()
-                .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
-                .body(Body::from(json.to_string()))
-                .context(ResponseSnafu)
-        }
-        Err(e) => Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
-            .body(Body::from(e.to_string()))
-            .context(ResponseSnafu),
-    }
-}
-
-async fn branch_commit_info(
-    Path((host, owner, mut repository_name, branch)): Path<(String, String, String, String)>,
-    State(provider): State<Arc<RwLock<RepositoryProvider>>>,
-) -> Result<Response<Body>, Error> {
-    tracing::warn!("branch_commit_info() host: {host}, owner: {owner}, repo: {repository_name}, branch: {branch}");
-    let provider_guard = provider.read().await;
-    if host != "git.sr.ht" && !repository_name.ends_with(".git") {
-        repository_name = format!("{repository_name}.git");
-    }
-    let branch = if host == "codeberg.org" {
-        branch.trim_start_matches("/branch")
     } else {
-        &branch
-    };
-    let commit = provider_guard
-        .last_commit_remote(&host, &owner, &repository_name, branch)
-        .await;
-    match commit {
-        Ok(commit) => {
-            let json = json!({ "commit": commit });
-            Response::builder()
-                .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
-                .body(Body::from(json.to_string()))
-                .context(ResponseSnafu)
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Unhandled internal error: {}", err),
+        )
+    }
+}
+
+async fn print_request_response(
+    req: Request<Body>,
+    next: Next<Body>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let (parts, body) = req.into_parts();
+    let bytes = buffer_and_print("request", body).await?;
+    let req = Request::from_parts(parts, Body::from(bytes));
+
+    let res = next.run(req).await;
+
+    let (parts, body) = res.into_parts();
+    let bytes = buffer_and_print("response", body).await?;
+    let res = Response::from_parts(parts, Body::from(bytes));
+
+    Ok(res)
+}
+
+async fn buffer_and_print<B>(direction: &str, body: B) -> Result<Bytes, (StatusCode, String)>
+where
+    B: axum::body::HttpBody<Data = Bytes>,
+    B::Error: std::fmt::Display,
+{
+    let bytes = match hyper::body::to_bytes(body).await {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                format!("failed to read {} body: {}", direction, err),
+            ));
         }
-        Err(e) => Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
-            .body(Body::from(e.to_string()))
-            .context(ResponseSnafu),
-    }
+    };
+
+    Ok(bytes)
 }
 
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("Can't create StaticPage: {source}"))]
-    StaticPage { source: axum::http::Error },
+async fn upload(mut multipart: extract::Multipart) -> Response<Body> {
+    let tempdir = tempdir_in("cloc_repo").unwrap();
+    let path = tempdir.path().to_str().unwrap();
+    while let Some(field) = multipart.next_field().await.unwrap() {
+        let name = field.name().unwrap().to_string();
+        let data = field.bytes().await.unwrap();
 
-    #[snafu(display("Can't create respnose: {source}"))]
-    ResponseError { source: axum::http::Error },
+        std::fs::write(&format!("{path}/{name}"), &data).unwrap();
 
-    #[snafu(display("Template page not found"))]
-    TemplatePage,
-
-    #[snafu(display("Branch '{wrong_branch}' is note exist"))]
-    WrongBranch { wrong_branch: String },
-
-    #[snafu(display("Unrecoginzed If-Match header"))]
-    IfMatchError,
-
-    #[snafu(display("Error at cloning repository or scc: {source}"))]
-    DownloaderError { source: utils::Error },
-
-    #[snafu(display("Error at github provider: {source}"))]
-    GithubProviderError {
-        source: crate::providers::repository_provider::Error,
-    },
-}
-
-impl IntoResponse for Error {
-    fn into_response(self) -> Response {
-        let msg = self.to_string();
-        let status = StatusCode::INTERNAL_SERVER_ERROR;
-
-        tracing::error!("{msg}");
-
-        let body = Json(json!({
-            "error": msg,
-        }));
-
-        (status, body).into_response()
+        tracing::debug!("write file '{name}' ")
     }
+    let scc_output = count_line_of_code(path, "").await.unwrap();
+    Response::builder()
+        .header("Content-Type", "text/plain")
+        .body(Body::from(scc_output))
+        .unwrap()
 }

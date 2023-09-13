@@ -1,7 +1,6 @@
 use axum::{
     extract::{Path, State},
     response::Response,
-    Extension,
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
@@ -13,7 +12,7 @@ use tokio_postgres::NoTls;
 
 pub async fn largest(
     Path(limit): Path<i64>,
-    Extension(connection_pool): Extension<Pool<PostgresConnectionManager<NoTls>>>,
+    State(connection_pool): State<Pool<PostgresConnectionManager<NoTls>>>,
 ) -> Response<Body> {
     let pool = connection_pool.get().await.unwrap();
     let result = pool
@@ -57,7 +56,7 @@ pub async fn largest(
 
 pub async fn recent(
     Path(limit): Path<i64>,
-    Extension(connection_pool): Extension<Pool<PostgresConnectionManager<NoTls>>>,
+    State(connection_pool): State<Pool<PostgresConnectionManager<NoTls>>>,
 ) -> Response<Body> {
     let pool = connection_pool.get().await.unwrap();
 

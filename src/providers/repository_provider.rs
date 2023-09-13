@@ -85,6 +85,7 @@ pub enum Error {
 }
 
 #[derive(Debug, Default)]
+
 struct VisitCounter {
     counter: AtomicI64,
     notify: Notify,
@@ -102,7 +103,7 @@ pub struct RepositoryProvider {
     pub connection_pool: Pool<PostgresConnectionManager<NoTls>>,
     pub git_provider: GitProvider,
     pub cloner: Cloner,
-    processed_repostitoires: Arc<RwLock<HashMap<String, Arc<VisitCounter>>>>,
+    processed_repositories: Arc<RwLock<HashMap<String, Arc<VisitCounter>>>>,
 }
 
 impl RepositoryProvider {
@@ -110,13 +111,14 @@ impl RepositoryProvider {
         cache_size: u64,
         connection_pool: Pool<PostgresConnectionManager<NoTls>>,
         git_provider: GitProvider,
+        cloner: Cloner,
     ) -> Self {
         Self {
             storage_cache: Arc::new(RwLock::new(StorageCache::new(cache_size))),
             connection_pool,
             git_provider,
-            cloner: Cloner::new(),
-            processed_repostitoires: Default::default(),
+            cloner,
+            processed_repositories: Default::default(),
         }
     }
 
@@ -351,7 +353,6 @@ impl RepositoryProvider {
                     .context(SccSnafu)?;
 
                 // вставляем результат в БД
-
                 let repository_id: DbId = {
                     let upsert_repositories = "insert into repositories values (DEFAULT, $1, $2, $3, $4) ON CONFLICT (hostname, owner, repository_name) DO UPDATE SET hostname=EXCLUDED.hostname, owner=EXCLUDED.owner, repository_name=EXCLUDED.repository_name  RETURNING ID;";
                     let transaction = connection
@@ -472,9 +473,9 @@ impl RepositoryProvider {
             None => &default_branch,
         };
         let unique_name = to_unique_name(host, owner, repository_name, branch);
-        // self.cloner.clear_state_buffer(&url).await;  // try remove later and check progress view
+
         defer! {
-            match self.processed_repostitoires.try_read() {
+            match self.processed_repositories.try_read() {
                 Ok(guard) => {
                     if let Some(visit) = guard.get(&unique_name) {
                         tracing::debug!("Trying Remove notificator for {unique_name}");
@@ -482,7 +483,7 @@ impl RepositoryProvider {
                         assert!(counter >=0);
                         if counter == 0 {
                             drop(guard);
-                            match self.processed_repostitoires.try_write() {
+                            match self.processed_repositories.try_write() {
                                 Ok(mut guard) => {
                                     guard.remove(&unique_name);
                                     tracing::debug!("Remove Done notificator for {unique_name}");
@@ -509,12 +510,12 @@ impl RepositoryProvider {
             tracing::info!("Out of the scope {unique_name} get_with_branch\n");
         }
 
-        match self.processed_repostitoires.try_read() {
+        match self.processed_repositories.try_read() {
             Ok(guard) => match guard.get(&unique_name) {
                 None => {
                     tracing::debug!("First processing repository {unique_name}");
                     drop(guard);
-                    match self.processed_repostitoires.try_write() {
+                    match self.processed_repositories.try_write() {
                         Ok(mut guard) => {
                             guard.insert(
                                 unique_name.clone(),
@@ -535,7 +536,7 @@ impl RepositoryProvider {
                     drop(guard);
                     let prev = visit.counter.fetch_add(1, SeqCst);
                     tracing::debug!(
-                        "Someone else ({}) request but In prgress {unique_name} ...",
+                        "Someone else ({}) request but In progress {unique_name} ...",
                         prev + 1
                     );
                     visit.notify.notified().await;
@@ -566,7 +567,7 @@ impl RepositoryProvider {
 
         // tracing::info!("End Processing {url}. Done: {}", result.is_ok());
 
-        match self.processed_repostitoires.try_read() {
+        match self.processed_repositories.try_read() {
             Ok(guard) => match guard.get(&unique_name) {
                 Some(notify) => {
                     // tracing::debug!("Processing {url} done. Notify to other waiters");
@@ -609,7 +610,7 @@ impl RepositoryProvider {
         repository_name: &str,
         branch: &str,
     ) -> Result<String, Error> {
-        let url = format!("https://{host}/{owner}/{repository_name}");
+        let url = to_url(host, owner, repository_name);
         let branch = branch.trim_start_matches('/');
         let last_commit = self
             .git_provider
@@ -625,7 +626,7 @@ impl RepositoryProvider {
         owner: &str,
         repository_name: &str,
     ) -> Result<Branches, Error> {
-        let url = format!("https://{host}/{owner}/{repository_name}");
+        let url = to_url(host, owner, repository_name);
         let branches = self
             .git_provider
             .all_branches(&url)

@@ -74,7 +74,7 @@ impl StorageCache {
             });
             self.size += repository_size;
 
-            // greaters at beign, smallest at end
+            // greatest at beign, smallest at end
             self.storage.sort_by(|el1, el2| el2.size.cmp(&el1.size));
 
             Success::Done(Some(repository_directory))

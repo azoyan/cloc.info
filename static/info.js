@@ -170,7 +170,7 @@ function showError(status, message) {
 
 async function start(_e) {
     let ok = false
-    try {
+    // try {
         ok = await preparePage(new URL(document.URL))
 
         if (!ok) { return; }
@@ -201,14 +201,14 @@ async function start(_e) {
             createTableFromResponse(cloc);
             document.getElementById("processing").hidden = true
         }
-    }
-    catch (err) {
-        if (err instanceof FetchError || err instanceof PrepareError) {
-            showError(err.status, err.message)
-        } else {
-            showError(err)
-        }
-    }
+    // }
+    // catch (err) {
+    //     if (err instanceof FetchError || err instanceof PrepareError) {
+    //         showError(err.status, err.message)
+    //     } else {
+    //         showError(err)
+    //     }
+    // }
 }
 
 document.onload = start
@@ -220,7 +220,7 @@ async function stopStreaming(ws) {
 function startStreaming(ws) {
     let send_ping = function () {
         if (ws.readyState === WebSocket.OPEN) {
-            // console.log("ping ws")
+            console.log("ping ws")
             ws.send("ping")
         }
     }

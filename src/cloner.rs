@@ -62,6 +62,31 @@ impl Default for Stages {
     }
 }
 
+#[derive(Clone, Default, Debug, Eq, PartialEq, Hash)]
+struct Repo {
+    host: String,
+    owner: String,
+    name: String,
+    branch: String,
+}
+
+struct Task(Vec<String>);
+impl Display for Task {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut result = String::new();
+        for s in &self.0 {
+            result.push_str(s);
+            result.push(' ');
+        }
+        write!(f, "{}", result.trim_end())
+    }
+}
+impl AsRef<Vec<String>> for Task {
+    fn as_ref(&self) -> &Vec<String> {
+        self.0.as_ref()
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct Cloner {
     clone_state: Arc<RwLock<HashMap<String, State>>>,
@@ -69,9 +94,80 @@ pub struct Cloner {
 
 impl Cloner {
     pub fn new() -> Self {
-        Self {
-            clone_state: Arc::new(RwLock::new(HashMap::new())),
+        Default::default()
+    }
+
+    async fn execute_new(
+        &self,
+        Repo {
+            host,
+            owner,
+            name,
+            branch,
+        }: Repo,
+        task: Task,
+    ) -> State {
+        let mut command = Command::new("git");
+        command.args(task.as_ref());
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
+        let unique_name = to_unique_name(&host, &owner, &name, &branch);
+        tracing::debug!("git {task} unique_name: {unique_name}");
+
+        let mut child = command.spawn().unwrap();
+        let stderr = child.stderr.take().unwrap();
+
+        let mut reader = BufReader::new(stderr);
+        // let mut buffer = BytesMut::with_capacity(1000);
+        let mut buffer = Vec::with_capacity(1000);
+        // let mut buffer = String::new();
+
+        // tracing::warn!("{:?}", command);
+
+        // let mut buffer = [0u8; 1000];
+        let mut stages = Stages::default();
+
+        while reader.read_until(b'\r', &mut buffer).await.unwrap() != 0 {
+            if let Ok(line) = String::from_utf8(buffer.clone()) {
+                if line.contains("Cloning") {
+                    stages.cloning = line;
+                } else if line.contains("remote: Enumerating") {
+                    stages.enumerating = line;
+                } else if line.contains("remote: Counting") {
+                    stages.counting = line;
+                } else if line.contains("remote: Compressing") {
+                    stages.compressing = line;
+                } else if line.contains("remote: Total") {
+                    stages.total = line;
+                } else if line.contains("Receiving") {
+                    stages.receiving = line;
+                } else if line.contains("Resolving") {
+                    stages.resolving = line;
+                } else if line.contains("Updating") {
+                    stages.updating = line;
+                }
+            }
+
+            buffer.clear();
+
+            let stages_string = stages.to_string();
+
+            // tracing::debug!(
+            //     "ASCII:{} {}>>\n{}\n<<",
+            //     stages_string.is_ascii(),
+            //     stages_string.len(),
+            //     &stages_string
+            // );
+
+            self.clone_state
+                .write()
+                .await
+                .insert(unique_name.clone(), State::Buffered(stages_string));
+            buffer.clear();
         }
+        // let _c = child.wait().await; // try
+
+        State::Done
     }
 
     pub async fn pull_repository(
@@ -82,21 +178,23 @@ impl Cloner {
         repository_path: &str,
         branch_name: &str,
     ) -> State {
-        let mut command = Command::new("git");
-        let unique_name = to_unique_name(host, owner, repository_name, branch_name);
-        tracing::info!("pull {unique_name} to {}", repository_path);
-
-        command.args([
-            "-C",
-            repository_path,
-            "pull",
-            "--ff-only",
-            "--progress",
-            "--allow-unrelated-histories",
-            "origin",
-            branch_name,
+        let task = Task(vec![
+            "-C".to_string(),
+            repository_path.to_string(),
+            "pull".to_string(),
+            "--ff-only".to_string(),
+            "--progress".to_string(),
+            "--allow-unrelated-histories".to_string(),
+            "origin".to_string(),
+            branch_name.to_string(),
         ]);
-        self.execute_pull(command, &unique_name).await
+        let repo = Repo {
+            host: host.to_string(),
+            owner: owner.to_string(),
+            name: repository_name.to_string(),
+            branch: branch_name.to_string(),
+        };
+        self.execute_new(repo, task).await
     }
 
     pub async fn execute_pull(&self, mut command: Command, unique_name: &str) -> State {
@@ -137,25 +235,29 @@ impl Cloner {
         branch_name: &str,
         repository_path: &str,
     ) -> State {
-        let mut command = Command::new("git");
         let url = to_url(host, owner, repository_name);
-        tracing::info!(
-            "clone --branch {branch_name} --depth 1 {} {}",
-            url,
-            repository_path
-        );
+        // tracing::info!(
+        //     "clone --branch {branch_name} --depth 1 {} {}",
+        //     url,
+        //     repository_path
+        // );
 
-        command.args([
-            "clone",
-            "--progress",
-            "--depth=1",
-            &url,
-            "--branch",
-            branch_name,
-            repository_path,
+        let task = Task(vec![
+            "clone".to_string(),
+            "--progress".to_string(),
+            "--depth=1".to_string(),
+            url,
+            "--branch".to_string(),
+            branch_name.to_string(),
+            repository_path.to_string(),
         ]);
-        self.execute(command, host, owner, repository_name, branch_name)
-            .await
+        let repo = Repo {
+            host: host.to_string(),
+            owner: owner.to_string(),
+            name: repository_name.to_string(),
+            branch: branch_name.to_string(),
+        };
+        self.execute_new(repo, task).await
     }
 
     pub async fn execute(
@@ -208,12 +310,12 @@ impl Cloner {
 
             let stages_string = stages.to_string();
 
-            // tracing::debug!(
-            //     "ASCII:{} {}>>\n{}\n<<",
-            //     stages_string.is_ascii(),
-            //     stages_string.len(),
-            //     &stages_string
-            // );
+            tracing::debug!(
+                "ASCII:{} {}>>\n{}\n<<",
+                stages_string.is_ascii(),
+                stages_string.len(),
+                &stages_string
+            );
 
             self.clone_state
                 .write()

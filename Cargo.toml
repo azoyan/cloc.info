@@ -4,11 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-futures = {version = "0.3", default-features = false, features = ["alloc"]}
 tokio = {version = "1", features = ["rt-multi-thread", "time", "fs", "macros", "net", "process", "signal" ]}
 futures-util = {version = "0.3.21"}
 axum = { version =  "0.6", features = ["ws", "headers", "multipart"] }
-axum-extra = { version = "0.7" }
 hyper = { version = "0.14", features = ["full"] }
 structopt = "0.3"
 mime_guess = "2"
@@ -23,12 +21,9 @@ serde = { version = "1", features = ["derive"] }
 fs_extra = "1.3"
 #tempfile = { path = "../tempfile" }
 tempfile = "3"
-ordered-multimap = "0.7"
 tokio-postgres = "0.7"
 bb8 = "0.8"
 bb8-postgres = { version = "0.8", features = ["with-chrono-0_4"] }
-hyper-openssl = "0.9"
-axum-server = "0.5"
 retainer = "0.3"
 scopeguard = "1"
 chrono = "0.4"

@@ -2,18 +2,20 @@
 
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
-use cloc::server::create_server;
+use cloc::application::start_application;
 use std::net::{IpAddr, SocketAddr};
 use tokio_postgres::NoTls;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 fn main() {
+    let layer = tracing_subscriber::fmt::layer().compact();
+
     //Set the RUST_LOG, if it hasn't been explicitly defined
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "cloc=trace,tower_http=trace".into()),
         ))
-        .with(tracing_subscriber::fmt::layer())
+        .with(layer)
         .init();
 
     use structopt::StructOpt;
@@ -55,7 +57,5 @@ async fn start_all(socket: SocketAddr) {
         .to_owned();
     // let manager = PostgresConnectionManager::new(config, NoTls);
     let pool = Pool::builder().build(manager).await.unwrap();
-    let server = tokio::task::spawn(create_server(socket, pool));
-    let handle = tokio::join!(server);
-    drop(handle);
+    start_application(socket, pool).await;
 }
