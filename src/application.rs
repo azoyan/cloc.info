@@ -160,7 +160,6 @@ async fn shutdown_signal() {
     #[cfg(not(unix))]
     let terminate = std::future::pending::<()>();
 
-    
     tokio::select! {
         _ = ctrl_c => {
             println!();

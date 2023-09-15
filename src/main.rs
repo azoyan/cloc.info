@@ -2,13 +2,22 @@
 
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
+use clap::Parser;
 use cloc::application::start_application;
 use std::net::{IpAddr, SocketAddr};
+use time::{format_description, UtcOffset};
 use tokio_postgres::NoTls;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{fmt::time::OffsetTime, layer::SubscriberExt, util::SubscriberInitExt};
 
 fn main() {
-    let layer = tracing_subscriber::fmt::layer().compact();
+    let timer = format_description::parse(
+        "[year]-[month padding:zero]-[day padding:zero] [hour]:[minute]:[second]:[subsecond digits:3]",
+    )
+    .expect("Cataplum");
+    let time_offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
+    let timer = OffsetTime::new(time_offset, timer);
+
+    let layer = tracing_subscriber::fmt::layer().compact().with_timer(timer);
 
     //Set the RUST_LOG, if it hasn't been explicitly defined
     tracing_subscriber::registry()
@@ -18,19 +27,18 @@ fn main() {
         .with(layer)
         .init();
 
-    use structopt::StructOpt;
-
-    #[derive(Debug, StructOpt)]
+    #[derive(Debug, Parser)]
+    #[command(author, version, about)]
     struct Opt {
         /// IP address of service
-        host_ip: std::net::Ipv4Addr,
+        ip_address: std::net::Ipv4Addr,
         /// Port of service
-        host_port: u16,
+        port: u16,
     }
 
-    let opt = Opt::from_args();
-    let ip = IpAddr::V4(opt.host_ip);
-    let port = opt.host_port;
+    let opt = Opt::parse();
+    let ip = IpAddr::V4(opt.ip_address);
+    let port = opt.port;
 
     let socket = SocketAddr::new(ip, port);
 
@@ -40,7 +48,7 @@ fn main() {
         .build()
         .unwrap();
 
-    tracing::info!("Starting...");
+    tracing::info!("Starting cloc server {ip}:{port}");
     r.block_on(start_all(socket));
 }
 

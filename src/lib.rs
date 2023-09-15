@@ -1,11 +1,11 @@
 #![feature(byte_slice_trim_ascii)]
 #![feature(async_closure)]
 
-pub mod service;
+pub mod application;
 pub mod cloner;
 pub mod providers;
 pub mod repository;
-pub mod application;
+pub mod service;
 pub mod statistic;
 pub mod websocket;
 
