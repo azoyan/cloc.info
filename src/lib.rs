@@ -1,6 +1,3 @@
-#![feature(byte_slice_trim_ascii)]
-#![feature(async_closure)]
-
 pub mod application;
 pub mod cloner;
 pub mod providers;

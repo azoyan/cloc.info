@@ -1,5 +1,3 @@
-#![feature(byte_slice_trim_ascii)]
-
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use clap::Parser;
