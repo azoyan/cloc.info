@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use super::utils;
 
 pub enum Success {
@@ -61,13 +63,13 @@ impl DiskCache {
                     path: path.to_string(),
                 };
                 self.size += repository_size;
-                
+
                 self.storage.push(dir);
                 // greatest at beign, smallest at end
                 self.storage.sort_by(|el1, el2| el2.size.cmp(&el1.size));
 
                 return Success::Done(result);
-            } else {                
+            } else {
                 if let Some(to_remove) = self.storage.last() {
                     if to_remove.size > repository_size {
                         tracing::debug!(
@@ -84,7 +86,7 @@ impl DiskCache {
                             self.size,
                             self.capacity
                         );
-                        self.remove(&to_remove.path);
+                        self.remove(&to_remove.path).unwrap();
                         continue;
                     }
                 } else {
@@ -95,11 +97,25 @@ impl DiskCache {
         }
     }
 
-    pub fn remove(&self, path: &str) {
-        std::process::Command::new("rm")
-            .args(["-rf", &path])
-            .spawn()
-            .unwrap();
+    pub fn remove(&self, path: &str) -> Result<(), std::io::Error> {
+        let empty_dir = format!("empty_{path}");
+        assert!(Command::new("mkdir")
+            .args(["-p", &empty_dir])
+            .output()?
+            .status
+            .success());
+        assert!(Command::new("rsync")
+            .args(["-a", "--delete", &empty_dir, path])
+            .output()?
+            .status
+            .success());
+        assert!(Command::new("rmdir")
+            .arg(&empty_dir)
+            .output()?
+            .status
+            .success());
+
+        Ok(())
     }
 }
 

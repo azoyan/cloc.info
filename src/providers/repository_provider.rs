@@ -201,7 +201,7 @@ impl RepositoryProvider {
                 if self.is_commit_actual(&row, task).await? {
                     let scc_output: Vec<u8> = row.get("scc_output");
                     let branch_id: Id = row.get("id");
-                    (branch_id, scc_output)
+                    return Ok((branch_id, scc_output));
                 } else {
                     let status = if self.disk_cache.read().await.contains(unique_name) {
                         info!("{repository_name} cached in disk: {}", unique_name);
@@ -265,7 +265,11 @@ impl RepositoryProvider {
         if is_default_branch {
             self.disk_cache.write().await.insert(unique_name);
         } else {
-            self.disk_cache.write().await.remove(unique_name);
+            self.disk_cache
+                .write()
+                .await
+                .remove(unique_name)
+                .context(CreateTempDirSnafu)?;
         }
 
         Ok((branch_id, scc_output))
