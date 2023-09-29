@@ -36,11 +36,12 @@ async function fetchPopular() {
         let recent = document.getElementById("popular")
         let items = ""
         console.log(response)
-        for (let i = 0; i < response.length; ++i) {
-            let item = createPopularListItem(response[i])
-            items += item
+        let keys = Object.keys(response)
+
+        for (let i = 0; i < keys.length; ++i) {
+            let item = createPopularItem(response[keys[i]])
+            recent.appendChild(item)
         }
-        recent.innerHTML = items
     }).catch(function (e) {
         console.log(e)
     })
@@ -67,27 +68,46 @@ async function fetchLargest() {
     })
 }
 
-function createGithubExternalLink(repository) {
-    let github_href = 'https://' + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
-    let link = '<a target="_blank" rel="noopener noreferrer canonical" href="' + github_href + '" class="link-dark">'
-    link += `<span
-    class="badge rounded-pill bg-white text-body ms-1"
-    style="border: 1px solid; border-color: #CCC;">
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-github" viewBox="0 0 16 16">
-  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
-</svg>
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-        fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
-        <path fill-rule="evenodd"
-            d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z" />
-        <path fill-rule="evenodd"
-            d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z" />
-    </svg>
-</span>`
+function createExternalLink(repository, icon) {
+    let href = 'https://' + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
 
-    link += '</a>'
+    let buttonGroup = document.createElement("div")
 
-    return link
+    buttonGroup.classList.add("btn-group", "btn-group-sm", "group-hover")
+
+    //     <div class="btn-group btn-group-lg" role="group" aria-label="Large button group">
+    //   <button type="button" class="btn btn-outline-primary">Left</button>
+    //   <button type="button" class="btn btn-outline-primary">Middle</button>
+    //   <button type="button" class="btn btn-outline-primary">Right</button>
+    // </div>
+
+    // let buttonGroup = document.createElement("div")
+    buttonGroup.setAttribute("role", "group")
+    buttonGroup.setAttribute("aria-label", "Link to repository")
+
+    let iconButton = document.createElement("button")
+    iconButton.setAttribute("type", "button")
+    iconButton.classList.add("btn", "btn-outline", "border", "pe-none")
+
+    // let col1 = createColumn("col-auto")
+    // let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>`
+    // let icon = new DOMParser().parseFromString(svg, "text/xml").firstChild
+
+    iconButton.appendChild(icon)
+    buttonGroup.appendChild(iconButton)
+
+    // let span = document.createElement("span")
+    let externalButton = document.createElement("button")
+    externalButton.setAttribute("type", "button")
+    externalButton.classList.add("btn", "btn-outline", "border", "pe-none")
+
+    let externalIcon = document.createElement("i")
+    externalIcon.classList.add("bi", "bi-box-arrow-up-right", "align-top");
+    externalButton.appendChild(externalIcon)
+
+    buttonGroup.appendChild(externalButton)
+
+    return buttonGroup
 }
 
 function createGitlabExternalLink(repository) {
@@ -178,11 +198,19 @@ function createGitExternalLink(repository) {
 }
 
 function createExternalLinks(repository) {
+    let icon;
     if (repository.hostname === "github.com") {
-        return createGithubExternalLink(repository)
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>`
+        icon = new DOMParser().parseFromString(svg, "text/xml").firstChild
     }
     else if (repository.hostname === "gitlab.com") {
-        return createGitlabExternalLink(repository)
+        icon = document.createElement("img")
+        icon.setAttribute("akt", "Open repository")
+        icon.setAttribute("width", "18px")
+        icon.setAttribute("height", "18px")
+        icon.setAttribute("src", "/static/gitlab-3.svg")
+        icon.classList.add("float-start", "pe-1")
+        // svg = `<img alt="Open repository" width="18px" height="18px" src="/static/gitlab-3.svg" class="float-start pe-1">`
     }
     else if (repository.hostname === "bitbucket.org") {
         return createBitbucketExternalLink(repository)
@@ -193,6 +221,7 @@ function createExternalLinks(repository) {
     else {
         return createGitExternalLink(repository)
     }
+    return createExternalLink(repository, icon)
 }
 
 
@@ -216,6 +245,142 @@ function createRecentListItem(repository) {
     return item
 }
 
+
+function createPopularItem(repository_array) {
+    let repository = repository_array[0]
+    console.log("createPopular", repository)
+
+    let listItem = document.createElement("li");
+    listItem.classList.add("list-group-item", "justify-content-between")
+    if (repository.repository_name.slice(-4) === ".git") {
+        repository.repository_name = repository.repository_name.slice(0, -4)
+    }
+    let id = repository.repository_name + "-popular"
+    let local_href = "/" + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
+
+    let row = createRow();
+    let col1 = createColumn("col-sm")
+
+    let a = document.createElement("a")
+    a.setAttribute("target", "_blank")
+    a.setAttribute("rel", "noopener noreferrer canonical")
+    a.setAttribute("href", local_href)
+    a.classList.add("link-dark", "me-2")
+    a.innerText = repository.repository_name
+    col1.appendChild(a)
+    row.appendChild(col1)
+
+    let totalCount = 0;
+    for (let i = 0; i < repository_array.length; ++i) { totalCount += repository_array[i].count }
+    console.log("total count", totalCount)
+
+    let smallText = createSmallText(`${totalCount} views`)
+
+    col1.appendChild(smallText)
+
+
+    let col3 = document.createElement("a")
+    col3.setAttribute("target", "_blank")
+    col3.setAttribute("rel", "noopener noreferrer canonical")
+    let href = 'https://' + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
+    col3.setAttribute("href", href)
+    col3.classList.add("col", "col-auto")
+    col3.appendChild(createExternalLinks(repository))
+
+    row.appendChild(col3)
+    if (repository_array.length > 1) {
+        let col4 = createColumn("col-1")
+        let button = createCollapseButton(id)
+        col4.appendChild(button)
+        row.appendChild(col4)
+
+        let collapse = createCollapseContent(id, repository_array, `{} views`, "count")
+
+        listItem.appendChild(row)
+        listItem.appendChild(collapse)
+    } else {
+        listItem.appendChild(row)
+    }
+
+    return listItem
+}
+
+function createColumn(...tokens) {
+    let col = document.createElement("div")
+    col.classList.add("col")
+    if (tokens.length > 0) {
+        col.classList.add(tokens)
+    }
+    return col
+}
+
+function createRow(...tokens) {
+    let row = document.createElement("div")
+    row.classList.add("row")
+    if (tokens.length > 0) {
+        row.classList.add(tokens)
+    }
+    return row
+}
+
+function createCollapseContent(id, repository_array, s, key) {
+    let div = document.createElement("div")
+    div.id = id
+    div.classList.add("collapse", "row")
+
+    for (let i = 0; i < repository_array.length; ++i) {
+        let row = createRow()
+        let r = repository_array[i]
+
+        let col1 = createColumn("col-auto")
+        row.appendChild(col1)
+
+        let a = document.createElement("text")
+        // a.setAttribute("target", "_blank")
+        // a.setAttribute("rel", "noopener noreferrer canonical")
+        // a.setAttribute("href", local_href)
+        // a.classList.add("link-dark")
+        a.innerText = repository_array[i].branch_name
+
+
+        col1.appendChild(a)
+        let smallText = createSmallText(s.replace("{}", r[key]))
+
+        let col2 = createColumn("col-auto")
+        col2.appendChild(smallText)
+        row.appendChild(col2)
+        // row.appendChild(createExternalLinks(repository_array[i]))
+
+        div.appendChild(row)
+    }
+
+    return div
+}
+
+function createSmallText(text) {
+    let div = document.createElement("small")
+    div.classList.add("text-muted")
+    div.innerText = text
+    return div
+}
+
+function createCollapseButton(id) {
+    let button = document.createElement("div")
+    // <button class="" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+    // button.classList.add("btn", "btn-primary")
+    button.setAttribute("type", "button")
+    button.setAttribute("data-bs-toggle", "collapse")
+    button.setAttribute("data-bs-target", `#${id}`)
+    button.setAttribute("aria-expanded", "false")
+    button.setAttribute("aria-controls", id)
+
+    let icon = document.createElement("i")
+    icon.classList.add("bi", "bi-caret-down")
+
+    button.appendChild(icon)
+    return button
+}
+
 function createPopularListItem(repository) {
     let item = '<li class="list-group-item d-flex align-items-center">'
     if (repository.repository_name.slice(-4) === ".git") {
@@ -230,7 +395,7 @@ function createPopularListItem(repository) {
 
     item += count
 
-    item += createExternalLinks(repository)
+    // item += createExternalLinks(repository)
 
     item += '</li>'
     return item
