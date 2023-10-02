@@ -1,22 +1,10 @@
-use crate::repository::info::{BranchValue, Branches};
+use super::{
+    info::{BranchValue, Branches},
+    {Error, LineSnafu, Utf8Snafu},
+};
 use retainer::Cache;
-use snafu::{OptionExt, ResultExt, Snafu};
-use std::{process::Command, string::FromUtf8Error, sync::Arc, time::Duration};
-
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("{desc}"))]
-    BranchNotFound { desc: String },
-
-    #[snafu(display("Error at getting {url}: {source}"))]
-    IoError { url: String, source: std::io::Error },
-
-    #[snafu(display("Can't deserialize git ls-remote output for {url} as utf8 string: {source}"))]
-    Utf8 { url: String, source: FromUtf8Error },
-
-    #[snafu(display("Error 'git ls-remote' output for {url}: {desc}"))]
-    Line { url: String, desc: String },
-}
+use snafu::{OptionExt, ResultExt};
+use std::{process::Command, sync::Arc, time::Duration};
 
 #[derive(Clone)]
 pub struct Git {
@@ -80,44 +68,46 @@ pub fn all_heads_branches(url: &str) -> Result<Branches, Error> {
     let result = command
         .args(["ls-remote", url])
         .output()
-        .with_context(|_e| IoSnafu {
-            url: url.to_string(),
+        .map_err(|e| Error::Io {
+            url: url.into(),
+            source: e,
         })?;
 
     if !result.status.success() {
         return Err(Error::BranchNotFound {
-            desc: String::from_utf8(result.stderr).with_context(|_e| Utf8Snafu { url })?,
+            desc: String::from_utf8(result.stderr).context(Utf8Snafu { url })?,
         });
     }
 
-    let string = String::from_utf8(result.stdout).with_context(|_e| Utf8Snafu { url })?;
+    let string = String::from_utf8(result.stdout).context(Utf8Snafu { url })?;
     let lines: Vec<&str> = string.lines().collect();
 
     let mut default_branch = String::new();
     let first_line = lines.first();
-    let default_branch_commit = first_line.with_context(|| LineSnafu {
+    let default_branch_commit = first_line.context(LineSnafu {
         url,
         desc: "No lines",
     })?;
-    let default_branch_commit = default_branch_commit
-        .split_whitespace()
-        .next()
-        .with_context(|| LineSnafu {
-            url,
-            desc: "Can't extract commit in splitted first line (HEAD)",
-        })?;
+    let default_branch_commit =
+        default_branch_commit
+            .split_whitespace()
+            .next()
+            .context(LineSnafu {
+                url,
+                desc: "Can't extract commit in splitted first line (HEAD)",
+            })?;
 
     let filtered = lines.iter().filter(|line| line.contains("refs/heads/"));
     let mut branches = Vec::with_capacity(100);
     for line in filtered {
         let mut splitted = line.split_whitespace();
-        let commit = splitted.next().with_context(|| LineSnafu {
+        let commit = splitted.next().context(LineSnafu {
             url,
             desc: "Can't extract commit",
         })?;
         let name = splitted
             .next()
-            .with_context(|| LineSnafu {
+            .context(LineSnafu {
                 url,
                 desc: "Can't extract branch ('refs/')",
             })?

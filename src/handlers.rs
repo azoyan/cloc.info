@@ -1,11 +1,9 @@
 use std::time::Duration;
 
-use crate::{
-    providers::repository_provider::RepositoryProvider,
-    repository::{
-        info::{to_url, Status},
-        utils,
-    },
+use crate::logic::{
+    self,
+    info::{to_url, Status},
+    repository::RepositoryProvider,
 };
 use axum::{
     extract::{Path, State},
@@ -359,12 +357,10 @@ pub enum Error {
     IfMatchError,
 
     #[snafu(display("Error at cloning repository or scc: {source}"))]
-    DownloaderError { source: utils::Error },
+    DownloaderError { source: logic::Error },
 
     #[snafu(display("Error at github provider: {source}"))]
-    GithubProviderError {
-        source: crate::providers::repository_provider::Error,
-    },
+    GithubProviderError { source: logic::Error },
 }
 
 impl IntoResponse for Error {

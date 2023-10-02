@@ -1,7 +1,9 @@
 use crate::{
-    providers::{git::Git, repository_provider::RepositoryProvider},
-    repository::utils::count_line_of_code,
     handlers::{self, create_general_router},
+    logic::{
+        git::Git,
+        repository::{count_line_of_code, RepositoryProvider},
+    },
     statistic::{largest, popular, recent},
     websocket::{handler_ws, handler_ws_with_branch},
 };
@@ -60,7 +62,6 @@ pub async fn start_application(
 
     let cancel = Arc::new(CancellationToken::new());
     let repository_provider = RepositoryProvider::new(
-        16 * crate::GB,
         connection_pool.clone(),
         git_provider.clone(),
         cancel.clone(),

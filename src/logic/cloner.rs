@@ -1,4 +1,5 @@
-use crate::repository::info::{to_url, Status, Task};
+use super::Error;
+use crate::logic::info::{to_url, Status, Task};
 use dashmap::DashMap;
 use std::{fmt::Display, process::Stdio, sync::Arc};
 use tokio::{
@@ -86,13 +87,17 @@ impl Cloner {
         Self { statuses }
     }
 
-    async fn execute_new(&self, args: Args, unique_name: &str) -> Status {
+    async fn execute_new(
+        &self,
+        args: Args,
+        unique_name: &str,
+        path: &str,
+    ) -> Result<Status, Error> {
         let mut command = Command::new("git");
         command.args(args.as_ref());
-        command.arg(unique_name); // last arg is destination path
         command.stdout(Stdio::piped());
         command.stderr(Stdio::piped());
-        tracing::debug!("git {args} unique_name: {unique_name}");
+        tracing::debug!("{command:?} to {path}");
 
         let mut child = command.spawn().unwrap();
         let stderr = child.stderr.take().unwrap();
@@ -145,32 +150,45 @@ impl Cloner {
             Ok(exit) => {
                 tracing::debug!("git clone exit code: {}", exit);
                 if exit.success() {
-                    Status::Cloned
+                    Ok(Status::Cloned)
                 } else {
-                    Status::Error(exit.to_string())
+                    Err(Error::CloneError {
+                        repository: path.into(),
+                        error: exit.to_string(),
+                    })
                 }
             }
             Err(e) => {
                 tracing::error!("git clone exit error: {}", e);
-                Status::Error(e.to_string())
+                Err(Error::CloneError {
+                    repository: path.into(),
+                    error: e.to_string(),
+                })
             }
         }
     }
 
-    pub async fn pull_repository(&self, task: &Task, destination: &str) -> Status {
-        let args = Args(vec![
-            "pull".to_string(),
-            "--ff-only".to_string(),
-            "--progress".to_string(),
-            "--allow-unrelated-histories".to_string(),
-            "origin".to_string(),
-            task.branch.clone(),
-            "-C".to_string(),
-        ]);
-        self.execute_new(args, destination).await
-    }
+    // pub async fn pull_repository(&self, task: &Task, destination: &str) -> Result<Status, Error> {
+    //     let args = Args(vec![
+    //         "-C".to_string(),
+    //         destination.to_string(),
+    //         "pull".to_string(),
+    //         "--ff-only".to_string(),
+    //         "--progress".to_string(),
+    //         "--depth=1".to_string(),
+    //         "--allow-unrelated-histories".to_string(),
+    //         "origin".to_string(),
+    //         task.branch.clone(),
+    //     ]);
+    //     self.execute_new(args, destination).await
+    // }
 
-    pub async fn clone_repository(&self, task: &Task, destination: &str) -> Status {
+    pub async fn clone_repository(
+        &self,
+        task: &Task,
+        unique_name: &str,
+        path: &str,
+    ) -> Result<Status, Error> {
         let url = to_url(&task.host, &task.owner, &task.repository_name);
         let args = Args(vec![
             "clone".to_string(),
@@ -179,12 +197,14 @@ impl Cloner {
             "--branch".to_string(),
             task.branch.clone(),
             url,
+            path.to_string(),
         ]);
-        self.execute_new(args, destination).await
+        self.execute_new(args, unique_name, path).await
     }
 
-    pub async fn set_done(&self, unique_nam: &str) {
-        self.statuses.insert(unique_nam.to_string(), Status::Cloned);
+    pub async fn set_done(&self, unique_name: &str) {
+        self.statuses
+            .insert(unique_name.to_string(), Status::Cloned);
     }
 
     pub async fn current_state(&self, name: &str) -> Option<Status> {

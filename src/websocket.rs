@@ -1,6 +1,6 @@
-use crate::{
-    providers::repository_provider::RepositoryProvider,
-    repository::info::{to_unique_name, to_url, Status},
+use crate::logic::{
+    info::{to_unique_name, to_url, Status},
+    repository::RepositoryProvider,
 };
 use axum::{
     extract::{

@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use clap::Parser;
@@ -20,7 +22,7 @@ fn main() {
     //Set the RUST_LOG, if it hasn't been explicitly defined
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "cloc=trace,tower_http=trace".into()),
+            std::env::var("RUST_LOG").unwrap_or("cloc=trace,tower_http=trace".into()),
         ))
         .with(layer)
         .init();
@@ -40,7 +42,7 @@ fn main() {
 
     let socket = SocketAddr::new(ip, port);
 
-    let r = tokio::runtime::Builder::new_multi_thread()
+    let r = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .thread_name("main_thread")
         .build()

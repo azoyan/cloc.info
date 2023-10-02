@@ -104,8 +104,7 @@ CREATE TABLE public.repositories (
     hostname text NOT NULL,
     owner text NOT NULL,
     repository_name text NOT NULL,
-    default_branch text NOT NULL,
-    destination text
+    default_branch text NOT NULL
 );
 
 

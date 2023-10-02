@@ -1,80 +1,27 @@
-use super::git::{self, Git};
-use crate::{
+use super::{
     cloner::Cloner,
-    repository::{
-        info::{to_unique_name, to_url, Branches, Status, Task},
-        storage_cache::DiskCache,
-        utils::{self, count_line_of_code},
-    },
-    Id,
+    git::Git,
+    info::{to_unique_name, to_url, Branches, Status, Task},
+    Error, Id, QuerySnafu,
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use dashmap::DashMap;
-use snafu::{ResultExt, Snafu};
-use std::sync::Arc;
-use tokio::sync::{Mutex, Notify, RwLock};
+use rand::{thread_rng, Rng};
+use scopeguard::defer;
+use snafu::ResultExt;
+use std::{
+    path::Path,
+    process::{Command, Stdio},
+    str::from_utf8,
+    sync::Arc,
+};
+use tokio::sync::{Mutex, Notify};
 use tokio_postgres::{IsolationLevel::Serializable, NoTls, Row};
 use tracing::{error, info};
 
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("Can't deserialize bytes: {bytes} from request {url} {source}"))]
-    DeserializeError {
-        bytes: String,
-        url: String,
-        source: serde_json::Error,
-    },
-
-    #[snafu(display("Repository not found by API request {url}"))]
-    NotFound { url: String },
-
-    #[snafu(display("Error at API request {url} message: {message}"))]
-    RemoteError { url: String, message: String },
-
-    #[snafu(display("Can't extract default branch for repository {repo}"))]
-    ExtractDefaultBranchError { repo: String },
-
-    #[snafu(display("Template page not found"))]
-    TemplatePage,
-
-    #[snafu(display("Can't create request '{url}': {source}"))]
-    CreateRequest {
-        url: String,
-        source: hyper::http::Error,
-    },
-
-    #[snafu(display("Can't send request '{url}': {source}"))]
-    SendRequest { url: String, source: hyper::Error },
-
-    #[snafu(display("Can't get response body '{url}': {source}"))]
-    GetResponseBody { url: String, source: hyper::Error },
-
-    #[snafu(display("Branch '{wrong_branch}' is note exist"))]
-    WrongBranch { wrong_branch: String },
-
-    #[snafu(display("Error {source} at query {query}"))]
-    Query {
-        query: String,
-        source: tokio_postgres::Error,
-    },
-
-    #[snafu(display("Error at utils: {source}"))]
-    UtilsError { source: utils::Error },
-
-    #[snafu(display("Can't create temporary directory: {source}"))]
-    CreateTempDirError { source: std::io::Error },
-
-    #[snafu(display("Repository downloading already in progress"))]
-    InProgress { url: String },
-
-    #[snafu(display("Error at 'git ls-remote': {source}"))]
-    GitProviderError { source: git::Error },
-}
-
 #[derive(Clone)]
 pub struct RepositoryProvider {
-    disk_cache: Arc<RwLock<DiskCache>>,
     pub connection_pool: Pool<PostgresConnectionManager<NoTls>>,
     pub git_provider: Git,
     pub cloner: Cloner,
@@ -86,7 +33,6 @@ pub struct RepositoryProvider {
 
 impl RepositoryProvider {
     pub fn new(
-        cache_size: u64,
         connection_pool: Pool<PostgresConnectionManager<NoTls>>,
         git_provider: Git,
         cancel: Arc<tokio_util::sync::CancellationToken>,
@@ -94,8 +40,8 @@ impl RepositoryProvider {
         let statuses = Arc::new(DashMap::with_capacity_and_shard_amount(512, 32));
         let tasks = Arc::new(Mutex::new(Vec::with_capacity(1024)));
         let cloner = Cloner::new(statuses.clone());
+
         Self {
-            disk_cache: Arc::new(RwLock::new(DiskCache::new(cache_size))),
             connection_pool,
             git_provider,
             cloner,
@@ -131,6 +77,7 @@ impl RepositoryProvider {
             match s.process_task_impl(&unique_name, &task).await {
                 Ok((branch_id, out)) => {
                     s.statuses.insert(unique_name, Status::Done(out));
+
                     s.update_statistic(branch_id, user_agent).await;
                 }
                 Err(e) => {
@@ -167,12 +114,8 @@ impl RepositoryProvider {
             owner,
             repository_name,
             branch,
-            default_branch,
             ..
         } = task;
-
-        let is_default_branch = branch == default_branch;
-
         // 1. Смотрим есть ли в БД
         let mut connection: bb8::PooledConnection<'_, PostgresConnectionManager<NoTls>> =
             match self.connection_pool.get().await {
@@ -191,86 +134,50 @@ impl RepositoryProvider {
         let row = connection
             .query_opt(query, &[host, owner, repository_name, branch])
             .await
-            .with_context(|_e| QuerySnafu {
-                query: query.to_owned(),
-            })?;
+            .context(QuerySnafu { query })?;
 
-        let (branch_id, scc_output) = match row {
-            Some(row) => {
-                info!("Repository {unique_name} exist in database");
-                if self.is_commit_actual(&row, task).await? {
-                    let scc_output: Vec<u8> = row.get("scc_output");
-                    let branch_id: Id = row.get("id");
-                    return Ok((branch_id, scc_output));
-                } else {
-                    let status = if self.disk_cache.read().await.contains(unique_name) {
-                        info!("{repository_name} cached in disk: {}", unique_name);
-                        self.cloner.pull_repository(task, unique_name).await
-                    } else {
-                        info!("Repository {repository_name} is not cached in disk");
-                        self.cloner.clone_repository(task, unique_name).await
-                    };
-
-                    info!("Repository {unique_name} status: {status:?}");
-
-                    let repository_size =
-                        i64::try_from(utils::dir_size(unique_name).unwrap()).unwrap();
-                    let scc_output = count_line_of_code(unique_name, "")
-                        .await
-                        .context(UtilsSnafu)?;
-                    let last_commit_local =
-                        utils::last_commit_local(unique_name).context(UtilsSnafu)?;
-
-                    let branch_id = self
-                        .insert_to_database(
-                            &mut connection,
-                            row,
-                            task,
-                            &scc_output,
-                            &last_commit_local,
-                            repository_size,
-                        )
-                        .await?;
-
-                    (branch_id, scc_output)
-                }
-            }
-            None => {
-                info!("Repository {unique_name} doesn't exist in database and disk");
-
-                let state = self.cloner.clone_repository(task, unique_name).await;
-                info!("Clone state {state:?} for {unique_name}");
-
-                let repository_size = utils::dir_size(unique_name).context(UtilsSnafu)?;
-                let scc_output = count_line_of_code(unique_name, "")
-                    .await
-                    .context(UtilsSnafu)?;
-                let last_commit_local =
-                    utils::last_commit_local(unique_name).context(UtilsSnafu)?;
-
-                let branch_id = self
-                    .update_db(
-                        &mut connection,
-                        task,
-                        &scc_output,
-                        &last_commit_local,
-                        unique_name,
-                        repository_size as i64,
-                    )
-                    .await?;
-
-                (branch_id, scc_output)
+        if let Some(row) = &row {
+            info!("Repository {unique_name} exist in database");
+            if self.is_commit_actual(row, task).await? {
+                let scc_output: Vec<u8> = row.get("scc_output");
+                let branch_id: Id = row.get("id");
+                return Ok((branch_id, scc_output));
             }
         };
-        if is_default_branch {
-            self.disk_cache.write().await.insert(unique_name);
+        info!("Repository {unique_name} doesn't exist in database");
+        let tmp_path = generate_path();
+        self.cloner
+            .clone_repository(task, unique_name, &tmp_path)
+            .await?;
+        let scc_output = count_line_of_code(&tmp_path, "").await?;
+        self.statuses
+            .insert(unique_name.to_string(), Status::Done(scc_output.clone()));
+
+        defer!(remove_dir(&tmp_path).expect("Can't remove dir"));
+        let last_commit_local = last_commit_local(&tmp_path)?;
+        let repository_size = dir_size(&tmp_path)? as i64;
+
+        let branch_id = if let Some(row) = row {
+            self.update_database(
+                &mut connection,
+                row,
+                task,
+                &scc_output,
+                &last_commit_local,
+                repository_size,
+            )
+            .await?
         } else {
-            self.disk_cache
-                .write()
-                .await
-                .remove(unique_name)
-                .context(CreateTempDirSnafu)?;
-        }
+            self.insert_to_database(
+                &mut connection,
+                task,
+                &scc_output,
+                &last_commit_local,
+                unique_name,
+                repository_size,
+            )
+            .await?
+        };
 
         Ok((branch_id, scc_output))
     }
@@ -287,11 +194,7 @@ impl RepositoryProvider {
 
         let url = to_url(&host, &owner, &repository_name);
 
-        let default_branch = self
-            .git_provider
-            .default_branch(&url)
-            .await
-            .with_context(|_e| GitProviderSnafu)?;
+        let default_branch = self.git_provider.default_branch(&url).await?;
 
         let branch = branch.unwrap_or(default_branch.clone());
 
@@ -335,11 +238,7 @@ impl RepositoryProvider {
         repository_name: &str,
     ) -> Result<String, Error> {
         let url = to_url(host, owner, repository_name);
-        let default_branch = self
-            .git_provider
-            .default_branch(&url)
-            .await
-            .with_context(|_e| GitProviderSnafu)?;
+        let default_branch = self.git_provider.default_branch(&url).await?;
         Ok(default_branch)
     }
 
@@ -352,20 +251,12 @@ impl RepositoryProvider {
     ) -> Result<String, Error> {
         let url = to_url(host, owner, repository_name);
         let branch = branch.trim_start_matches('/');
-        let last_commit = self
-            .git_provider
-            .last_commit(&url, branch)
-            .await
-            .with_context(|_e| GitProviderSnafu)?;
+        let last_commit = self.git_provider.last_commit(&url, branch).await?;
         Ok(last_commit)
     }
 
     pub async fn remote_branches(&self, url: &str) -> Result<Branches, Error> {
-        let branches = self
-            .git_provider
-            .all_branches(url)
-            .await
-            .with_context(|_e| GitProviderSnafu)?;
+        let branches = self.git_provider.all_branches(url).await?;
         Ok(branches)
     }
 
@@ -387,7 +278,7 @@ impl RepositoryProvider {
         }
     }
 
-    async fn insert_to_database(
+    async fn update_database(
         &self,
         connection: &mut bb8::PooledConnection<'_, PostgresConnectionManager<NoTls>>,
         row: Row,
@@ -438,7 +329,7 @@ impl RepositoryProvider {
         Ok(branch_id)
     }
 
-    async fn update_db(
+    async fn insert_to_database(
         &self,
         connection: &mut bb8::PooledConnection<'_, PostgresConnectionManager<NoTls>>,
         Task {
@@ -454,7 +345,7 @@ impl RepositoryProvider {
         path: &str,
         repository_size: i64,
     ) -> Result<Id, Error> {
-        let upsert_repositories = "insert into repositories values (DEFAULT, $1, $2, $3, $4, $5) ON CONFLICT (hostname, owner, repository_name) DO UPDATE SET hostname=EXCLUDED.hostname, owner=EXCLUDED.owner, repository_name=EXCLUDED.repository_name , destination=EXCLUDED.destination RETURNING ID;";
+        let upsert_repositories = "insert into repositories values (DEFAULT, $1, $2, $3, $4) ON CONFLICT (hostname, owner, repository_name) DO UPDATE SET hostname=EXCLUDED.hostname, owner=EXCLUDED.owner, repository_name=EXCLUDED.repository_name RETURNING ID;";
         let transaction = connection
             .build_transaction()
             .isolation_level(Serializable)
@@ -466,7 +357,7 @@ impl RepositoryProvider {
         let row = transaction
             .query_one(
                 upsert_repositories,
-                &[host, owner, repository_name, default_branch, &path],
+                &[host, owner, repository_name, default_branch],
             )
             .await
             .with_context(|_e| QuerySnafu {
@@ -549,4 +440,104 @@ impl RepositoryProvider {
 
         Ok(is_actual)
     }
+}
+
+use String as CommitHash;
+
+pub(crate) fn last_commit_local(path: &str) -> Result<CommitHash, Error> {
+    let mut last_commit_command = std::process::Command::new("git");
+    last_commit_command.args(["-C", path, "rev-parse", "HEAD"]);
+
+    match last_commit_command.output() {
+        Ok(output) if output.status.success() => match from_utf8(&output.stdout) {
+            Ok(hash) => Ok(hash.trim().to_string()),
+            Err(e) => Err(Error::LastCommitError {
+                repository: path.to_string(),
+                error: e.to_string(),
+            }),
+        },
+        Ok(output) => {
+            let status_code = match output.status.code() {
+                Some(code) => code.to_string(),
+                None => String::from("None"),
+            };
+
+            Err(Error::LastCommitError {
+                repository: path.to_string(),
+                error: format!("git status code: {status_code}"),
+            })
+        }
+        Err(e) => Err(Error::LastCommitError {
+            repository: path.to_string(),
+            error: e.to_string(),
+        }),
+    }
+}
+
+pub async fn count_line_of_code(path: &str, _format: &str) -> Result<Vec<u8>, Error> {
+    let mut scc_command = tokio::process::Command::new("scc");
+    tracing::debug!("Counting line of code in path: {path}");
+    scc_command.args(["--ci", path]);
+    let out = match scc_command.output().await {
+        Ok(output) if !output.status.success() => {
+            let error = String::from_utf8(output.stderr)
+                .unwrap_or_else(|e| format!("Error at convert git output to utf8: {e}"));
+            tracing::error!("scc error: {}", error);
+            return Err(Error::SccError { error });
+        }
+        Ok(output) => output.stdout,
+        Err(e) => {
+            tracing::error!("scc error: {e}");
+            return Err(Error::SccError {
+                error: e.to_string(),
+            });
+        }
+    };
+    // tracing::info!("{:?}", out);
+    Ok(out)
+}
+
+fn remove_dir(path: &str) -> Result<(), std::io::Error> {
+    Command::new("rm").args(["-rf", path, "&"]).status()?;
+    tracing::debug!("Remove {path}");
+    Ok(())
+}
+
+pub fn dir_size<P>(path: P) -> Result<u64, Error>
+where
+    P: AsRef<Path>,
+{
+    let path = path.as_ref().to_str().unwrap();
+    let mut command = Command::new("du");
+    command.args(["-sb", path]);
+
+    command.stdout(Stdio::piped());
+
+    match command.output() {
+        Ok(output) => match String::from_utf8(output.stdout) {
+            Ok(out) => match out.split_whitespace().next() {
+                Some(str) => Ok(str.parse::<u64>().map_err(|e| Error::Size {
+                    error: e.to_string(),
+                }))?,
+                None => Err(Error::Size {
+                    error: format!("Wrong `du` stdout: {out}"),
+                }),
+            },
+            Err(e) => Err(Error::Size {
+                error: e.to_string(),
+            }),
+        },
+        Err(e) => Err(Error::Size {
+            error: e.to_string(),
+        }),
+    }
+}
+
+fn generate_path() -> String {
+    use rand::distributions::Alphanumeric;
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect::<String>()
 }
