@@ -21,6 +21,9 @@ submitButton.onclick = function () {
         else if (url.host === "codeberg.org") {
             path += "/src/branch/"
         }
+        else if (url.host === "gitea.com") {
+            path += "/src/branch/"
+        }
 
         path += selected;
     }

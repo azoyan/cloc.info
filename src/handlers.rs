@@ -1,5 +1,4 @@
 use std::time::Duration;
-
 use crate::logic::{
     self,
     info::{to_url, Status},
@@ -22,6 +21,7 @@ use snafu::{ResultExt, Snafu};
 pub fn create_api_router(provider: RepositoryProvider) -> Router<(), Body> {
     Router::new()
         .route("/:owner/:repo", get(default_branch_info))
+        .route("/:owner/:repo/src/branch/*branch", get(branch_commit_info))
         .route("/:owner/:repo/tree/*branch", get(branch_commit_info))
         .route("/:owner/:repo/-/tree/*branch", get(branch_commit_info))
         .route("/:owner/:repo/src/*branch", get(branch_commit_info))
@@ -32,6 +32,7 @@ pub fn create_api_router(provider: RepositoryProvider) -> Router<(), Body> {
 pub fn create_general_router(provider: RepositoryProvider) -> Router<(), Body> {
     let router = Router::new()
         .route("/", get(default_handler))
+        .route("/src/branch/*branch", get(handler_with_branch))
         .route("/tree/*branch", get(handler_with_branch))
         .route("/-/tree/*branch", get(handler_with_branch))
         .route("/src/*branch", get(handler_with_branch));
@@ -77,12 +78,12 @@ async fn handler_with_branch(
     if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
-    let branch_name = if host == "codeberg.org" {
-        tracing::warn!("{branch_name}");
-        branch_name.trim_start_matches("/branch")
-    } else {
-        &branch_name
-    };
+    // let branch_name = if host == "codeberg.org" {
+    //     tracing::warn!("{branch_name}");
+    //     branch_name.trim_start_matches("/branch")
+    // } else {
+    //     &branch_name
+    // };
     let branch = branch_name
         .trim_start_matches('/')
         .trim_end_matches('/')

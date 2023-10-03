@@ -75,6 +75,7 @@ pub async fn start_application(
         .route("/tree/*branch", get(handler_ws_with_branch))
         .route("/-/tree/*branch", get(handler_ws_with_branch))
         .route("/src/*branch", get(handler_ws_with_branch))
+        .route("/src/branch/*branch", get(handler_ws_with_branch))
         .with_state(repository_provider.clone());
 
     let statistic_router = Router::new()

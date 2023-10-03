@@ -10,6 +10,9 @@ function extractBranchFromGitUrl(git_url) {
     else if (git_url.host === "codeberg.org") {
         branch_word = "src/branch"
     }
+    else if (git_url.host === "gitea.com") {
+        branch_word = "src/branch"
+    }
 
     let branch_word_idx = git_url.pathname.indexOf(branch_word)
     if (git_url.owner === branch_word) {

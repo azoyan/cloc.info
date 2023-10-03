@@ -56,13 +56,13 @@ async function preparePage(url) {
         throw new PrepareError("Incorrect URL", url + " should contain repository hostname, owner and repository name");
     }
     let repository_hostname = path_name_array[0];
-    let onwer = path_name_array[1]
+    let owner = path_name_array[1]
     let repository_name = path_name_array[2]
     let branch = ""
 
-    try {
+    // try {
         let origin_url = "https:/" + Url.pathname
-        console.log("origin_url", origin_url)
+        console.log("origin_url", origin_url)   
         let parsed_url = gitUrlParse(origin_url)
         console.log("parsed_url", parsed_url);
         let img = createRepositoryIcon(repository_hostname, 32, 32)
@@ -71,16 +71,16 @@ async function preparePage(url) {
         // else if (repository_name.slice(-4) !== ".git") { origin_url += ".git" }
 
         let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
-        let show_url = "https://" + repository_hostname + '/' + onwer + '/' + repository_name
+        let show_url = "https://" + repository_hostname + '/' + owner + '/' + repository_name
         console.log("repository_name", repository_name)
         for (let i = 3; i < path_name_array.length; ++i) { show_url += '/' + path_name_array[i] }
         document.getElementById("url").innerText = show_url
         document.getElementById("url").setAttribute("href", origin_url)
         document.getElementById("url_pic").innerHTML = pic_ref
-    }
-    catch (e) {
-        throw new Error("Can't setup URL" + e)
-    }
+    // }
+    // catch (e) {
+    //     throw new Error("Can't setup URL" + e)
+    // }
 
     if (path_name_array[3] === undefined) {
         branch = await fetch_branch_info(Url.protocol + Url.host + "/api" + Url.pathname)
@@ -95,7 +95,7 @@ async function preparePage(url) {
             branch += '/' + path_name_array[i]
         }
         document.getElementById("branch").innerText = branch.slice(1)
-        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/tree" + branch
+        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/tree" + branch
         let commit = await fetch_branch_commit(url_str)
         document.getElementById("commit").innerText = commit.commit
     }
@@ -118,7 +118,7 @@ async function preparePage(url) {
             throw new PrepareError("Incorrect URL", error_msg)
         }
         document.getElementById("branch").innerText = branch.slice(1)
-        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/tree" + branch
+        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/tree" + branch
         let commit = await fetch_branch_commit(url_str)
         document.getElementById("commit").innerText = commit.commit
     }
@@ -128,7 +128,7 @@ async function preparePage(url) {
             branch += '/' + path_name_array[i]
         }
         document.getElementById("branch").innerText = branch.slice(1)
-        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/src" + branch
+        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/src" + branch
         let commit = await fetch_branch_commit(url_str)
         document.getElementById("commit").innerText = commit.commit
     }
@@ -146,10 +146,27 @@ async function preparePage(url) {
         }
 
         document.getElementById("branch").innerText = branch.slice(1)
-        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + onwer + "/" + repository_name + "/src" + branch
+        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/src" + branch
         let commit = await fetch_branch_commit(url_str)
         document.getElementById("commit").innerText = commit.commit
+    }
+    else if (repository_hostname == "gitea.com" && path_name_array[3] === "src") {
+        let index;
+        if (path_name_array[4] === "branch" && path_name_array[5] !== undefined) {
+            index = 5
+        }
+        else if (path_name_array[4] !== undefined) {
+            index = 4
+        }
+        for (let i = index; i < path_name_array.length; ++i) {
+            console.log("el:", path_name_array[i])
+            branch += '/' + path_name_array[i]
+        }
 
+        document.getElementById("branch").innerText = branch.slice(1)
+        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/src" + branch
+        let commit = await fetch_branch_commit(url_str)
+        document.getElementById("commit").innerText = commit.commit
     }
     else {
         let error_msg = url + "\nAfter tree/ must be followed by a branch name"
@@ -172,7 +189,7 @@ function showError(status, message) {
 
 async function start(_e) {
     let ok = false
-    try {
+    // try {
         ok = await preparePage(new URL(document.URL))
 
         if (!ok) { return; }
@@ -191,17 +208,15 @@ async function start(_e) {
             console.log("websocket:", url);
             console.log(websocket)
             startStreaming(websocket)
-
-            // console.log("cloc", cloc)
         }
-    }
-    catch (err) {
-        if (err instanceof FetchError || err instanceof PrepareError) {
-            showError(err.status, err.message)
-        } else {
-            showError(err)
-        }
-    }
+    // }
+    // catch (err) {
+        // if (err instanceof FetchError || err instanceof PrepareError) {
+        //     showError(err.status, err.message)
+        // } else {
+        //     showError(err)
+        // }
+    // }
 }
 
 document.onload = start
@@ -332,35 +347,6 @@ function startStreaming(ws) {
         }
     }
 }
-// function createAboutInfo(url_s, branch_s, commit_s) {
-//     let url_str = url_s.split(' ')[1]
-//     let ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + url_str + '">' + url_str + '</a>'
-
-//     let urlRow = '<div class="row align-items-center">'
-//     urlRow += '<div class="col col-sm-auto"><strong>URL:</strong></div>'
-//     urlRow += '<div class="col col-sm-auto text-truncate float-start">' + ref + '</div>'
-
-//     if (url_str.includes("github.com")) {
-//         let img = '<img alt="Open repository" src="/static/GitHub-Mark-32px.png" class="float-start">'
-//         let ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + url_str + '">' + img + '</a>'
-//         urlRow += '<div class="col col-sm-auto">' + ref + '</div>'
-//     }
-
-//     urlRow += '</div>'
-//     console.log(urlRow)
-
-//     let branch_str = branch_s.split(' ')[1]
-//     let branchRow = '<div class="row pt-2">'
-//     branchRow += '<div class="col col-sm-auto"><strong>Branch:</strong></div>'
-//     branchRow += '<div class="col">' + branch_str + '</div>'
-//     branchRow += '</div> '
-
-//     let commit_str = commit_s.split(' ')[1]
-//     let commitRow = '<div class="row pt-2"><div class="col col-sm-auto">Commit:</div><div class="col text-truncate float-start">' + commit_str + '</div></div>'
-
-//     let res = urlRow + branchRow + commitRow;
-//     document.getElementById("about").innerHTML = res
-// }
 
 document.addEventListener("DOMContentLoaded", start);
 

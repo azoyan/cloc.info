@@ -77,7 +77,6 @@ function createCocomoFromResponse(cocomo_data) {
     let cocomo = document.getElementById("cocomo");
     cocomo.innerHTML = str
     cocomo.hidden = false
-
 }
 
 function createRepositoryIcon(input, width, height) {
@@ -85,5 +84,6 @@ function createRepositoryIcon(input, width, height) {
     else if (input.includes("gitlab.com")) { return `<img width=${width} height=${height} src="/static/gitlab-3.svg" alt="Open repository" class="float-start">` }
     else if (input.includes("bitbucket.org")) { return `<img width=${width} height=${height} src="/static/bitbucket-icon.svg" alt="Open repository" class="float-start">` }
     else if (input.includes("codeberg.org")) { return `<img width=${width} height=${height} src="/static/codeberg-svgrepo-com.svg" alt="Open repository" class="float-start">` }
+    else if (input.includes("gitea.com")) { return `<img width=${width} height=${height} src="/static/gitea.svg" alt="Open repository" class="float-start">` }
     else { return `<img width=${width} height=${height} src="/static/git-icon.svg" alt="Open repository" class="float-start">` }
 }

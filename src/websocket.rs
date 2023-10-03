@@ -45,11 +45,11 @@ pub async fn handler_ws_with_branch(
     if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
-    let branch = if host == "codeberg.org" {
-        branch.trim_start_matches("/branch")
-    } else {
-        &branch
-    };
+    // let branch = if host == "codeberg.org" {
+    //     branch.trim_start_matches("/branch")
+    // } else {
+    //     &branch
+    // };
     let branch = branch
         .trim_start_matches('/')
         .trim_end_matches('/')
