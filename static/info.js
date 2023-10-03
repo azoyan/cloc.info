@@ -1,5 +1,16 @@
 let Url = new URL(document.URL);
-
+const LOGO = document.getElementById("logo")
+let angle=0
+let interval;
+function rotate() {
+    angle += 4;
+    console.log("rotate", angle)
+    LOGO.setAttribute("transform", "rotate(" + angle + ")");
+}
+function stopRotate() {
+    clearInterval(interval)
+    LOGO.removeAttribute("transform")
+}
 async function fetch_ws() {
     let response_ws = await fetch(Url, { headers: { 'If-Match': 'ws' } });
     return extractContent(response_ws, "Error at fetching websocket")
@@ -61,22 +72,22 @@ async function preparePage(url) {
     let branch = ""
 
     // try {
-        let origin_url = "https:/" + Url.pathname
-        console.log("origin_url", origin_url)   
-        let parsed_url = gitUrlParse(origin_url)
-        console.log("parsed_url", parsed_url);
-        let img = createRepositoryIcon(repository_hostname, 32, 32)
+    let origin_url = "https:/" + Url.pathname
+    console.log("origin_url", origin_url)
+    let parsed_url = gitUrlParse(origin_url)
+    console.log("parsed_url", parsed_url);
+    let img = createRepositoryIcon(repository_hostname, 32, 32)
 
-        // if (repository_name.slice(-4) === ".git") { repository_name = repository_name.slice(0, -4) }
-        // else if (repository_name.slice(-4) !== ".git") { origin_url += ".git" }
+    // if (repository_name.slice(-4) === ".git") { repository_name = repository_name.slice(0, -4) }
+    // else if (repository_name.slice(-4) !== ".git") { origin_url += ".git" }
 
-        let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
-        let show_url = "https://" + repository_hostname + '/' + owner + '/' + repository_name
-        console.log("repository_name", repository_name)
-        for (let i = 3; i < path_name_array.length; ++i) { show_url += '/' + path_name_array[i] }
-        document.getElementById("url").innerText = show_url
-        document.getElementById("url").setAttribute("href", origin_url)
-        document.getElementById("url_pic").innerHTML = pic_ref
+    let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
+    let show_url = "https://" + repository_hostname + '/' + owner + '/' + repository_name
+    console.log("repository_name", repository_name)
+    for (let i = 3; i < path_name_array.length; ++i) { show_url += '/' + path_name_array[i] }
+    document.getElementById("url").innerText = show_url
+    document.getElementById("url").setAttribute("href", origin_url)
+    document.getElementById("url_pic").innerHTML = pic_ref
     // }
     // catch (e) {
     //     throw new Error("Can't setup URL" + e)
@@ -189,33 +200,34 @@ function showError(status, message) {
 
 async function start(_e) {
     let ok = false
+    
     // try {
-        ok = await preparePage(new URL(document.URL))
+    ok = await preparePage(new URL(document.URL))
 
-        if (!ok) { return; }
-        let cloc_promise = await fetch_cloc();
-        if (cloc_promise === 202) {
-            let url = document.location.host + "/ws" + document.location.pathname
-            let websocket;
-            console.log("protocol", document.location.protocol)
-            if (document.location.protocol === "https:") {
-                websocket = new WebSocket("wss://" + url)
-            }
-            else {
-                websocket = new WebSocket("ws://" + url)
-            }
-
-            console.log("websocket:", url);
-            console.log(websocket)
-            startStreaming(websocket)
+    if (!ok) { return; }
+    let cloc_promise = await fetch_cloc();
+    if (cloc_promise === 202) {
+        let url = document.location.host + "/ws" + document.location.pathname
+        let websocket;
+        console.log("protocol", document.location.protocol)
+        if (document.location.protocol === "https:") {
+            websocket = new WebSocket("wss://" + url)
         }
+        else {
+            websocket = new WebSocket("ws://" + url)
+        }
+
+        console.log("websocket:", url);
+        console.log(websocket)
+        startStreaming(websocket)
+    }
     // }
     // catch (err) {
-        // if (err instanceof FetchError || err instanceof PrepareError) {
-        //     showError(err.status, err.message)
-        // } else {
-        //     showError(err)
-        // }
+    // if (err instanceof FetchError || err instanceof PrepareError) {
+    //     showError(err.status, err.message)
+    // } else {
+    //     showError(err)
+    // }
     // }
 }
 
@@ -226,6 +238,7 @@ async function stopStreaming(ws) {
 }
 
 function startStreaming(ws) {
+    interval = setInterval(rotate, 50)
     let send_ping = function () {
         if (ws.readyState === WebSocket.OPEN) {
             console.log("ping ws")
@@ -242,6 +255,7 @@ function startStreaming(ws) {
         console.log("event", event);
         document.getElementById("hint").innerText = "Counting lines of code"
         console.log("WEB SOCKET  CLOSED");
+        stopRotate()
     }
 
     ws.onmessage = function (event) {

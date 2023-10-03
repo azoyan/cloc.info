@@ -4,6 +4,7 @@ class Api {
 
     recent(response) {
         let element = document.getElementById(`recent`)
+        element.innerHTML = ''
 
         response.sort(sort_recent)
         for (let i = 0; i < response.length; ++i) {
@@ -14,6 +15,8 @@ class Api {
 
     popular(response) {
         let element = document.getElementById(`popular`)
+        element.innerHTML = ''
+
         response.sort(sort_popular)
         for (let i = 0; i < response.length; ++i) {
             let item = new ListItem(response[i]).popular()
@@ -23,6 +26,7 @@ class Api {
 
     largest(response) {
         let element = document.getElementById(`largest`)
+        element.innerHTML = ''
 
         response.sort(sort_largest)
         for (let i = 0; i < response.length; ++i) {
@@ -52,6 +56,11 @@ function start() {
     fetchApi("recent")
     fetchApi("popular")
     fetchApi("largest")
+    // setInterval(() => {
+    //     fetchApi("recent")
+    //     fetchApi("popular")
+    //     fetchApi("largest")
+    // }, 10_000)
 }
 
 const API = new Api();
@@ -59,8 +68,6 @@ const API = new Api();
 async function fetchApi(apiName) {
     let Url = new URL(document.URL);
     let url = new URL(Url.protocol + Url.host + `/api/${apiName}/15`);
-
-    console.log(url)
 
 
     fetch(url).then((response) => response.json()).then((response) => API[apiName](response))
@@ -163,7 +170,7 @@ class ListItem {
             this.collapse = new CollapseContent(this.id, repository).popular()
         }
 
-        this.description = createSmallText(`${totalCount} views`)
+        this.description = createSmallText(createViewText(totalCount))
         return this.toElement()
     }
 
@@ -176,7 +183,6 @@ class ListItem {
         let diff = delta_time(now, date)
 
         let repository_array = repository.branches
-        console.log(repository_array)
 
         if (repository_array.length > 1) {
             this.collapse = new CollapseContent(this.id, repository).recent()
@@ -208,7 +214,7 @@ class ListItem {
 
         let local_href = "/" + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
 
-        let row = createRow();
+        let row = createRow("align-items-center");
         let col1 = createColumn("col-sm", "text-truncate")
 
         let a = document.createElement("a")
@@ -367,7 +373,7 @@ class CollapseContent {
         this.repository_array.sort(sort_popular)
         for (let i = 0; i < this.repository_array.length; ++i) {
             let count = this.repository_array[i].count;
-            let text = `${count} view`
+            let text = createViewText(count)
             let small = createSmallText(text)
             this.elements[i] = small
         }
@@ -377,15 +383,17 @@ class CollapseContent {
     toElement() {
         let div = document.createElement("div");
         div.id = this.id;
-        div.classList.add("collapse", "row", "mt-2");
+        div.classList.add("collapse", "row", "mt-3");
 
         for (let i = 0; i < this.repository_array.length; ++i) {
             let row = createRow();
 
-            let col1 = createColumn("col-auto", "text-truncate");
+            let col1 = createColumn("col-sm", "text-truncate");
 
             let a = document.createElement("text");
-            a.innerText = this.repository_array[i].branch_name;
+            let branch = this.repository_array[i].branch_name;
+            a.innerText = branch
+            a.setAttribute("title", branch)
 
             col1.appendChild(a);
             row.appendChild(col1);
@@ -421,7 +429,7 @@ function createCollapseButton(id) {
     button.setAttribute("aria-controls", id)
 
     let icon = document.createElement("i")
-    icon.classList.add("bi", "bi-chevron-down")
+    icon.classList.add("text-secondary", "bi", "bi-chevron-expand")
 
     button.appendChild(icon)
     return button
@@ -438,12 +446,13 @@ function delta_time(now, date) {
     else if (dt > 86400) {
         dt = Math.round(dt / 86400) + " days ago"
     }
+
     else {
         dt = Math.round(dt) + " seconds ago"
     }
     return dt
 }
-
+function createViewText(count) { return count > 1 ? `${count} views` : `${count} view` }
 function formatBytes(a, b = 2, k = 1024) { with (Math) { let d = floor(log(a) / log(k)); return 0 == a ? "0 Bytes" : parseFloat((a / pow(k, d)).toFixed(max(0, b))) + " " + ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"][d] } }
 
 document.addEventListener("DOMContentLoaded", start);
