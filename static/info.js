@@ -1,10 +1,10 @@
 let Url = new URL(document.URL);
 const LOGO = document.getElementById("logo")
-let angle=0
+let angle = 0
 let interval;
 function rotate() {
     angle += 4;
-    console.log("rotate", angle)
+    angle %= 360;
     LOGO.setAttribute("transform", "rotate(" + angle + ")");
 }
 function stopRotate() {
@@ -200,12 +200,13 @@ function showError(status, message) {
 
 async function start(_e) {
     let ok = false
-    
-    // try {
-    ok = await preparePage(new URL(document.URL))
 
-    if (!ok) { return; }
-    let cloc_promise = await fetch_cloc();
+    // try {
+        ok = await preparePage(new URL(document.URL))
+        let cloc_promise = await fetch_cloc();
+    
+
+    // if (!ok) { return; }
     if (cloc_promise === 202) {
         let url = document.location.host + "/ws" + document.location.pathname
         let websocket;
@@ -238,7 +239,6 @@ async function stopStreaming(ws) {
 }
 
 function startStreaming(ws) {
-    interval = setInterval(rotate, 50)
     let send_ping = function () {
         if (ws.readyState === WebSocket.OPEN) {
             console.log("ping ws")
@@ -259,6 +259,7 @@ function startStreaming(ws) {
     }
 
     ws.onmessage = function (event) {
+        if (!interval) { interval = setInterval(rotate, 100) }
         let json = JSON.parse(event.data);
         if (json.Done) {
             let cloc = json.Done;

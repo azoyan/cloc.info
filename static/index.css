@@ -109,6 +109,6 @@ header {
     background: rgb(255, 255, 255)
 }
 
-.group-hover:hover > * {
+.group-hover:hover>* {
     background-color: rgba(211, 211, 211, 0.205);
 }
