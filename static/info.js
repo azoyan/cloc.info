@@ -7,6 +7,9 @@ function rotate() {
     angle %= 360;
     LOGO.setAttribute("transform", "rotate(" + angle + ")");
 }
+
+let json;
+
 function stopRotate() {
     clearInterval(interval)
     LOGO.removeAttribute("transform")
@@ -205,10 +208,15 @@ async function start(_e) {
         ok = await preparePage(new URL(document.URL))
         let cloc_promise = await fetch_cloc();
     
-
+    console.log("cloc_promise", cloc_promise)
     // if (!ok) { return; }
     if (cloc_promise === 202) {
-        let url = document.location.host + "/ws" + document.location.pathname
+        
+    }
+    else {
+        createTableFromResponse(cloc_promise);
+    }
+    let url = document.location.host + "/ws" + document.location.pathname
         let websocket;
         console.log("protocol", document.location.protocol)
         if (document.location.protocol === "https:") {
@@ -221,7 +229,6 @@ async function start(_e) {
         console.log("websocket:", url);
         console.log(websocket)
         startStreaming(websocket)
-    }
     // }
     // catch (err) {
     // if (err instanceof FetchError || err instanceof PrepareError) {
@@ -241,13 +248,13 @@ async function stopStreaming(ws) {
 function startStreaming(ws) {
     let send_ping = function () {
         if (ws.readyState === WebSocket.OPEN) {
-            console.log("ping ws")
+            // console.log("ping ws")
             ws.send("ping")
         }
     }
 
     ws.onopen = function (event) {
-        console.log("open ws", event);
+        // console.log("open ws", event);
         setInterval(send_ping, 500);
     }
 
@@ -260,11 +267,11 @@ function startStreaming(ws) {
 
     ws.onmessage = function (event) {
         if (!interval) { interval = setInterval(rotate, 100) }
-        let json = JSON.parse(event.data);
+        json = JSON.parse(event.data);
         if (json.Done) {
             let cloc = json.Done;
 
-            console.log("payload", json.Done);
+            // console.log("payload", json.Done);
             if (cloc.length > 0) {
                 stopStreaming(ws)
                 const str = String.fromCharCode(...cloc);
@@ -280,7 +287,7 @@ function startStreaming(ws) {
             for (let i = 0; i < lines.length; ++i) {
                 let payload = lines[i];
                 // console.log("payload line:", payload)
-                console.log("Done?", payload, payload.hasOwnProperty("Done"));
+                // console.log("Done?", payload, payload.hasOwnProperty("Done"));
 
                 // document.getElementById("status").innerText += payload
                 document.getElementById("hint").innerHTML = "Downloading repository into server"

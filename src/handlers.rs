@@ -135,13 +135,11 @@ async fn regular(
             };
 
             if value.contains("cloc") {
-                let unique_name = state
-                    .add_task(host, owner, name, branch, user_agent)
+                let (unique_name, status) = state
+                    .request_info(host, owner, name, branch, user_agent)
                     .await
                     .context(GithubProviderSnafu)?;
-                tracing::debug!(unique_name);
-
-                let status = state.current_status(&unique_name);
+                tracing::warn!("After request_info {unique_name}, {}", status);
 
                 let response = match status {
                     Status::Done(scc_output) => Response::builder()
@@ -166,6 +164,10 @@ async fn regular(
                         .status(StatusCode::ACCEPTED)
                         .body(Body::from(e))
                         .context(ResponseSnafu)?,
+                    Status::Previous(scc_output) => Response::builder()
+                        .status(StatusCode::PARTIAL_CONTENT)
+                        .body(Body::from(scc_output))
+                        .context(ResponseSnafu)?,
                 };
                 Ok(response)
             } else {
@@ -187,13 +189,13 @@ async fn terminal_browser(
     repository_provider: RepositoryProvider,
 ) -> Result<Response<Body>, Error> {
     tracing::info!("Terminal browser: {:?}", user_agent);
-    let unique_name = repository_provider
-        .add_task(host, owner, name, branch, user_agent)
+    let (unique_name, status) = repository_provider
+        .request_info(host, owner, name, branch, user_agent)
         .await
         .context(GithubProviderSnafu)?;
 
-    tracing::debug!(unique_name);
-    let status = repository_provider.current_status(&unique_name);
+    tracing::debug!("After request_info for {unique_name}: {}", status);
+    
     assert!(matches!(status, Status::Ready) || matches!(status, Status::InProgress(_)));
 
     let mut counter = 5;
@@ -218,6 +220,12 @@ async fn terminal_browser(
                         .body(Body::from(e))
                         .context(ResponseSnafu)?;
                 }
+                Status::Previous(scc_output) => break Response::builder()
+                .status(StatusCode::PARTIAL_CONTENT)
+                .header("Content-Type", "text/plain")
+                .body(Body::from(scc_output))
+                .context(ResponseSnafu)?
+        ,
             };
             if counter == 0 {
                 let message = format!("Your request {} has been received and we are currently processing it. Please wait for a 5 minutes and try again.\n", key);

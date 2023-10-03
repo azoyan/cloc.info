@@ -111,6 +111,7 @@ impl Task {
 pub enum Status {
     InProgress(String),
     Cloned,
+    Previous(Vec<u8>),
     Done(Vec<u8>),
     Ready,
     Error(String),
@@ -124,6 +125,7 @@ impl Display for Status {
             Status::Cloned => write!(f, "Cloned"),
             Status::Ready => write!(f, "Ready"),
             Status::Error(e) => write!(f, "Error: {e}"),
+            Status::Previous(_) => write!(f, "Previous"),
         }
     }
 }

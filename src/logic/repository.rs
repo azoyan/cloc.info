@@ -136,12 +136,17 @@ impl RepositoryProvider {
 
         if let Some(row) = &row {
             info!("Repository {unique_name} exist in database");
+            let scc_output: Vec<u8> = row.get("scc_output");
             if self.is_commit_actual(row, task).await? {
                 let scc_output: Vec<u8> = row.get("scc_output");
                 let branch_id: Id = row.get("id");
                 return Ok((branch_id, scc_output));
+            } else {
+                self.statuses
+                    .insert(unique_name.to_string(), Status::Previous(scc_output));
             }
         };
+
         info!("Repository {unique_name} doesn't exist in database");
         let tmp_path = generate_path();
         self.cloner
@@ -180,24 +185,31 @@ impl RepositoryProvider {
         Ok((branch_id, scc_output))
     }
 
-    pub async fn add_task(
+    pub async fn request_info(
         &self,
         host: String,
         owner: String,
         repository_name: String,
         branch: Option<String>,
         user_agent: String,
-    ) -> Result<String, Error> {
-        info!("add_task {} {} {:?}", owner, repository_name, branch);
+    ) -> Result<(String, Status), Error> {
+        info!(
+            "get_info scc_output {} {} {:?}",
+            owner, repository_name, branch
+        );
 
         let url = to_url(&host, &owner, &repository_name);
-
         let default_branch = self.git_provider.default_branch(&url).await?;
-
         let branch = branch.unwrap_or(default_branch.clone());
+        let query = "select * from branches where name=$4 and repository_id=(select id from repositories where hostname=$1 and owner=$2 and repository_name=$3);";
+
+        let connection = self.connection_pool.get().await.unwrap();
+        let row = connection
+            .query_opt(query, &[&host, &owner, &repository_name, &branch])
+            .await
+            .context(QuerySnafu { query })?;
 
         let unique_name = to_unique_name(&host, &owner, &repository_name, &branch);
-
         let task = Task {
             host,
             owner,
@@ -206,14 +218,23 @@ impl RepositoryProvider {
             default_branch,
             user_agent,
         };
-
-        let need_task = match self.statuses.get(&unique_name) {
-            Some(status) => match status.value() {
-                Status::Ready | Status::InProgress(_) | Status::Cloned => false,
-                Status::Done(_) | Status::Error(_) => true,
-            },
-            None => true,
+        // Если скачивания не было, статус Ready
+        // Если скачивание идёт статус InProgress
+        let result_status = if let Some(row) = &row {
+            info!("Repository {unique_name} exist in database");
+            let scc_output: Vec<u8> = row.get("scc_output");
+            if self.is_commit_actual(row, &task).await? {
+                return Ok((unique_name, Status::Done(scc_output)));
+            } else {
+                tracing::warn!("PREVIOUS");
+                Status::Previous(scc_output)
+            }
+        } else {
+            Status::Ready
         };
+
+        let need_task = self.statuses.get(&unique_name).is_none();
+
         if need_task {
             info!("add_task {}", unique_name);
             match self.tasks.try_lock() {
@@ -222,22 +243,21 @@ impl RepositoryProvider {
                         .iter()
                         .any(|task| unique_name == task.to_unique_name())
                     {
+                        self.statuses.insert(unique_name.clone(), Status::Ready);
                         tasks.push(task);
                     }
                 }
                 Err(e) => error!("Can't get lock to add task {}", e),
             }
-
-            self.statuses.insert(unique_name.clone(), Status::Ready);
-        } else {
-            info!("Already in process {}", unique_name);
         }
 
-        Ok(unique_name)
+        Ok((unique_name, result_status))
     }
 
     pub fn current_status(&self, unique_name: &str) -> Status {
-        self.statuses.get(unique_name).unwrap().value().clone()
+        let status = self.statuses.get(unique_name).unwrap().value().clone();
+        // tracing::debug!("current_status for {unique_name}: {}", status);
+        status
     }
 
     pub async fn default_branch_remote(
