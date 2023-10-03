@@ -16,7 +16,7 @@ use std::{
     str::from_utf8,
     sync::Arc,
 };
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::Mutex;
 use tokio_postgres::{IsolationLevel::Serializable, NoTls, Row};
 use tracing::{error, info};
 
@@ -25,7 +25,6 @@ pub struct RepositoryProvider {
     pub connection_pool: Pool<PostgresConnectionManager<NoTls>>,
     pub git_provider: Git,
     pub cloner: Cloner,
-    notify: Arc<Notify>,
     tasks: Arc<Mutex<Vec<Task>>>,
     statuses: Arc<DashMap<String, Status>>,
     cancel: Arc<tokio_util::sync::CancellationToken>,
@@ -45,7 +44,6 @@ impl RepositoryProvider {
             connection_pool,
             git_provider,
             cloner,
-            notify: Default::default(),
             tasks,
             statuses,
             cancel,
@@ -209,20 +207,31 @@ impl RepositoryProvider {
             user_agent,
         };
 
-        match self.tasks.try_lock() {
-            Ok(mut tasks) => {
-                if !tasks
-                    .iter()
-                    .any(|task| unique_name == task.to_unique_name())
-                {
-                    tasks.push(task);
-                    self.notify.notify_waiters();
+        let need_task = match self.statuses.get(&unique_name) {
+            Some(status) => match status.value() {
+                Status::Ready | Status::InProgress(_) | Status::Cloned => false,
+                Status::Done(_) | Status::Error(_) => true,
+            },
+            None => true,
+        };
+        if need_task {
+            info!("add_task {}", unique_name);
+            match self.tasks.try_lock() {
+                Ok(mut tasks) => {
+                    if !tasks
+                        .iter()
+                        .any(|task| unique_name == task.to_unique_name())
+                    {
+                        tasks.push(task);
+                    }
                 }
+                Err(e) => error!("Can't get lock to add task {}", e),
             }
-            Err(e) => error!("Can't get lock to add task {}", e),
-        }
 
-        self.statuses.insert(unique_name.clone(), Status::Ready);
+            self.statuses.insert(unique_name.clone(), Status::Ready);
+        } else {
+            info!("Already in process {}", unique_name);
+        }
 
         Ok(unique_name)
     }

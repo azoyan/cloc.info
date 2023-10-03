@@ -1,4 +1,3 @@
-use std::time::Duration;
 use crate::logic::{
     self,
     info::{to_url, Status},
@@ -17,6 +16,7 @@ use hyper::{
 use mime_guess::mime::{APPLICATION_JSON, TEXT_PLAIN};
 use serde_json::json;
 use snafu::{ResultExt, Snafu};
+use std::time::Duration;
 
 pub fn create_api_router(provider: RepositoryProvider) -> Router<(), Body> {
     Router::new()
@@ -149,7 +149,12 @@ async fn regular(
                         .header("Content-Type", "text/plain")
                         .body(Body::from(scc_output))
                         .context(ResponseSnafu)?,
-                    Status::InProgress(_) => unreachable!(),
+                    Status::InProgress(_s) => Response::builder()
+                        .status(StatusCode::ACCEPTED)
+                        .header("Upgrade", "websocket")
+                        .header("Connection", "Upgrade")
+                        .body(Body::empty())
+                        .context(ResponseSnafu)?,
                     Status::Cloned => unreachable!(),
                     Status::Ready => Response::builder()
                         .status(StatusCode::ACCEPTED)
@@ -189,7 +194,7 @@ async fn terminal_browser(
 
     tracing::debug!(unique_name);
     let status = repository_provider.current_status(&unique_name);
-    assert!(matches!(status, Status::Ready));
+    assert!(matches!(status, Status::Ready) || matches!(status, Status::InProgress(_)));
 
     let mut counter = 5;
     let key = unique_name.clone();
@@ -284,7 +289,7 @@ async fn default_branch_info(
     State(provider): State<RepositoryProvider>,
     _request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
-    tracing::warn!("default_branch_info() host: {host}, owner: {owner}, repo: {repository_name}");
+    tracing::debug!("default_branch_info() host: {host}, owner: {owner}, repo: {repository_name}");
     if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }
@@ -312,7 +317,7 @@ async fn branch_commit_info(
     Path((host, owner, mut repository_name, branch)): Path<(String, String, String, String)>,
     State(provider): State<RepositoryProvider>,
 ) -> Result<Response<Body>, Error> {
-    tracing::warn!("branch_commit_info() host: {host}, owner: {owner}, repo: {repository_name}, branch: {branch}");
+    tracing::info!("branch_commit_info() host: {host}, owner: {owner}, repo: {repository_name}, branch: {branch}");
     if host != "git.sr.ht" && !repository_name.ends_with(".git") {
         repository_name = format!("{repository_name}.git");
     }

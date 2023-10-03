@@ -67,8 +67,8 @@ pub async fn start_application(
         cancel.clone(),
     );
 
-    let _monitor =
-        tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
+    let monitor =
+        tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(1)).await });
 
     let websocket_service = Router::new()
         .route("/", get(handler_ws))
@@ -109,7 +109,7 @@ pub async fn start_application(
 
     let server = Server::bind(&socket)
         .serve(app.into_make_service())
-        .with_graceful_shutdown(shutdown_signal(cancel));
+        .with_graceful_shutdown(shutdown_signal(cancel, monitor));
 
     let repository_service = repository_provider.run();
     let (_repo, handle) = tokio::join!(repository_service, server);
@@ -134,10 +134,12 @@ pub async fn not_found(_uri: axum::http::Uri) -> Response<Body> {
         .unwrap()
 }
 
-async fn shutdown_signal(cancel: Arc<CancellationToken>) {
+async fn shutdown_signal(cancel: Arc<CancellationToken>, monitor: tokio::task::JoinHandle<()>) {
     let ctrl_c = async {
         ctrl_c().await.expect("failed to install Ctrl+C handler");
     };
+
+    monitor.abort();
 
     #[cfg(unix)]
     let terminate = async {

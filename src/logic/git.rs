@@ -18,13 +18,14 @@ impl Git {
 
     pub async fn all_branches(&self, url: &str) -> Result<Branches, Error> {
         let branches = if let Some(branches) = self.cache.get(&url.to_string()).await {
+            tracing::info!("Get branches from cache");
             branches.clone()
         } else {
-            tracing::info!("all_branches() Insert branches into git_provider cache for {url}");
             let branches = self::all_heads_branches(url)?;
             self.cache
-                .insert(url.to_string(), branches.clone(), Duration::from_secs(60))
-                .await;
+            .insert(url.to_string(), branches.clone(), Duration::from_secs(60))
+            .await;
+            tracing::info!("all_branches() Inserted branches into git_provider cache for {url}");
             branches
         };
 
@@ -33,6 +34,7 @@ impl Git {
 
     pub async fn default_branch(&self, url: &str) -> Result<String, Error> {
         let branch = if let Some(branches) = self.cache.get(&url.to_string()).await {
+            tracing::info!("Get branch {} from cache", branches.default_branch);
             branches.default_branch.clone()
         } else {
             let branches = self.all_branches(url).await?;

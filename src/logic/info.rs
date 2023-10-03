@@ -83,7 +83,7 @@ pub struct AllBranchesInfo {
     pub branches: Vec<BranchInfo>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Task {
     pub host: String,
     pub owner: String,
