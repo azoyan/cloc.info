@@ -1,38 +1,93 @@
 
+function start() {
+    let api = new Api()
+
+    api.recent().then(data => {
+        let fragment = new RecentList(data).toDocumentFragment()
+        document.getElementById("recent").appendChild(fragment)
+    })
+    api.popular().then(data => {
+        let fragment = new PopularList(data).toDocumentFragment()
+        document.getElementById("popular").appendChild(fragment)
+    })
+   
+
+    api.largest().then(data => {
+        let fragment = new LargestList(data).toDocumentFragment()
+        document.getElementById("largest").appendChild(fragment)
+    })
+}
+
+
 class Api {
-    constructor() { }
-
-    recent(response) {
-        let element = document.getElementById(`recent`)
-        element.innerHTML = ''
-
-        response.sort(sort_recent)
-        for (let i = 0; i < response.length; ++i) {
-            let item = new ListItem(response[i]).recent()
-            element.appendChild(item)
-        }
+    constructor() {
+        this.url = new URL(document.URL)
     }
 
-    popular(response) {
-        let element = document.getElementById(`popular`)
-        element.innerHTML = ''
-
-        response.sort(sort_popular)
-        for (let i = 0; i < response.length; ++i) {
-            let item = new ListItem(response[i]).popular()
-            element.appendChild(item)
-        }
+    async fetch(url) {
+        return await fetch(url)
+            .then((response) => { return response.json() })
+            .then((response) => { return response })
+            .catch(function (e) {
+                console.log(e)
+            })
     }
 
-    largest(response) {
-        let element = document.getElementById(`largest`)
-        element.innerHTML = ''
+    async recent() {
+        let url = new URL(this.url.protocol + this.url.host + `/api/recent/15`);
+        return this.fetch(url)
+    }
 
-        response.sort(sort_largest)
-        for (let i = 0; i < response.length; ++i) {
-            let item = new ListItem(response[i]).largest()
-            element.appendChild(item)
+    async popular() {
+        let url = new URL(this.url.protocol + this.url.host + `/api/popular/15`);
+        return this.fetch(url)
+    }
+
+    async largest() {
+        let url = new URL(this.url.protocol + this.url.host + `/api/largest/15`);
+        return this.fetch(url)
+    }
+}
+
+class List {
+    constructor(response) {
+        this.response = response
+        this.sort_fn = null
+        this.createListItemFn = null
+    }
+
+    toDocumentFragment() {
+        let fragment = document.createDocumentFragment()
+        this.response.sort(this.sort_fn)
+        for (let i = 0; i < this.response.length; ++i) {
+            let current = this.response[i]
+            let item = this.createListItemFn(current)
+            fragment.appendChild(item.toElement())
         }
+        return fragment
+    }
+}
+
+class RecentList extends List {
+    constructor(response) {
+        super(response)
+        this.sort_fn = sort_recent
+        this.createListItemFn = (arg) => new RecentListItem(arg)
+    }
+}
+
+class PopularList extends List {
+    constructor(response) {
+        super(response)
+        this.sort_fn = sort_popular
+        this.createListItemFn = (arg) => new PopularListItem(arg)
+    }
+}
+class LargestList extends List {
+    constructor(response) {
+        super(response)
+        this.sort_fn = sort_largest
+        this.createListItemFn = (arg) => new LargestListItem(arg)
     }
 }
 
@@ -41,24 +96,18 @@ function sort_recent(a, b) {
     if (a.time < b.time) return 1;
     return 0
 }
+
 function sort_popular(a, b) {
     if (a.count > b.count) return -1;
     if (a.count < b.count) return 1;
     return 0
 }
+
 function sort_largest(a, b) {
     if (a.size > b.size) return -1;
     if (a.size < b.size) return 1;
     return 0
 }
-
-function start() {
-    fetchApi("recent")
-    fetchApi("popular")
-    fetchApi("largest")
-}
-
-const API = new Api();
 
 async function fetchApi(apiName) {
     let Url = new URL(document.URL);
@@ -71,7 +120,7 @@ async function fetchApi(apiName) {
         })
 }
 
-function createExternalLink(icon) {
+function createExternalButton(icon) {
     let buttonGroup = document.createElement("button")
 
     buttonGroup.classList.add("btn", "btn-sm", "btn-outline-dark")
@@ -80,7 +129,7 @@ function createExternalLink(icon) {
     return buttonGroup
 }
 
-function createExternalLinks(repository) {
+function createExternalButtons(repository) {
     let icon;
     if (repository.hostname === "github.com") {
         let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18.75" height="18.75" fill="currentColor" class="bi bi-github" viewBox="-0.5 -1.5 17.5 17.5"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>`
@@ -120,7 +169,7 @@ function createExternalLinks(repository) {
         </svg>`
         icon = new DOMParser().parseFromString(svg, "text/xml").firstChild
     }
-    return createExternalLink(icon)
+    return createExternalButton(icon)
 }
 
 class ListItem {
@@ -134,53 +183,6 @@ class ListItem {
         }
     }
 
-    popular() {
-        let repository = this.repository;
-        this.id = repository.repository_name + "-popular"
-        let repository_array = repository.branches;
-        let totalCount = 0;
-        for (let i = 0; i < repository_array.length; ++i) { totalCount += repository_array[i].count }
-
-        if (repository_array.length > 1) {
-            this.collapse = new CollapseContent(this.id, repository).popular()
-        }
-
-        this.description = createSmallText(createViewText(totalCount))
-        return this.toElement()
-    }
-
-    recent() {
-        let repository = this.repository;
-        this.id = repository.repository_name + "-recent"
-
-        let now = Date.now()
-        let date = Date.parse(repository.time)
-        let diff = delta_time(now, date)
-
-        let repository_array = repository.branches
-
-        if (repository_array.length > 1) {
-            this.collapse = new CollapseContent(this.id, repository).recent()
-        }
-        this.description = createSmallText(diff)
-
-        return this.toElement()
-    }
-
-    largest() {
-        let repository = this.repository;
-        this.id = this.repository.repository_name + "-largest"
-        let bytes = formatBytes(repository.size)
-
-        let repository_array = repository.branches;
-        if (repository_array.length > 1) {
-            this.collapse = new CollapseContent(this.id, repository).largest()
-        }
-        this.description = createSmallText(bytes)
-
-        return this.toElement()
-    }
-
     toElement() {
         let repository = this.repository
         let repository_array = repository.branches;
@@ -192,33 +194,21 @@ class ListItem {
         let row = createRow("align-items-center");
         let col1 = createColumn("col-sm", "text-truncate")
 
-        let a = document.createElement("a")
-        a.setAttribute("target", "_blank")
-        a.setAttribute("rel", "noopener noreferrer canonical")
-        a.setAttribute("href", local_href)
         let title = `${repository.repository_name}`
-        a.setAttribute("title", title)
-
-        a.classList.add("link-dark", "me-2")
-        a.innerText = repository.repository_name
-        col1.appendChild(a)
+        let link = createExternalLink(local_href, repository.repository_name, title, "link-dark", "me-2");
+        col1.appendChild(link)
         row.appendChild(col1)
 
         let col2 = createColumn("col-auto")
         col2.appendChild(this.description)
         row.appendChild(col2)
 
-        let col3 = document.createElement("a")
-        col3.setAttribute("target", "_blank")
-        col3.setAttribute("rel", "noopener noreferrer canonical")
         let href = 'https://' + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
-        col3.setAttribute("href", href)
-        col3.setAttribute("title", `Open repository ${href}`)
-        col3.classList.add("col", "col-auto")
-        let externalLink = createExternalLinks(repository);
-        col3.appendChild(externalLink)
+        let external = createExternalLink(href, "", `Open repository ${href}`, "col", "col-auto")
+        let externalLink = createExternalButtons(repository);
+        external.appendChild(externalLink)
 
-        row.appendChild(col3)
+        row.appendChild(external)
 
         let col4 = createColumn("col-1")
         row.appendChild(col4)
@@ -239,120 +229,107 @@ class ListItem {
     }
 }
 
-function createLargestItem(repository) {
-    let repository_array = repository.branches[0]
+class RecentListItem extends ListItem {
+    constructor(response) { super(response) }
 
-    let listItem = document.createElement("li");
-    listItem.classList.add("list-group-item")
-    if (repository.repository_name.slice(-4) === ".git") {
-        repository.repository_name = repository.repository_name.slice(0, -4)
+    toElement() {
+        let repository = this.repository;
+        this.id = repository.repository_name + "-recent"
+
+        let now = Date.now()
+        let date = Date.parse(repository.time)
+        let diff = delta_time(now, date)
+
+        let repository_array = repository.branches
+
+        if (repository_array.length > 1) {
+            this.collapse = new RecentCollapseContent(this.id, repository).toElement()
+        }
+        this.description = createSmallText(diff)
+
+        return super.toElement()
     }
-    let id = repository.repository_name + "-largest"
-    let local_href = "/" + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
+}
 
-    let row = createRow();
-    let col1 = createColumn("text-truncate")
+class PopularListItem extends ListItem {
+    constructor(response) { super(response) }
 
+    toElement() {
+        let repository = this.repository;
+        this.id = repository.repository_name + "-popular"
+        let repository_array = repository.branches;
+        let totalCount = 0;
+        for (let i = 0; i < repository_array.length; ++i) { totalCount += repository_array[i].count }
+
+        if (repository_array.length > 1) {
+            this.collapse = new PopularCollapseContent(this.id, repository).toElement()
+        }
+
+        this.description = createSmallText(createViewsText(totalCount))
+
+        return super.toElement()
+    }
+}
+
+class LargestListItem extends ListItem {
+    constructor(response) { super(response) }
+
+    toElement() {
+        let repository = this.repository;
+        this.id = this.repository.repository_name + "-largest"
+        let bytes = formatBytes(repository.size)
+
+        let repository_array = repository.branches;
+        if (repository_array.length > 1) {
+            this.collapse = new LargestCollapseContent(this.id, repository).toElement()
+        }
+        this.description = createSmallText(bytes)
+
+        return super.toElement()
+    }
+}
+
+
+
+
+
+function createExternalLink(href, innerText, title, ...classes) {
     let a = document.createElement("a")
     a.setAttribute("target", "_blank")
     a.setAttribute("rel", "noopener noreferrer canonical")
-    a.setAttribute("href", local_href)
-    a.classList.add("link-dark", "me-2")
-    a.innerText = repository.repository_name
-    col1.appendChild(a)
-    row.appendChild(col1)
-
-    let totalCount = 0;
-    for (let i = 0; i < repository_array.length; ++i) { totalCount += repository_array[i].count }
-
-    let bytes = formatBytes(repository.size)
-    let smallText = createSmallText(`${bytes}`)
-
-    col1.appendChild(smallText)
-
-    let col3 = document.createElement("a")
-    col3.setAttribute("target", "_blank")
-    col3.setAttribute("rel", "noopener noreferrer canonical")
-    let href = 'https://' + repository.hostname + "/" + repository.owner + "/" + repository.repository_name
-    col3.setAttribute("href", href)
-    col3.classList.add("col", "col-auto")
-    col3.appendChild(createExternalLinks(repository))
-
-    row.appendChild(col3)
-
-    let col4 = createColumn("col-1")
-    row.appendChild(col4)
-    if (repository_array.length > 1) {
-        let button = createCollapseButton(id)
-        col4.appendChild(button)
-
-        let collapse = new CollapseContent(id, repository).largest();
-
-        listItem.appendChild(row)
-        listItem.appendChild(collapse)
-    } else {
-        listItem.appendChild(row)
+    a.setAttribute("href", href)
+    a.setAttribute("title", title)
+    a.innerText = innerText
+    for (let i = 0; i < classes.length; i++) {
+        a.classList.add(classes[i])
     }
-
-    return listItem
+    return a
 }
 
-function createColumn(...tokens) {
+function createColumn(...classes) {
     let col = document.createElement("div")
     col.classList.add("col")
-    for (let i = 0; i < tokens.length; i++) {
-        col.classList.add(tokens[i])
+    for (let i = 0; i < classes.length; i++) {
+        col.classList.add(classes[i])
     }
     return col
 }
 
-function createRow(...tokens) {
+function createRow(...classes) {
     let row = document.createElement("div")
     row.classList.add("row")
-    if (tokens.length > 0) {
-        row.classList.add(tokens)
+    if (classes.length > 0) {
+        row.classList.add(classes)
     }
     return row
 }
+
 class CollapseContent {
     constructor(id, repository) {
         this.id = id;
         this.repository_array = repository.branches
         this.repository = repository;
         this.elements = [];
-    }
-    recent() {
-        this.repository_array.sort(sort_recent)
-        for (let i = 0; i < this.repository_array.length; ++i) {
-            let time = this.repository_array[i].time;
-            let now = Date.now()
-            let date = Date.parse(time)
-            let diff = delta_time(now, date)
-            let small = createSmallText(diff)
-            this.elements[i] = small
-        }
-        return this.toElement()
-    }
-    largest() {
-        this.repository_array.sort(sort_largest)
-        for (let i = 0; i < this.repository_array.length; ++i) {
-            let size = this.repository_array[i].size;
-            let bytes = formatBytes(size)
-            let small = createSmallText(bytes)
-            this.elements[i] = small
-        }
-        return this.toElement();
-    }
-
-    popular() {
-        this.repository_array.sort(sort_popular)
-        for (let i = 0; i < this.repository_array.length; ++i) {
-            let count = this.repository_array[i].count;
-            let text = createViewText(count)
-            let small = createSmallText(text)
-            this.elements[i] = small
-        }
-        return this.toElement()
     }
 
     toElement() {
@@ -365,24 +342,75 @@ class CollapseContent {
 
             let col1 = createColumn("col-sm", "text-truncate");
 
-            let a = document.createElement("text");
+            let text = document.createElement("text");
             let branch = this.repository_array[i].branch_name;
-            a.innerText = branch
-            a.setAttribute("title", branch)
+            text.innerText = branch
+            text.setAttribute("title", branch)
 
-            col1.appendChild(a);
+            col1.appendChild(text);
             row.appendChild(col1);
 
             let col2 = createColumn("col-auto", "text-truncate");
             col2.appendChild(this.elements[i]);
             row.appendChild(col2);
 
-            // let col3 = createColumn("col-sm");
-            // row.appendChild(col3)
             div.appendChild(row);
         }
 
         return div;
+    }
+}
+class RecentCollapseContent extends CollapseContent {
+    constructor(id, repository) {
+        super(id, repository);
+    }
+
+    toElement() {
+        this.repository_array.sort(sort_recent)
+        for (let i = 0; i < this.repository_array.length; ++i) {
+            let time = this.repository_array[i].time;
+            let now = Date.now()
+            let date = Date.parse(time)
+            let diff = delta_time(now, date)
+            let small = createSmallText(diff)
+            this.elements[i] = small
+        }
+        return super.toElement()
+    }
+}
+
+
+class PopularCollapseContent extends CollapseContent {
+    constructor(id, repository) {
+        super(id, repository);
+    }
+
+    toElement() {
+        this.repository_array.sort(sort_popular)
+        for (let i = 0; i < this.repository_array.length; ++i) {
+            let count = this.repository_array[i].count;
+            let text = createViewsText(count)
+            let small = createSmallText(text)
+            this.elements[i] = small
+        }
+        return super.toElement()
+    }
+}
+
+class LargestCollapseContent extends CollapseContent {
+    constructor(id, repository) {
+        super(id, repository);
+    }
+
+    toElement() {
+        this.repository_array.sort(sort_largest)
+        for (let i = 0; i < this.repository_array.length; ++i) {
+            let size = this.repository_array[i].size;
+            let bytes = formatBytes(size)
+            let small = createSmallText(bytes)
+            this.elements[i] = small
+        }
+        return super.toElement();
     }
 }
 
@@ -395,8 +423,6 @@ function createSmallText(text) {
 
 function createCollapseButton(id) {
     let button = document.createElement("div")
-    // <button class="" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
-    // button.classList.add("btn", "btn-primary")
     button.setAttribute("type", "button")
     button.setAttribute("data-bs-toggle", "collapse")
     button.setAttribute("data-bs-target", `#${id}`)
@@ -427,7 +453,7 @@ function delta_time(now, date) {
     }
     return dt
 }
-function createViewText(count) { return count > 1 ? `${count} views` : `${count} view` }
+function createViewsText(count) { return count > 1 ? `${count} views` : `${count} view` }
 function formatBytes(a, b = 2, k = 1024) { with (Math) { let d = floor(log(a) / log(k)); return 0 == a ? "0 Bytes" : parseFloat((a / pow(k, d)).toFixed(max(0, b))) + " " + ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"][d] } }
 
 document.addEventListener("DOMContentLoaded", start);
