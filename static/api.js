@@ -56,11 +56,6 @@ function start() {
     fetchApi("recent")
     fetchApi("popular")
     fetchApi("largest")
-    // setInterval(() => {
-    //     fetchApi("recent")
-    //     fetchApi("popular")
-    //     fetchApi("largest")
-    // }, 10_000)
 }
 
 const API = new Api();
@@ -79,31 +74,8 @@ async function fetchApi(apiName) {
 function createExternalLink(icon) {
     let buttonGroup = document.createElement("button")
 
-    // buttonGroup.classList.add("btn-group", "btn-group-sm", "group-hover")
     buttonGroup.classList.add("btn", "btn-sm", "btn-outline-dark")
-
-    // buttonGroup.setAttribute("role", "group")
-    // buttonGroup.setAttribute("aria-label", "Link to repository")
-    // buttonGroup.style.width = "32px"
-    // buttonGroup.style.height = "32px"
-    // let iconButton = document.createElement("button")
-    // iconButton.setAttribute("type", "button")
-    // iconButton.classList.add("btn", "btn-outline", "border", "pe-none")
-
-    // iconButton.appendChild(icon)
-    // buttonGroup.appendChild(iconButton)
     buttonGroup.appendChild(icon)
-
-    // let span = document.createElement("span")
-    // let externalButton = document.createElement("button")
-    // externalButton.setAttribute("type", "button")
-    // externalButton.classList.add("btn", "btn-outline", "border", "pe-none")
-
-    // let externalIcon = document.createElement("i")
-    // externalIcon.classList.add("bi", "bi-box-arrow-up-right", "align-top");
-    // externalButton.appendChild(externalIcon)
-
-    // buttonGroup.appendChild(externalButton)
 
     return buttonGroup
 }
