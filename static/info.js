@@ -14,35 +14,61 @@ function stopRotate() {
     clearInterval(interval)
     LOGO.removeAttribute("transform")
 }
-async function fetch_ws() {
-    let response_ws = await fetch(Url, { headers: { 'If-Match': 'ws' } });
-    return extractContent(response_ws, "Error at fetching websocket")
-}
 
 async function fetch_cloc() {
     let response = await fetch(Url, { headers: { 'If-Match': 'cloc' } });
     return extractContent(response, "Error at fetching lines of code");
 }
+class Reply {
+    constructor(statusCode) {
+        this.statusCode = statusCode;
+        this.jsonData = null;
+        this.textData = null;
+    }
 
+    getStatusCode() {
+        return this.statusCode;
+    }
+
+    setStatusCode(statusCode) {
+        this.statusCode = statusCode;
+    }
+
+    getJsonData() {
+        return this.jsonData;
+    }
+
+    setJsonData(jsonData) {
+        this.jsonData = jsonData;
+    }
+
+    getTextData() {
+        return this.textData;
+    }
+
+    setTextData(textData) {
+        this.textData = textData;
+    }
+}
 function extractContent(response, error_msg) {
     message = error_msg ? error_msg + ":\n" : ""
     const contentType = response.headers.get("content-type");
+    let result = new Reply(response.status)
     if (contentType && contentType.indexOf("application/json") !== -1) {
         return response.json().then(data => {
-            return data
+            result.setJsonData(data)
+            return result
         });
     } else {
         if (response.status >= 400) {
-            return response.text().then(text => {
+            response.text().then(text => {
                 throw new FetchError(response.status, message + text)
             });
         }
-        else if (response.status === 202) {
-            return 202;
-        }
         else {
             return response.text().then(text => {
-                return text
+                result.setTextData(text)
+                return result;
             });
         }
     }
@@ -50,14 +76,14 @@ function extractContent(response, error_msg) {
 
 async function fetch_branch_info(url_str) {
     let branch_api_info_url = new URL(url_str)
-    console.log("branch_api_info_url", branch_api_info_url)
+    console.log("fetch branch_api_info_url", branch_api_info_url)
     let response_branch_info = await fetch(branch_api_info_url);
     return extractContent(response_branch_info, "Error at fetching default branch")
 }
 
 async function fetch_branch_commit(url_str) {
     let branch_commit = new URL(url_str)
-    console.log("branch_commit", branch_commit)
+    console.log("fetch branch_commit", branch_commit)
     let response = await fetch(branch_commit);
     return extractContent(response, "Error at fetching branch commit")
 }
@@ -86,7 +112,6 @@ async function preparePage(url) {
 
     let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
     let show_url = "https://" + repository_hostname + '/' + owner + '/' + repository_name
-    console.log("repository_name", repository_name)
     for (let i = 3; i < path_name_array.length; ++i) { show_url += '/' + path_name_array[i] }
     document.getElementById("url").innerText = show_url
     document.getElementById("url").setAttribute("href", origin_url)
@@ -97,9 +122,11 @@ async function preparePage(url) {
     // }
 
     if (path_name_array[3] === undefined) {
-        branch = await fetch_branch_info(Url.protocol + Url.host + "/api" + Url.pathname)
+        let branch_info = await fetch_branch_info(Url.protocol + Url.host + "/api" + Url.pathname)
+        branch = branch_info.getJsonData()
         document.getElementById("branch").innerText = branch.default_branch
-        let commit = await fetch_branch_commit(Url.protocol + Url.host + "/api" + Url.pathname + "/tree/" + branch.default_branch)
+        let commit_info = await fetch_branch_commit(Url.protocol + Url.host + "/api" + Url.pathname + "/tree/" + branch.default_branch)
+        let commit = commit_info.getJsonData()
         console.log("commit", commit)
         document.getElementById("commit").innerText = commit.commit
     }
@@ -205,30 +232,32 @@ async function start(_e) {
     let ok = false
 
     // try {
-        ok = await preparePage(new URL(document.URL))
-        let cloc_promise = await fetch_cloc();
-    
-    console.log("cloc_promise", cloc_promise)
-    // if (!ok) { return; }
-    if (cloc_promise === 202) {
-        
+    ok = await preparePage(new URL(document.URL))
+    let cloc_reply = await fetch_cloc();
+
+    console.log("cloc_promise", cloc_reply)
+
+    if (cloc_reply.statusCode === 200) {
+        createTableFromResponse(cloc_reply.getTextData());
+        return
+    }
+    else if (cloc_reply.statusCode === 206) {
+        createTableFromResponse(cloc_reply.getTextData());
+    }
+    document.getElementById("processing").removeAttribute("hidden")
+    let url = document.location.host + "/ws" + document.location.pathname
+    let websocket;
+    console.log("protocol", document.location.protocol)
+    if (document.location.protocol === "https:") {
+        websocket = new WebSocket("wss://" + url)
     }
     else {
-        createTableFromResponse(cloc_promise);
+        websocket = new WebSocket("ws://" + url)
     }
-    let url = document.location.host + "/ws" + document.location.pathname
-        let websocket;
-        console.log("protocol", document.location.protocol)
-        if (document.location.protocol === "https:") {
-            websocket = new WebSocket("wss://" + url)
-        }
-        else {
-            websocket = new WebSocket("ws://" + url)
-        }
 
-        console.log("websocket:", url);
-        console.log(websocket)
-        startStreaming(websocket)
+    console.log("websocket:", url);
+    console.log(websocket)
+    startStreaming(websocket)
     // }
     // catch (err) {
     // if (err instanceof FetchError || err instanceof PrepareError) {
@@ -274,8 +303,8 @@ function startStreaming(ws) {
             // console.log("payload", json.Done);
             if (cloc.length > 0) {
                 stopStreaming(ws)
-                const str = String.fromCharCode(...cloc);
-                createTableFromResponse(str);
+                const CLOC = String.fromCharCode(...cloc);
+                createTableFromResponse(CLOC);
                 document.getElementById("processing").hidden = true
             }
             return
