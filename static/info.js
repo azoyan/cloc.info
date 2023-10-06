@@ -221,51 +221,83 @@ async function preparePage(url) {
 function showError(status, message) {
     console.error(message)
     console.trace()
-    document.getElementById("alert_block").classList.toggle('show')
-    document.getElementById("alert_message").innerText = message ? message : ""
-    document.getElementById("error_status").innerText = status ? status : ""
-    document.getElementById("repository").hidden = true
-    document.getElementById("processing").hidden = true
+    let alert = document.getElementById("alert_block")
+    alert.classList.toggle('show')
+    let bodyText = message ? message : ""
+    let headerText = status ? status : ""
+    alert.appendChild(createAlertBlock("danger", headerText, bodyText))
+}
+
+function showWarning(message) {
+    let alert = document.getElementById("warning")
+    alert.classList.toggle("collapse")
+    let bodyText = message ? message : ""
+    let headerText = ""
+    alert.appendChild(createAlertBlock("warning", headerText, bodyText))
+}
+
+function createAlertBlock(alertType, headerText, bodyText) {
+    let alert = document.createElement("div")
+    alert.classList.add("alert", `alert-${alertType}`)
+    alert.setAttribute("role", "alert")
+
+    let header = document.createElement("h")
+    header.classList.add("alert-heading")
+    header.innerText = headerText
+    alert.appendChild(header)
+
+    let body = document.createElement("p")
+    body.classList.add("mb-4", "font-monospace")
+    body.innerText = bodyText
+    alert.appendChild(body)
+
+    return alert
 }
 
 async function start(_e) {
     let ok = false
 
-    // try {
-    ok = await preparePage(new URL(document.URL))
-    let cloc_reply = await fetch_cloc();
+    try {
+        ok = await preparePage(new URL(document.URL))
+        let cloc_reply = await fetch_cloc();
 
-    console.log("cloc_promise", cloc_reply)
+        console.log("cloc_promise", cloc_reply)
 
-    if (cloc_reply.statusCode === 200) {
-        createTableFromResponse(cloc_reply.getTextData());
-        return
-    }
-    else if (cloc_reply.statusCode === 206) {
-        createTableFromResponse(cloc_reply.getTextData());
-    }
-    document.getElementById("processing").removeAttribute("hidden")
-    let url = document.location.host + "/ws" + document.location.pathname
-    let websocket;
-    console.log("protocol", document.location.protocol)
-    if (document.location.protocol === "https:") {
-        websocket = new WebSocket("wss://" + url)
-    }
-    else {
-        websocket = new WebSocket("ws://" + url)
-    }
+        if (cloc_reply.statusCode === 200) {
+            createTableFromResponse(cloc_reply.getTextData());
+            return
+        }
+        else if (cloc_reply.statusCode === 206) {
+            let prev = cloc_reply.getJsonData().Previous;
+            let data = String.fromCharCode(...prev.data);
 
-    console.log("websocket:", url);
-    console.log(websocket)
-    startStreaming(websocket)
-    // }
-    // catch (err) {
-    // if (err instanceof FetchError || err instanceof PrepareError) {
-    //     showError(err.status, err.message)
-    // } else {
-    //     showError(err)
-    // }
-    // }
+            showWarning(warningText(prev.date, prev.commit))
+            createTableFromResponse(data);
+        }
+        document.getElementById("processing").removeAttribute("hidden")
+        let url = document.location.host + "/ws" + document.location.pathname
+        let websocket;
+        console.log("protocol", document.location.protocol)
+        if (document.location.protocol === "https:") {
+            websocket = new WebSocket("wss://" + url)
+        }
+        else {
+            websocket = new WebSocket("ws://" + url)
+        }
+
+        console.log("websocket:", url);
+        console.log(websocket)
+        startStreaming(websocket)
+    }
+    catch (err) {
+        if (err instanceof FetchError || err instanceof PrepareError) {
+            showError(err.status, err.message)
+        } else {
+            showError(err)
+        }
+        document.getElementById("repository").hidden = true
+        document.getElementById("processing").hidden = true
+    }
 }
 
 document.onload = start
@@ -289,7 +321,7 @@ function startStreaming(ws) {
 
     ws.onclose = function (event) {
         console.log("event", event);
-        document.getElementById("hint").innerText = "Counting lines of code"
+        document.getElementById("hint").setAttribute("hidden", true)
         console.log("WEB SOCKET  CLOSED");
         stopRotate()
     }
@@ -306,6 +338,7 @@ function startStreaming(ws) {
                 const CLOC = String.fromCharCode(...cloc);
                 createTableFromResponse(CLOC);
                 document.getElementById("processing").hidden = true
+                document.getElementById("warning").classList.toggle('collapse')
             }
             return
         }
@@ -415,4 +448,9 @@ class PrepareError extends Error {
         this.name = "PrepareError";
         this.status = status
     }
+}
+
+function warningText(dateStr, commit) {
+    let date = new Date(dateStr).toString()
+    return `The information about the repository provided below is accurate as of ${date} and applies to commit ${commit}.`
 }

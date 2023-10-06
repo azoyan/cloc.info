@@ -34,17 +34,17 @@ class Api {
     }
 
     async recent() {
-        let url = new URL(this.url.protocol + this.url.host + `/api/recent/15`);
+        let url = new URL(this.url.protocol + this.url.host + `/api/recent/16`);
         return this.fetch(url)
     }
 
     async popular() {
-        let url = new URL(this.url.protocol + this.url.host + `/api/popular/15`);
+        let url = new URL(this.url.protocol + this.url.host + `/api/popular/16`);
         return this.fetch(url)
     }
 
     async largest() {
-        let url = new URL(this.url.protocol + this.url.host + `/api/largest/15`);
+        let url = new URL(this.url.protocol + this.url.host + `/api/largest/16`);
         return this.fetch(url)
     }
 }
@@ -199,7 +199,7 @@ class ListItem {
         col1.appendChild(link)
         row.appendChild(col1)
 
-        let col2 = createColumn("col-auto")
+        let col2 = createColumn("col-sm", "text-truncate")
         col2.appendChild(this.description)
         row.appendChild(col2)
 
@@ -288,10 +288,6 @@ class LargestListItem extends ListItem {
         return super.toElement()
     }
 }
-
-
-
-
 
 function createExternalLink(href, innerText, title, ...classes) {
     let a = document.createElement("a")
@@ -447,7 +443,6 @@ function delta_time(now, date) {
     else if (dt > 86400) {
         dt = Math.round(dt / 86400) + " days ago"
     }
-
     else {
         dt = Math.round(dt) + " seconds ago"
     }

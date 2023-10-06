@@ -9,10 +9,10 @@ function createTableFromResponse(data) {
     console.log(strings.splice(-2, 2))
 
     let processed = strings.splice(-1, 1)
-    console.log(processed)
+    // console.log(processed)
     console.log(strings.splice(-1, 1))
     let cocomo = strings.splice(-3, 3);
-    console.log(cocomo)
+    // console.log(cocomo)
     console.log(strings.splice(-1))
     console.log(strings.splice(-2, 1))
 

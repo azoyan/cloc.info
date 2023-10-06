@@ -42,7 +42,7 @@ fn main() {
 
     let socket = SocketAddr::new(ip, port);
 
-    let r = tokio::runtime::Builder::new_current_thread()
+    let r = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .thread_name("main_thread")
         .build()

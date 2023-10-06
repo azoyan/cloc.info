@@ -9,6 +9,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
+use chrono::{DateTime, Utc};
 use hyper::{
     header::{self, CONTENT_TYPE, USER_AGENT},
     Body, Request, StatusCode,
@@ -144,7 +145,7 @@ async fn regular(
                 let response = match status {
                     Status::Done(scc_output) => Response::builder()
                         .status(StatusCode::OK)
-                        .header("Content-Type", "text/plain")
+                        .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
                         .body(Body::from(scc_output))
                         .context(ResponseSnafu)?,
                     Status::InProgress(_s) => Response::builder()
@@ -164,10 +165,16 @@ async fn regular(
                         .status(StatusCode::ACCEPTED)
                         .body(Body::from(e))
                         .context(ResponseSnafu)?,
-                    Status::Previous(scc_output) => Response::builder()
-                        .status(StatusCode::PARTIAL_CONTENT)
-                        .body(Body::from(scc_output))
-                        .context(ResponseSnafu)?,
+                    Status::Previous { date, commit, data } => {
+                        let json = serde_json::to_string(&Status::Previous { date, commit, data })
+                            .unwrap();
+                        // tracing::warn!("previous: {}", json);
+                        Response::builder()
+                            .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
+                            .status(StatusCode::PARTIAL_CONTENT)
+                            .body(Body::from(json))
+                            .context(ResponseSnafu)?
+                    }
                 };
                 Ok(response)
             } else {
@@ -195,19 +202,17 @@ async fn terminal_browser(
         .context(GithubProviderSnafu)?;
 
     tracing::debug!("After request_info for {unique_name}: {}", status);
-    
-    assert!(matches!(status, Status::Ready) || matches!(status, Status::InProgress(_)));
 
     let mut counter = 5;
     let key = unique_name.clone();
     match tokio::time::timeout(Duration::from_secs(9), async move  {
         Ok(loop {
-            let status = repository_provider.current_status(&key);
+            // let status = repository_provider.current_status(&key);
             match status {
                 Status::Done(scc_output) => {
                     break Response::builder()
                         .status(StatusCode::OK)
-                        .header("Content-Type", "text/plain")
+                        .header(CONTENT_TYPE, "text/plain")
                         .body(Body::from(scc_output))
                         .context(ResponseSnafu)?;
                 }
@@ -220,12 +225,11 @@ async fn terminal_browser(
                         .body(Body::from(e))
                         .context(ResponseSnafu)?;
                 }
-                Status::Previous(scc_output) => break Response::builder()
+                Status::Previous {date, commit, data} => break Response::builder()
                 .status(StatusCode::PARTIAL_CONTENT)
-                .header("Content-Type", "text/plain")
-                .body(Body::from(scc_output))
-                .context(ResponseSnafu)?
-        ,
+                .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
+                .body(Body::from(message_for_previous_result(date, commit, data)))
+                .context(ResponseSnafu)?,
             };
             if counter == 0 {
                 let message = format!("Your request {} has been received and we are currently processing it. Please wait for a 5 minutes and try again.\n", key);
@@ -390,4 +394,16 @@ impl IntoResponse for Error {
 
         (status, body).into_response()
     }
+}
+
+fn message_for_previous_result(date: DateTime<Utc>, commit: String, data: Vec<u8>) -> Vec<u8> {
+    let warn = format!(
+        "The information about the repository provided below is accurate as of {} and applies to commit {}.\n",
+        date.to_rfc3339(),
+        commit
+    );
+
+    let reminder = b"Currently, the repository is being downloaded and updated. Please check back in 5 minutes.\n";
+
+    [warn.as_bytes(), data.as_slice(), reminder].concat()
 }

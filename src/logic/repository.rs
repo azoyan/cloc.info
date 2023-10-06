@@ -6,6 +6,7 @@ use super::{
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
+use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use rand::{thread_rng, Rng};
 use scopeguard::defer;
@@ -25,7 +26,7 @@ pub struct RepositoryProvider {
     pub connection_pool: Pool<PostgresConnectionManager<NoTls>>,
     pub git_provider: Git,
     pub cloner: Cloner,
-    tasks: Arc<Mutex<Vec<Task>>>,
+    tasks: Arc<Mutex<Vec<(Option<Row>, Task)>>>,
     statuses: Arc<DashMap<String, Status>>,
     cancel: Arc<tokio_util::sync::CancellationToken>,
 }
@@ -66,22 +67,18 @@ impl RepositoryProvider {
         }
     }
 
-    pub fn process_task(&self, task: Task) {
+    pub fn process_task(&self, (row, task): (Option<Row>, Task)) {
         let mut s = self.clone();
         let future = async move {
             let unique_name = task.to_unique_name();
             let user_agent = &task.user_agent;
 
-            match s.process_task_impl(&unique_name, &task).await {
-                Ok((branch_id, out)) => {
-                    s.statuses.insert(unique_name, Status::Done(out));
-
-                    s.update_statistic(branch_id, user_agent).await;
-                }
-                Err(e) => {
-                    tracing::error!("Error at processing {unique_name}: {}", e);
-                    s.statuses.insert(unique_name, Status::Error(e.to_string()));
-                }
+            if let Err(e) = s
+                .process_task_impl(&unique_name, (&row, &task), user_agent)
+                .await
+            {
+                tracing::error!("Error at processing {unique_name}: {}", e);
+                s.statuses.insert(unique_name, Status::Error(e.to_string()));
             }
         };
         tokio::spawn(future);
@@ -104,16 +101,10 @@ impl RepositoryProvider {
     pub async fn process_task_impl(
         &mut self,
         unique_name: &str,
-        task: &Task,
-    ) -> Result<(Id, Vec<u8>), Error> {
+        (row, task): (&Option<Row>, &Task),
+        user_agent: &str,
+    ) -> Result<(), Error> {
         info!("process_task(unique_name: {unique_name}, task: {task:?})");
-        let Task {
-            host,
-            owner,
-            repository_name,
-            branch,
-            ..
-        } = task;
         // 1. Смотрим есть ли в БД
         let mut connection: bb8::PooledConnection<'_, PostgresConnectionManager<NoTls>> =
             match self.connection_pool.get().await {
@@ -127,27 +118,6 @@ impl RepositoryProvider {
                 }
             };
 
-        let query = "select * from branches where name=$4 and repository_id=(select id from repositories where hostname=$1 and owner=$2 and repository_name=$3);";
-
-        let row = connection
-            .query_opt(query, &[host, owner, repository_name, branch])
-            .await
-            .context(QuerySnafu { query })?;
-
-        if let Some(row) = &row {
-            info!("Repository {unique_name} exist in database");
-            let scc_output: Vec<u8> = row.get("scc_output");
-            if self.is_commit_actual(row, task).await? {
-                let scc_output: Vec<u8> = row.get("scc_output");
-                let branch_id: Id = row.get("id");
-                return Ok((branch_id, scc_output));
-            } else {
-                self.statuses
-                    .insert(unique_name.to_string(), Status::Previous(scc_output));
-            }
-        };
-
-        info!("Repository {unique_name} doesn't exist in database");
         let tmp_path = generate_path();
         self.cloner
             .clone_repository(task, unique_name, &tmp_path)
@@ -176,15 +146,20 @@ impl RepositoryProvider {
                 task,
                 &scc_output,
                 &last_commit_local,
-                unique_name,
                 repository_size,
             )
             .await?
         };
 
-        Ok((branch_id, scc_output))
+        self.statuses
+            .insert(unique_name.to_owned(), Status::Done(scc_output));
+        self.update_statistic(branch_id, user_agent).await;
+        Ok(())
     }
 
+    // Идёт запрос
+    // Если коммит актуальный, возвращаем его, выходим из функции.
+    // Если коммит не актуальный, возвращаем предыдущую информацию и ставим задачу на скачивание репозитория
     pub async fn request_info(
         &self,
         host: String,
@@ -223,11 +198,23 @@ impl RepositoryProvider {
         let result_status = if let Some(row) = &row {
             info!("Repository {unique_name} exist in database");
             let scc_output: Vec<u8> = row.get("scc_output");
+            let db_last_commit: String = row.get("last_commit_sha");
             if self.is_commit_actual(row, &task).await? {
                 return Ok((unique_name, Status::Done(scc_output)));
             } else {
-                tracing::warn!("PREVIOUS");
-                Status::Previous(scc_output)
+                let query = "select min_time from recently_branches_view where branch_id=$1";
+                let branch_id: i64 = row.get("id");
+                let row = connection
+                    .query_opt(query, &[&branch_id])
+                    .await
+                    .context(QuerySnafu { query })?
+                    .expect("expected previous date");
+                let date: DateTime<Utc> = row.get("min_time");
+                Status::Previous {
+                    date,
+                    commit: db_last_commit,
+                    data: scc_output,
+                }
             }
         } else {
             Status::Ready
@@ -241,10 +228,10 @@ impl RepositoryProvider {
                 Ok(mut tasks) => {
                     if !tasks
                         .iter()
-                        .any(|task| unique_name == task.to_unique_name())
+                        .any(|(_row, task)| unique_name == task.to_unique_name())
                     {
                         self.statuses.insert(unique_name.clone(), Status::Ready);
-                        tasks.push(task);
+                        tasks.push((row, task));
                     }
                 }
                 Err(e) => error!("Can't get lock to add task {}", e),
@@ -310,7 +297,7 @@ impl RepositoryProvider {
     async fn update_database(
         &self,
         connection: &mut bb8::PooledConnection<'_, PostgresConnectionManager<NoTls>>,
-        row: Row,
+        row: &Row,
         Task { branch, .. }: &Task,
         scc_output: &[u8],
         last_commit_local: &str,
@@ -371,7 +358,6 @@ impl RepositoryProvider {
         }: &Task,
         scc_output: &[u8],
         last_commit_local: &str,
-        path: &str,
         repository_size: i64,
     ) -> Result<Id, Error> {
         let upsert_repositories = "insert into repositories values (DEFAULT, $1, $2, $3, $4) ON CONFLICT (hostname, owner, repository_name) DO UPDATE SET hostname=EXCLUDED.hostname, owner=EXCLUDED.owner, repository_name=EXCLUDED.repository_name RETURNING ID;";
@@ -436,7 +422,7 @@ impl RepositoryProvider {
         transaction.commit().await.with_context(|_e| QuerySnafu {
             query: insert_branch.to_string(),
         })?;
-        info!("Updating info for {path} to database done");
+        info!("Updating info for {repository_name} to database done");
         let branch_id = row.get("id");
 
         Ok(branch_id)

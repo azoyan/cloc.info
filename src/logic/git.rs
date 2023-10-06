@@ -23,8 +23,8 @@ impl Git {
         } else {
             let branches = self::all_heads_branches(url)?;
             self.cache
-            .insert(url.to_string(), branches.clone(), Duration::from_secs(60))
-            .await;
+                .insert(url.to_string(), branches.clone(), Duration::from_secs(60))
+                .await;
             tracing::info!("all_branches() Inserted branches into git_provider cache for {url}");
             branches
         };

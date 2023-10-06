@@ -95,12 +95,7 @@
 
     <div class="container mt-3 mb-5">
         <div class="container py-3 px-2">
-            <div class="collapse" id="alert_block">
-                <div class="alert alert-danger" role="alert">
-                    <h1 class="alert-heading" id="error_status"></h1>
-                    <p class="mb-4 font-monospace" id="alert_message"></p>
-                </div>
-            </div>
+            <div class="collapse" id="alert_block"></div>
 
             <div id="repository" class="table-responsive">
                 <table class="table d-inline-flex">
@@ -194,18 +189,29 @@
                 </div>
             </div>
         </div>
-
+        <div class="collapse mt-4" data-bs-toggle="collapse" role="button" id="warning"></div>
         <div class="table-responsive card shadow mt-4 pt-3 pb-2 px-4" id="t" hidden></div>
         <div id="cocomo" class="card mt-5 px-0 shadow" hidden></div>
     </div>
 
-
-    <div class="footer mt-auto py-4">
+    <footer class="bg-dark text-light py-4">
         <div class="container">
-            <p class="text-muted fs-6 fw-light">Ivan Azoyan 2022</p>
-            <p class="text-muted fs-6 fw-light">azoyan89@yahoo.com</p>
+          <div class="row">
+            <div class="col-md-6">
+              <p class="mb-0">Author: Ivan Azoyan</p>
+              <p class="mb-0">Email: <a href="mailto:azoyan89@yahoo.com">azoyan89@yahoo.com</a></p>
+            </div>
+            <div class="col-md-6 text-md-end">
+              <ul class="list-inline mb-0">
+                <li class="list-inline-item"><a href="about.html" class="text-light">About</a></li>
+                <li class="list-inline-item"><a href="https://github.com/yourusername" class="text-light">GitHub</a></li>
+                <li class="list-inline-item"><a href="upload.html" class="text-light">Upload</a></li>
+              </ul>
+            </div>
+          </div>
         </div>
-    </div>
+      </footer>
+      
 </body>
 <script src="/static/git_url_parser.js"></script>
 <script src="/static/common.js"></script>

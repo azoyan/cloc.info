@@ -111,7 +111,11 @@ impl Task {
 pub enum Status {
     InProgress(String),
     Cloned,
-    Previous(Vec<u8>),
+    Previous {
+        date: DateTime<Utc>,
+        commit: String,
+        data: Vec<u8>,
+    },
     Done(Vec<u8>),
     Ready,
     Error(String),
@@ -125,7 +129,7 @@ impl Display for Status {
             Status::Cloned => write!(f, "Cloned"),
             Status::Ready => write!(f, "Ready"),
             Status::Error(e) => write!(f, "Error: {e}"),
-            Status::Previous(_) => write!(f, "Previous"),
+            Status::Previous { .. } => write!(f, "Previous"),
         }
     }
 }
@@ -147,7 +151,7 @@ pub struct PopularRepository {
 
 impl PartialOrd for PopularRepository {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        other.total_count.partial_cmp(&self.total_count)
+        Some(self.cmp(other))
     }
 }
 
@@ -240,7 +244,7 @@ pub struct LargestRepository {
 
 impl PartialOrd for LargestRepository {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        other.size.partial_cmp(&self.size)
+        Some(self.cmp(other))
     }
 }
 
@@ -332,7 +336,7 @@ pub struct RecentRepository {
 
 impl PartialOrd for RecentRepository {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        other.time.partial_cmp(&self.time)
+        Some(self.cmp(other))
     }
 }
 
