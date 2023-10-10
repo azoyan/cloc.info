@@ -1,19 +1,7 @@
 let Url = new URL(document.URL);
-const LOGO = document.getElementById("logo")
-let angle = 0
-let interval;
-function rotate() {
-    angle += 4;
-    angle %= 360;
-    LOGO.setAttribute("transform", "rotate(" + angle + ")");
-}
 
 let json;
 
-function stopRotate() {
-    clearInterval(interval)
-    LOGO.removeAttribute("transform")
-}
 
 async function fetch_cloc() {
     let response = await fetch(Url, { headers: { 'If-Match': 'cloc' } });
@@ -247,7 +235,7 @@ function createAlertBlock(alertType, headerText, bodyText) {
     alert.appendChild(header)
 
     let body = document.createElement("p")
-    body.classList.add("mb-4", "font-monospace")
+    body.classList.add("mb-4", "font-monospace", "text-break")
     body.innerText = bodyText
     alert.appendChild(body)
 
@@ -307,6 +295,7 @@ async function stopStreaming(ws) {
 }
 
 function startStreaming(ws) {
+    // setFavicon('/static/animated.gif')
     let send_ping = function () {
         if (ws.readyState === WebSocket.OPEN) {
             // console.log("ping ws")
@@ -317,6 +306,8 @@ function startStreaming(ws) {
     ws.onopen = function (event) {
         // console.log("open ws", event);
         setInterval(send_ping, 500);
+        let message = { start: true }
+        worker.postMessage(message)
     }
 
     ws.onclose = function (event) {
@@ -324,10 +315,10 @@ function startStreaming(ws) {
         document.getElementById("hint").setAttribute("hidden", true)
         console.log("WEB SOCKET  CLOSED");
         stopRotate()
+        // setFavicon('/static/favicon.ico')
     }
 
     ws.onmessage = function (event) {
-        if (!interval) { interval = setInterval(rotate, 100) }
         json = JSON.parse(event.data);
         if (json.Done) {
             let cloc = json.Done;
@@ -453,4 +444,44 @@ class PrepareError extends Error {
 function warningText(dateStr, commit) {
     let date = new Date(dateStr).toString()
     return `The information about the repository provided below is accurate as of ${date} and applies to commit ${commit}.`
+}
+
+let interval;
+const worker = new Worker("/static/sw.js")
+worker.onmessage = (event) => rotate(event.data);
+
+// Get the favicon element
+const faviconElement = document.getElementById('favicon');
+
+// Load the original favicon image
+const originalFavicon = new Image();
+originalFavicon.src = '/static/favicon.ico';
+
+const LOGO = document.getElementById("logo")
+
+function rotate(angle) {
+    // LOGO.setAttribute("transform", "rotate(" + angle + ")");
+
+    const rotatedFavicon = rotateImage(originalFavicon, angle);
+    faviconElement.href = rotatedFavicon;
+}
+
+function rotateImage(image, angle) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = image.width;
+    canvas.height = image.height;
+
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((Math.PI / 180) * angle);
+    ctx.drawImage(image, -canvas.width / 2, -canvas.height / 2);
+
+    return canvas.toDataURL('image/x-icon');
+}
+
+function stopRotate() {
+    worker.postMessage({ start: false })
+    rotate(0);
+    faviconElement.href = originalFavicon.src;
+    LOGO.removeAttribute("transform")
 }
