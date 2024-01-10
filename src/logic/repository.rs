@@ -21,12 +21,13 @@ use tokio::sync::Mutex;
 use tokio_postgres::{IsolationLevel::Serializable, NoTls, Row};
 use tracing::{error, info};
 
+type VecTasks = Arc<Mutex<Vec<(Option<Row>, Task)>>>;
 #[derive(Clone)]
 pub struct RepositoryProvider {
     pub connection_pool: Pool<PostgresConnectionManager<NoTls>>,
     pub git_provider: Git,
     pub cloner: Cloner,
-    tasks: Arc<Mutex<Vec<(Option<Row>, Task)>>>,
+    tasks: VecTasks,
     statuses: Arc<DashMap<String, Status>>,
     cancel: Arc<tokio_util::sync::CancellationToken>,
 }
@@ -178,7 +179,11 @@ impl RepositoryProvider {
         let branch = branch.unwrap_or(default_branch.clone());
         let query = "select * from branches where name=$4 and repository_id=(select id from repositories where hostname=$1 and owner=$2 and repository_name=$3);";
 
-        let connection = self.connection_pool.get().await.unwrap();
+        let connection = self
+            .connection_pool
+            .get()
+            .await
+            .expect("Can't get connection to postgres");
         let row = connection
             .query_opt(query, &[&host, &owner, &repository_name, &branch])
             .await

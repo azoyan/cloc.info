@@ -1,11 +1,12 @@
 use crate::logic::info::{LargestRepositories, PopularRepositories, RecentRepositories};
 use axum::{
+    body::Body,
     extract::{Path, State},
     response::Response,
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
-use hyper::{header::CONTENT_TYPE, Body, StatusCode};
+use hyper::{header::CONTENT_TYPE, StatusCode};
 use mime_guess::mime::APPLICATION_JSON;
 use tokio_postgres::NoTls;
 

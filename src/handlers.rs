@@ -4,6 +4,7 @@ use crate::logic::{
     repository::RepositoryProvider,
 };
 use axum::{
+    body::Body,
     extract::{Path, State},
     response::{IntoResponse, Response},
     routing::get,
@@ -12,14 +13,14 @@ use axum::{
 use chrono::{DateTime, Utc};
 use hyper::{
     header::{self, CONTENT_TYPE, USER_AGENT},
-    Body, Request, StatusCode,
+    Request, StatusCode,
 };
 use mime_guess::mime::{APPLICATION_JSON, TEXT_PLAIN};
 use serde_json::json;
 use snafu::{ResultExt, Snafu};
 use std::time::Duration;
 
-pub fn create_api_router(provider: RepositoryProvider) -> Router<(), Body> {
+pub fn create_api_router(provider: RepositoryProvider) -> Router {
     Router::new()
         .route("/:owner/:repo", get(default_branch_info))
         .route("/:owner/:repo/src/branch/*branch", get(branch_commit_info))
@@ -30,7 +31,7 @@ pub fn create_api_router(provider: RepositoryProvider) -> Router<(), Body> {
         .with_state(provider)
 }
 
-pub fn create_general_router(provider: RepositoryProvider) -> Router<(), Body> {
+pub fn create_general_router(provider: RepositoryProvider) -> Router {
     let router = Router::new()
         .route("/", get(default_handler))
         .route("/src/branch/*branch", get(handler_with_branch))

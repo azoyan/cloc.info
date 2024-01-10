@@ -6,17 +6,17 @@ edition = "2021"
 [dependencies]
 tokio = {version = "1", features = ["rt-multi-thread", "time", "fs", "macros", "net", "process", "signal" ]}
 futures-util = {version = "0.3.21"}
-axum = { version =  "0.6", features = ["ws", "headers", "multipart"] }
-hyper = { version = "0.14", features = ["full"] }
+axum = { version =  "0.7", features = ["ws", "multipart"] }
+hyper = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
 mime_guess = "2"
 tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "time"] }
 time = { version = "0.3", features = ["macros", "local-offset"] }
 bytes = "1"
-snafu = "0.7"
+snafu = "0.8"
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
 #tempfile = { path = "../tempfile" }
@@ -30,6 +30,7 @@ chrono = { version = "0.4", features = ["serde"] }
 dashmap = "5"
 tokio-util = "0.7"
 rand = "0.8"
+http-body-util = "0.1.0"
 
 [profile.release]
 lto = true

@@ -1,5 +1,5 @@
 use crate::{
-    handlers::{self, create_general_router},
+    handlers::{self},
     logic::{
         git::Git,
         repository::{count_line_of_code, RepositoryProvider},
@@ -8,20 +8,23 @@ use crate::{
     websocket::{handler_ws, handler_ws_with_branch},
 };
 use axum::{
+    body::Body,
     error_handling::{HandleError, HandleErrorLayer},
     extract,
     handler::HandlerWithoutStateExt,
     middleware::Next,
     response::{IntoResponse, Response},
     routing::{get, get_service, post},
-    Router, Server,
+    serve::serve,
+    Router,
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use bytes::Bytes;
-use hyper::{Body, Request, StatusCode};
+use http_body_util::BodyExt;
+use hyper::{Request, StatusCode};
 use retainer::Cache;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{future::IntoFuture, net::SocketAddr, sync::Arc, time::Duration};
 use tempfile::tempdir_in;
 use tokio::signal::{self, ctrl_c};
 use tokio_postgres::NoTls;
@@ -85,7 +88,7 @@ pub async fn start_application(
         .with_state(connection_pool);
 
     let api_router = handlers::create_api_router(repository_provider.clone());
-    let general_router = create_general_router(repository_provider.clone());
+    let general_router = handlers::create_general_router(repository_provider.clone());
 
     let app = Router::new()
         .route_service("/", root_service)
@@ -107,9 +110,10 @@ pub async fn start_application(
         .layer(axum::middleware::from_fn(print_request_response))
         .layer(TraceLayer::new_for_http());
 
-    let server = Server::bind(&socket)
-        .serve(app.into_make_service())
-        .with_graceful_shutdown(shutdown_signal(cancel, monitor));
+    let tcp_listener = tokio::net::TcpListener::bind(&socket).await.unwrap();
+    let server = serve(tcp_listener, app.into_make_service())
+        .with_graceful_shutdown(shutdown_signal(cancel, monitor))
+        .into_future();
 
     let repository_service = repository_provider.run();
     let (_repo, handle) = tokio::join!(repository_service, server);
@@ -191,7 +195,7 @@ async fn handle_errors(err: BoxError) -> (StatusCode, String) {
 
 async fn print_request_response(
     req: Request<Body>,
-    next: Next<Body>,
+    next: Next,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let (parts, body) = req.into_parts();
     let bytes = buffer_and_print("request", body).await?;
@@ -211,15 +215,19 @@ where
     B: axum::body::HttpBody<Data = Bytes>,
     B::Error: std::fmt::Display,
 {
-    let bytes = match hyper::body::to_bytes(body).await {
-        Ok(bytes) => bytes,
+    let bytes = match body.collect().await {
+        Ok(collected) => collected.to_bytes(),
         Err(err) => {
             return Err((
                 StatusCode::BAD_REQUEST,
-                format!("failed to read {} body: {}", direction, err),
+                format!("failed to read {direction} body: {err}"),
             ));
         }
     };
+
+    if let Ok(body) = std::str::from_utf8(&bytes) {
+        tracing::debug!("{direction} body = {body:?}");
+    }
 
     Ok(bytes)
 }
