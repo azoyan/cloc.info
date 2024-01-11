@@ -4,6 +4,7 @@ use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use clap::Parser;
 use cloc::application::start_application;
+use const_format::formatcp;
 use std::net::{IpAddr, SocketAddr};
 use time::{format_description, UtcOffset};
 use tokio_postgres::NoTls;
@@ -27,8 +28,27 @@ fn main() {
         .with(layer)
         .init();
 
+    const VERSION: &str = formatcp!(
+        "\n\n\
+        Version:             {}\n\
+         Description:         {}\n\
+         Build Timestamp:     {}\n\
+         Commit SHA:          {}\n\
+         Commit Message:      \"{}\"\n\
+         rustc Version:       {}\n\
+         cargo Target Triple: {}\n",
+        env!("CARGO_PKG_VERSION"),
+        env!("CARGO_PKG_DESCRIPTION"),
+        env!("VERGEN_BUILD_TIMESTAMP"),
+        env!("VERGEN_GIT_DESCRIBE"),
+        env!("VERGEN_GIT_COMMIT_MESSAGE"),
+        env!("VERGEN_RUSTC_SEMVER"),
+        env!("VERGEN_CARGO_TARGET_TRIPLE")
+    );
+
     #[derive(Debug, Parser)]
-    #[command(author, version, about)]
+    #[command(version = VERSION)]
+    #[command(about)]
     struct Opt {
         /// IP address of service
         ip_address: std::net::Ipv4Addr,
