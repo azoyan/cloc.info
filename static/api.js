@@ -121,12 +121,12 @@ async function fetchApi(apiName) {
 }
 
 function createExternalButton(icon) {
-    let buttonGroup = document.createElement("div")
+    let div = document.createElement("div")
 
-    buttonGroup.classList.add("btn", "btn-sm", "btn-outline-dark")
-    buttonGroup.appendChild(icon)
+    div.classList.add("btn", "btn-sm", "btn-outline-dark")
+    div.appendChild(icon)
 
-    return buttonGroup
+    return div
 }
 
 function createExternalButtons(repository) {
@@ -421,11 +421,12 @@ function createSmallText(text) {
 
 function createCollapseButton(id) {
     let button = document.createElement("div")
-    button.setAttribute("type", "button")
+    button.setAttribute("role", "button")
     button.setAttribute("data-bs-toggle", "collapse")
     button.setAttribute("data-bs-target", `#${id}`)
     button.setAttribute("aria-expanded", "false")
     button.setAttribute("aria-controls", id)
+    button.setAttribute("aria-label", "Show more")
 
     let icon = document.createElement("i")
     icon.classList.add("text-secondary", "bi", "bi-chevron-expand")
