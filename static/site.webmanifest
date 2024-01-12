@@ -1,6 +1,6 @@
 {
-    "name": "",
-    "short_name": "",
+    "name": "Count lines of Code ",
+    "short_name": "cloc.info",
     "icons": [
         {
             "src": "/static/android-chrome-192x192.png",
@@ -8,7 +8,7 @@
             "type": "image/png"
         },
         {
-            "src": "/android-chrome-512x512.png",
+            "src": "/static/android-chrome-192x192.png",
             "sizes": "512x512",
             "type": "image/png"
         }
