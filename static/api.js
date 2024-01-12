@@ -10,7 +10,7 @@ function start() {
         let fragment = new PopularList(data).toDocumentFragment()
         document.getElementById("popular").appendChild(fragment)
     })
-   
+
 
     api.largest().then(data => {
         let fragment = new LargestList(data).toDocumentFragment()
@@ -140,6 +140,7 @@ function createExternalButtons(repository) {
         icon = document.createElement("img")
         icon.setAttribute("width", "18px")
         icon.setAttribute("height", "22px")
+        icon.setAttribute("alt", "GitLab")
         icon.setAttribute("src", "/static/gitlab-3.svg")
         icon.classList.add("float-start")
     }
@@ -147,6 +148,7 @@ function createExternalButtons(repository) {
         icon = document.createElement("img")
         icon.setAttribute("width", "20px")
         icon.setAttribute("height", "22px")
+        icon.setAttribute("alt", "GitHub")
         icon.setAttribute("src", "/static/bitbucket-icon.svg")
         icon.classList.add("float-start")
     }
@@ -160,6 +162,7 @@ function createExternalButtons(repository) {
         icon = document.createElement("img")
         icon.setAttribute("width", "18px")
         icon.setAttribute("height", "22px")
+        icon.setAttribute("alt", "Gitea")
         icon.setAttribute("src", "/static/gitea.svg")
         icon.classList.add("float-start")
     }
