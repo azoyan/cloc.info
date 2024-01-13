@@ -62,7 +62,7 @@ function reset() {
     document.getElementById("hint").classList.remove("invisible")
     document.getElementById("hint").classList.add("visible")
 
-    submitButton.classList.add("disabled");
+    submitButton.setAttribute("disabled", "");
     submitButton.classList.add('btn-outline-success');
     submitButton.classList.remove("btn-success")
 }
@@ -139,7 +139,7 @@ function check(url_str) {
             let html_select = createSelect(branches, "select-child", current_branch);
             select.appendChild(createElementFromHTML(html_select));
 
-            submitButton.classList.remove("disabled");
+            submitButton.removeAttribute("disabled");
             submitButton.classList.remove('btn-outline-success');
             submitButton.classList.add("btn-success");
 
