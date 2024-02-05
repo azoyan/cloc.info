@@ -1,0 +1,3 @@
+Sitemap: https://cloc.info/static/sitemap.xml
+User-agent: *
+Allow: https://cloc.info
