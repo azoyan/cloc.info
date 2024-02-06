@@ -205,6 +205,8 @@ impl RepositoryProvider {
             let scc_output: Vec<u8> = row.get("scc_output");
             let db_last_commit: String = row.get("last_commit_sha");
             if self.is_commit_actual(row, &task).await? {
+                let branch_id = row.get("id");
+                self.update_statistic(branch_id, &task.user_agent).await;
                 return Ok((unique_name, Status::Done(scc_output)));
             } else {
                 let query = "select min_time from recently_branches_view where branch_id=$1";
