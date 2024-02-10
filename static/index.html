@@ -112,9 +112,10 @@
 
                 <div class="d-flex align-items-center">
                     <div class="row" id="hint">
-                        <div class="form-text">
-                            For example: <button class="link-secondary" id="hint_url"
-                                style="background:none; border:none;text-decoration: underline;">https://github.com/actix/actix-web</button>
+                        <div class="form-text"><small>
+                                For example: <button class="link-secondary" id="hint_url"
+                                    style="background:none; border:none;text-decoration: underline;">https://github.com/actix/actix-web</button>
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -184,15 +185,92 @@
             </div>
         </div>
     </statistic>
+    <about class="container bg-white pt-5 pb-5 justify-content-center">
+        <div class="container-sm px-5 py-3">
+            <h4 class="pb-3">How it works</h4>
+            <p>Under the hood is <strong>scc</strong> tool, a fast and
+                accurate code counter that supports over 300 languages and multiple output formats. We are grateful
+                to
+                the developers of scc for creating such a powerful and reliable tool. You can learn more about scc
+                and
+                its features on its <a href="https://github.com/boyter/scc" target="_blank" rel="noopener noreferrer"
+                    class="link-secondary">GitHub page</a>.</p>
+            <p>
+                You can also use this service from terminal browsers, such as lynx, or as an API, by sending a
+                request with <strong>curl</strong> and getting a human-readable response.
+            </p>
+        </div>
 
+        <div class="container-sm px-5 py-3">
+            <h4 class="pb-3">How to use curl</h4>
+            <p><a class="link-secondary" href="https://curl.se" target="_blank" rel="noopener noreferrer">curl</a> is a
+                command-line utility
+                that allows you to send requests to an API.
+                To send a request
+                with curl to this service, you need to use the following syntax:</p>
+            <div class="d-flex bg-light code-block mb-3 px-3 mt-1 pt-3 border">
+                <pre><code>curl https://cloc.info/[git_host]/[git_owner]/[git_repo]</code></pre>
+            </div>
+            <p>where <text class="text-secondary-emphasis font-monospace">[git_host]</text> is the hosting platform for
+                git,
+                <text class="text-secondary-emphasis font-monospace">[git_owner]</text> is the owner of the repository
+                and
+                <text class="text-secondary-emphasis font-monospace">[git_repo]</text> is the name of the repository.
+            </p>
+            <h5 class="pb-1 pt-2">Example</h5>
+            <p>If you want to count lines of code for the repository <a class="link-secondary"
+                    href="https://github.com/intel" target="_blank"
+                    rel="noopener noreferrer">https://gthub.com/intel/tinycrypt</a>, just add to <text
+                    class="text-secondary-emphasis font-monospace">https://cloc.info/</text> rest part of url
+                <text class="text-primary-emphasis font-monospace">github.com/intel/tinycrypt</text>
+            </p>
+            <div class="d-flex bg-light code-block mb-3 px-3 mt-1 pt-3 border">
+                <pre><code style="user-select: none;">$ </code><code>curl </code><code class="text-seondary-emphasis">https://cloc.info/</code><code class="text-primary-emphasis">github.com/intel/tinycrypt</code></pre>
+            </div>
+            <div class="d-flex bg-light code-block mb-3 px-3 mt-0 pt-0 border">
+                <pre><samp>
+-------------------------------------------------------------------------------
+Language                 Files     Lines   Blanks  Comments     Code Complexity
+-------------------------------------------------------------------------------
+C                           27     17138     1463      1749    13926        964
+C Header                    17      2695      256      1912      527         11
+Makefile                     4       162       35        36       91          0
+License                      1        61       15         0       46          0
+ReStructuredText             1       352      106         0      246          0
+gitignore                    1         5        0         0        5          0
+-------------------------------------------------------------------------------
+Total                       51     20413     1875      3697    14841        975
+-------------------------------------------------------------------------------
+Estimated Cost to Develop (organic) $458,808
+Estimated Schedule Effort (organic) 10.23 months
+Estimated People Required (organic) 3.98
+-------------------------------------------------------------------------------
+Processed 717583 bytes, 0.718 megabytes (SI)
+-------------------------------------------------------------------------------
+                    </samp></pre>
+            </div>
+            <p class="">This command will return a table with the number of lines of code for each programming
+                language in the repository, as well as some metrics, such as the estimated cost of development, the
+                estimated time of completion, and the estimated number of people
+                required.</p>
+            <p class="">You can use the same syntax for any other git platform, such as gitlab.com or bitbucket.org,
+                just by replacing <text class="text-secondary-emphasis font-monospace">[git_host]</text></code> with the
+                corresponding host.</p>
+        </div>
+        <div class="container-sm px-5 py-3">
+            <h4 class="pb-3">Feedback</h4>
+            <p>If you have any suggestions or questions, please feel free to open issue on <a
+                    href="https://github.com/azoyan/cloc.info" target="_blank" rel="noopener noreferrer"
+                    class="link-secondary">GitHub
+                    repository</a>. I would appreciate your feedback.</p>
+        </div>
+    </about>
     <footer class="footer mt-auto py-4">
         <div class="container fw-lighter">
             <div class="row ">
                 <div class="col-md-6 d-flex justify-content-center">
                     <div>
                         <p class="text-muted text-start mb-0">Ivan Azoyan</p>
-                        <p class="text-muted text-start"><a class="text-muted text-decoration-none"
-                                href="mailto:azoyan89@yahoo.com">azoyan89@yahoo.com</a></p>
                     </div>
                 </div>
                 <div class="col-md-6 text-md-end d-flex justify-content-center">
