@@ -42,7 +42,7 @@ pub async fn start_application(
     connection_pool: Pool<PostgresConnectionManager<NoTls>>,
 ) {
     let root_service =
-        get_service(ServeFile::new("static/index.html")).handle_error(|error| async move {
+        get_service(ServeFile::new("dist/index.html")).handle_error(|error| async move {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Unhandled internal error: {}", error),
@@ -50,13 +50,13 @@ pub async fn start_application(
         });
 
     let upload_service = HandleError::new(
-        get_service(ServeFile::new("static/upload.html")),
+        get_service(ServeFile::new("dist/upload.html")),
         |error| async move {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Unhandled internal error: {}", error),
             )
-        },
+        }, 
     );
 
     let cache = Arc::new(Cache::new());
@@ -98,7 +98,7 @@ pub async fn start_application(
         .nest("/api", statistic_router)
         .nest("/api/:host", api_router)
         .nest("/:host", general_router)
-        .nest_service("/static", ServeDir::new("static"))
+        .nest_service("/assets", ServeDir::new("dist/assets"))
         .fallback_service(not_found.into_service())
         .layer(
             ServiceBuilder::new()
@@ -125,7 +125,7 @@ pub async fn start_application(
 }
 
 pub async fn not_found(_uri: axum::http::Uri) -> Response<Body> {
-    let file = std::fs::File::open("static/404.html").unwrap();
+    let file = std::fs::File::open("dist/404.html").unwrap();
     let mut reader = std::io::BufReader::new(file);
 
     let mut buffer = vec![];

@@ -45,7 +45,7 @@ pub fn create_general_router(provider: RepositoryProvider) -> Router {
 }
 
 fn static_page() -> Result<Response<Body>, Error> {
-    let file = std::fs::File::open("static/info.html").unwrap();
+    let file = std::fs::File::open("dist/info.html").unwrap();
     let mut reader = std::io::BufReader::new(file);
 
     let mut buffer = vec![];
@@ -63,7 +63,7 @@ fn static_page() -> Result<Response<Body>, Error> {
 async fn default_handler(
     Path((host, owner, mut repository_name)): Path<(String, String, String)>,
     state: State<RepositoryProvider>,
-    request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
+    request: Request<Body>, // recommended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
     tracing::debug!("Default Handler {:?}, host: {host}", request);
     if host != "git.sr.ht" && !repository_name.ends_with(".git") {
