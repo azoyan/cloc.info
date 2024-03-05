@@ -1,0 +1,173 @@
+<main class="flex-fill">
+    <div class="container mt-3">
+        <div class="row align-items-center">
+            <h1 class="d-flex justify-content-center py-3">
+                <label for="input" class="form-label">Count lines of code</label>
+            </h1>
+        </div>
+        <div class="row align-items-top">
+            <div class="d-flex justify-content-start align-items-center">
+                <div class="col col-12 float-left">
+                    <div class="input-group has-validation" id="inputGroupPrepend">
+                        <input onkeypress="return event.charCode != 32" v-model="url" type="url" class="form-control"
+                            placeholder="Repository URL" id="input" aria-describedby="inputGroupPrepend" required>
+                        <div class="invalid-feedback" id="invalidFeedback"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center">
+                <div class="row" id="hint">
+                    <div class="form-text">
+                        For example: <a role="button"
+                            class="link-secondary link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover "
+                            id="hint_url">https://github.com/actix/actix-web</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="repoInfo" class="row justify-content-md-start">
+            <div class="col col-sm-auto">
+                <div class="row align-items-center">
+                    <div class="col col-sm-auto" id="select"></div>
+                    <div class="col col-sm-auto">
+                        <a target="_blank" rel="noopener noreferrer canonical" id="repository_pic"
+                            class="invisible link-dark">
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col col-sm-auto align-self-center text-truncate float-start">
+                <div class="fs-6 mt-1 text-center" id="commit">&nbsp;</div>
+            </div>
+        </div>
+
+        <div class="container mt-4 align-items-top text-center">
+            <button class="btn btn-success btn-lg" style="width: calc(5% + 100px);" id="submitButton" type="submit"
+                disabled>
+                <span class="spinner-border spinner-border-sm" hidden="true" id="checkSpinner" role="status">
+                </span>
+                <span id="buttonText">
+                    Submit
+                </span>
+        </div>
+    </div>
+</main>
+
+<statistic class="bg-light pt-1 pb-5">
+    <div class="container">
+        <div class="row">
+            <div class="col mt-5">
+                <div class="card shadow col mx-4">
+                    <label class="card-header text-center bg-white">
+                        Recent
+                    </label>
+                    <div class="card-body p-2">
+                        <ul class="list-group list-group-flush" id="recent"></ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col mt-5">
+                <div class="card shadow col mx-4">
+                    <label class="card-header text-center bg-white">
+                        Popular
+                    </label>
+                    <div class="card-body p-2">
+                        <ul class="list-group list-group-flush" id="popular"></ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col mt-5">
+                <div class="card shadow col mx-4">
+                    <label class="card-header text-center bg-white">
+                        Largest
+                    </label>
+                    <div class="card-body p-2">
+                        <ul class="list-group list-group-flush" id="largest"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</statistic>
+<about class="container bg-white pt-5 pb-5">
+    <div class="container py-3">
+        <h2 class="pb-3">How it works</h2>
+        <p>Under the hood is <strong>scc</strong> tool, a fast and
+            accurate code counter that supports over 300 languages and multiple output formats. We are grateful
+            to
+            the developers of scc for creating such a powerful and reliable tool. You can learn more about scc
+            and
+            its features on its <a href="https://github.com/boyter/scc" title="Go to scc GitHub repository"
+                target="_blank" rel="noopener noreferrer" class="link-secondary">GitHub page</a>.</p>
+        <p>
+            You can also use this service from terminal browsers, such as lynx, or as an API, by sending a
+            request with <strong>curl</strong> and getting a human-readable response.
+        </p>
+    </div>
+
+    <div class="container py-3">
+        <h2 class="pb-3">How to use curl</h2>
+        <p><a class="link-secondary" title="Go to curl official website" href="https://curl.se" target="_blank"
+                rel="noopener noreferrer">curl</a> is a
+            command-line utility
+            that allows you to send requests to an API.
+            To send a request
+            with curl to this service, you need to use the following syntax:</p>
+        <div class="d-flex bg-light code-block mb-3 px-3 mt-1 pt-3 border">
+            <pre><code>curl https://cloc.info/[git_host]/[git_owner]/[git_repo]</code></pre>
+        </div>
+        <p>where <text class="text-secondary-emphasis font-monospace">[git_host]</text> is the hosting platform for
+            git,
+            <text class="text-secondary-emphasis font-monospace">[git_owner]</text> is the owner of the repository
+            and
+            <text class="text-secondary-emphasis font-monospace">[git_repo]</text> is the name of the repository.
+        </p>
+        <h3 class="pb-1 pt-2">Example</h3>
+        <p>If you want to count lines of code for the repository <a class="link-secondary"
+                href="https://github.com/intel" title="Go to intel GitHub repository" target="_blank"
+                rel="noopener noreferrer">https://gthub.com/intel/tinycrypt</a>, just add to <text
+                class="text-secondary-emphasis font-monospace">https://cloc.info/</text> rest part of url
+            <text class="text-primary-emphasis font-monospace">github.com/intel/tinycrypt</text>
+        </p>
+        <div class="d-flex bg-light code-block mb-3 px-3 mt-1 pt-3 border">
+            <pre><code style="user-select: none;">$ </code><code>curl </code><code class="text-seondary-emphasis">https://cloc.info/</code><code class="text-primary-emphasis">github.com/intel/tinycrypt</code></pre>
+        </div>
+        <div class="d-flex bg-light code-block mb-3 px-3 mt-0 pt-0 border">
+            <pre><samp>
+-------------------------------------------------------------------------------
+Language                 Files     Lines   Blanks  Comments     Code Complexity
+-------------------------------------------------------------------------------
+C                           27     17138     1463      1749    13926        964
+C Header                    17      2695      256      1912      527         11
+Makefile                     4       162       35        36       91          0
+License                      1        61       15         0       46          0
+ReStructuredText             1       352      106         0      246          0
+gitignore                    1         5        0         0        5          0
+-------------------------------------------------------------------------------
+Total                       51     20413     1875      3697    14841        975
+-------------------------------------------------------------------------------
+Estimated Cost to Develop (organic) $458,808
+Estimated Schedule Effort (organic) 10.23 months
+Estimated People Required (organic) 3.98
+-------------------------------------------------------------------------------
+Processed 717583 bytes, 0.718 megabytes (SI)
+-------------------------------------------------------------------------------</samp></pre>
+        </div>
+        <p>This command will return a table with the number of lines of code for each programming
+            language in the repository, as well as some metrics, such as the estimated cost of development, the
+            estimated time of completion, and the estimated number of people
+            required.</p>
+        <p>You can use the same syntax for any other git platform, such as gitlab.com or bitbucket.org,
+            just by replacing <text class="text-secondary-emphasis font-monospace">[git_host]</text></code> with the
+            corresponding host.</p>
+    </div>
+    <div class="container py-3">
+        <h2 class="pb-3">Feedback</h2>
+        <p>If you have any suggestions or questions, please feel free to open issue on <a
+                href="https://github.com/azoyan/cloc.info" target="_blank" rel="noopener noreferrer"
+                class="link-secondary">GitHub
+                repository</a>. I would appreciate your feedback.</p>
+    </div>
+</about>

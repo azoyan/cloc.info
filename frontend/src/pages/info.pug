@@ -1,0 +1,9 @@
+extends ../layouts/main.pug
+
+block scripts
+     script(type="module", defer src='../js/git_url_parser.js')
+     script(type="module", defer src='../js/common.js')
+     script(type="module", defer src='../js/info.js')
+
+block content
+    include ../components/info.html

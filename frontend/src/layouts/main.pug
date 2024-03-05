@@ -1,0 +1,9 @@
+doctype html
+html(lang='en')
+    include ../components/head.pug 
+    link(rel="stylesheet" href="/src/styles/main.scss")
+    block scripts
+body.d-flex.flex-column.min-vh-100
+    include ../components/nav.html
+    block content
+    include ../components/footer.pug
