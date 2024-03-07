@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en">
+  {% render './components/meta.liquid' %}
+  <link rel="stylesheet" href="/src/styles/main.scss">
+  {% block scripts %}{% endblock %}
+  <body class="d-flex flex-column min-vh-100">
+    {% render './components/nav.html' %}
+    {% block content %}{% endblock %}
+    {% render './components/footer.liquid' %}
+  </body>
+</html>

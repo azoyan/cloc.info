@@ -42,7 +42,7 @@ class Reply {
     }
 }
 function extractContent(response, error_msg) {
-    message = error_msg ? error_msg + ":\n" : ""
+    let message = error_msg ? error_msg + ":\n" : ""
     const contentType = response.headers.get("content-type");
     let result = new Reply(response.status)
     if (contentType && contentType.indexOf("application/json") !== -1) {

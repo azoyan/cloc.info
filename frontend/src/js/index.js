@@ -1,7 +1,7 @@
 import later from "./later.js"
 import { createRepositoryIcon } from "./common.js";
 import { gitUrlParse, extractBranchFromGitUrl } from "./git_url_parser.js";
-import { Tooltip } from "bootstrap";
+// import { Tooltip } from "bootstrap";
 const input = document.getElementById('input');
 
 let Later = null;
@@ -205,8 +205,8 @@ function createSelect(all_branches, id, preselected_branch) {
   pic.setAttribute("href", input.value)
   pic.innerHTML = createRepositoryIcon(input.value, 32, 32);
 
-  const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
-  const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new Tooltip(tooltipTriggerEl))
+  // const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+  // const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new Tooltip(tooltipTriggerEl))
   select += '</select>'
   return select;
 }

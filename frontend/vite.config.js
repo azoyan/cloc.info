@@ -1,28 +1,22 @@
 import vituum from 'vituum'
-import pug from '@vituum/vite-plugin-pug'
+import liquid from '@vituum/vite-plugin-liquid'
 import pluginPurgeCss from "@mojojoejo/vite-plugin-purgecss";
 
 export default {
-    plugins: [vituum(), pug({
+    plugins: [vituum(), liquid({
         root: './src'
     }),
-    pluginPurgeCss()
+    pluginPurgeCss({ variables: false }),
     ],
-
     build: {
-        rollupOptions: {
-            output: {
-
-            }
-        }
+        minify: true,
     },
     server: {
-        cors: false,
+        cors: true,
         proxy: {
             '/api': {
-                target: 'https://cloc.info',
+                target: 'https://cloc.info/',
                 changeOrigin: true,
-                rewrite: path => path.replace(/^\/ws/, '')
             }
         }
     },

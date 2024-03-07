@@ -1,0 +1,11 @@
+
+{% layout "./layouts/main.liquid" %}
+
+{% block scripts %}
+<script type="module" src='../js/index.js'></script>
+<script type="module" src='../js/api.js'></script>
+{% endblock %}
+
+{% block content %}
+{% render './components/index.html' %}
+{% endblock %}
