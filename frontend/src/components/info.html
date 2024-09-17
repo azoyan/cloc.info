@@ -1,100 +1,174 @@
-<div class="container mt-3 mb-5">
-    <div class="container py-3 px-2">
-        <div class="collapse" id="alert_block"></div>
+<div class="min-h-screen max-w-[72rem] mx-auto py-5">
+    <div class="collapse" id="alert_block"></div>
 
-        <div id="repository" class="table-responsive">
-            <table class="table d-inline-flex">
-                <tbody>
-                    <tr class="align-items-center">
-                        <th scope="row">URL:</th>
-                        <td>
-                            <div class="row float-start">
-                                <div class="col col-sm-auto text-truncate float-start">
-                                    <a target="_blank" rel="noopener noreferrer canonical" id="url"></a>
-                                </div>
-                                <div class="col ms-5 col-sm-auto" id="url_pic"></div>
-                            </div>
-                        </td>
-                        <td>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Branch:</th>
-                        <td>
-                            <div class="col font-monospace fs-6 fw-lighter" id="branch">
-                                <div class="spinner-grow spinner-grow-sm" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                            </div>
-                        </td>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Commit:</th>
-                        <td>
-                            <div class="col font-monospace text-truncate float-start fs-6 fw-light" id="commit">
-                                <div class="spinner-grow spinner-grow-sm" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                            </div>
-                        </td>
-                        <td></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="accordion shadow mt-4 font-monospace" id="processing" hidden>
-        <div class="accordion-item">
-
-            <h2 class="accordion-header" id="headingOne">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                    data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-                    <strong id="hint">Processing</strong>
-                </button>
-            </h2>
-
-            <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne"
-                data-bs-parent="#processing">
-                <div class="accordion-body text-muted table-responsive" id="status">
-                    <div class="card-text p-0"><strong id="git"></strong></div>
-                    <div class="card-text p-0" id="cloning"></div>
-                    <div class="card-text p-0" id="enumerating"></div>
-                    <div class="card-text p-0" id="counting"></div>
-                    <div class="card-text p-0" id="compressing"></div>
-                    <div class="card-text p-0" id="total"></div>
-                    <div class="card-text p-0" id="receiving"></div>
-                    <div class="card-text p-0" id="resolving"></div>
-                    <div class="card-text p-0" id="updating"></div>
+    <ul class="max-w-full m-5 flex flex-col rounded-lg">
+        <li
+            class="dark:text-neutral-100 inline-flex items-center gap-x-3.5 px-4 bg-white dark:border-zinc-500 dark:bg-zinc-900 border border-neutral-300 text-neutral-800 -mt-px first:rounded-t-lg first:mt-0 last:rounded-b-lg">
+            <div class="inline-flex gap-x-3.5 items-center border-r dark:border-zinc-500 min-w-28 h-12">
+                <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-link-45deg"
+                    viewBox="0 0 14 14">
+                    <path
+                        d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1 1 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4 4 0 0 1-.128-1.287z" />
+                    <path
+                        d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243z" />
+                </svg>
+                <div>
+                    URL
                 </div>
             </div>
+            <div
+                class="truncate underline text-neutral-700 hover:text-neutral-800 dark:text-neutral-200 dark:hover:text-white">
+                <a id="url" href="">
+                    <div class="grid w-full place-items-center overflow-x-scroll rounded-lg lg:overflow-visible">
+                        <svg class="text-neutral-300 animate-spin" viewBox="0 0 64 64" fill="none"
+                            xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+                            <path
+                                d="M32 3C35.8083 3 39.5794 3.75011 43.0978 5.20749C46.6163 6.66488 49.8132 8.80101 52.5061 11.4939C55.199 14.1868 57.3351 17.3837 58.7925 20.9022C60.2499 24.4206 61 28.1917 61 32C61 35.8083 60.2499 39.5794 58.7925 43.0978C57.3351 46.6163 55.199 49.8132 52.5061 52.5061C49.8132 55.199 46.6163 57.3351 43.0978 58.7925C39.5794 60.2499 35.8083 61 32 61C28.1917 61 24.4206 60.2499 20.9022 58.7925C17.3837 57.3351 14.1868 55.199 11.4939 52.5061C8.801 49.8132 6.66487 46.6163 5.20749 43.0978C3.7501 39.5794 3 35.8083 3 32C3 28.1917 3.75011 24.4206 5.2075 20.9022C6.66489 17.3837 8.80101 14.1868 11.4939 11.4939C14.1868 8.80099 17.3838 6.66487 20.9022 5.20749C24.4206 3.7501 28.1917 3 32 3L32 3Z"
+                                stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+                            </path>
+                            <path
+                                d="M32 3C36.5778 3 41.0906 4.08374 45.1692 6.16256C49.2477 8.24138 52.7762 11.2562 55.466 14.9605C58.1558 18.6647 59.9304 22.9531 60.6448 27.4748C61.3591 31.9965 60.9928 36.6232 59.5759 40.9762"
+                                stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+                                class="text-neutral-900">
+                            </path>
+                        </svg>
+                    </div>
+                </a>
+            </div>
+        </li>
+        <li
+            class="inline-flex items-center gap-x-3.5 px-4 bg-white border border-neutral-300 dark:text-white dark:bg-zinc-900 dark:border-zinc-500 text-neutral-800 -mt-px first:rounded-t-lg first:mt-0 last:rounded-b-lg">
+            <div class="dark:text-white inline-flex gap-x-3.5 items-center border-r dark:border-zinc-500 min-w-28 h-12">
+                <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" fill="none"
+                    stroke="currentColor" stroke-width="1" stroke-linecap="round">
+                    <path d="M6 9v6" />
+                    <circle cx="18" cy="6" r="2.5" />
+                    <circle cx="6" cy="6" r="2.5" />
+                    <circle cx="6" cy="18" r="2.5" />
+                    <path d="M18 9a9 9 0 0 1-9 9" />
+                </svg>
+                <div>
+                    Branch
+                </div>
+            </div>
+            <div class="font-medium truncate" id="branch">
+                <div class="grid w-full place-items-center overflow-x-scroll rounded-lg lg:overflow-visible">
+                    <svg class="text-neutral-300 animate-spin" viewBox="0 0 64 64" fill="none"
+                        xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+                        <path
+                            d="M32 3C35.8083 3 39.5794 3.75011 43.0978 5.20749C46.6163 6.66488 49.8132 8.80101 52.5061 11.4939C55.199 14.1868 57.3351 17.3837 58.7925 20.9022C60.2499 24.4206 61 28.1917 61 32C61 35.8083 60.2499 39.5794 58.7925 43.0978C57.3351 46.6163 55.199 49.8132 52.5061 52.5061C49.8132 55.199 46.6163 57.3351 43.0978 58.7925C39.5794 60.2499 35.8083 61 32 61C28.1917 61 24.4206 60.2499 20.9022 58.7925C17.3837 57.3351 14.1868 55.199 11.4939 52.5061C8.801 49.8132 6.66487 46.6163 5.20749 43.0978C3.7501 39.5794 3 35.8083 3 32C3 28.1917 3.75011 24.4206 5.2075 20.9022C6.66489 17.3837 8.80101 14.1868 11.4939 11.4939C14.1868 8.80099 17.3838 6.66487 20.9022 5.20749C24.4206 3.7501 28.1917 3 32 3L32 3Z"
+                            stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+                        </path>
+                        <path
+                            d="M32 3C36.5778 3 41.0906 4.08374 45.1692 6.16256C49.2477 8.24138 52.7762 11.2562 55.466 14.9605C58.1558 18.6647 59.9304 22.9531 60.6448 27.4748C61.3591 31.9965 60.9928 36.6232 59.5759 40.9762"
+                            stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+                            class="text-neutral-900">
+                        </path>
+                    </svg>
+                </div>
+            </div>
+        </li>
+        <li
+            class="dark:text-white inline-flex items-center gap-x-3.5 px-4 bg-white border border-neutral-300 dark:border-zinc-500 dark:bg-zinc-900 text-neutral-800 -mt-px first:rounded-t-lg first:mt-0 last:rounded-b-lg">
+            <div class=" inline-flex gap-x-3.5 items-center border-r min-w-28 h-12 dark:border-zinc-500">
+                <svg class="w-6 h-6 text-neutral-500 dark:text-neutral-300" viewBox="0 0 512 512"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <g stroke-width="1"></g>
+                    <g stroke-linecap="round" stroke-linejoin="round"></g>
+                    <g>
+                        <path fill="currentColor"
+                            d="M448,224H380a128,128,0,0,0-247.9,0H64a32,32,0,0,0,0,64h68.05A128,128,0,0,0,380,288H448a32,32,0,0,0,0-64ZM256,320a64,64,0,1,1,64-64A64.07,64.07,0,0,1,256,320Z">
+                        </path>
+                    </g>
+                </svg>
+                <div>
+                    Commit
+                </div>
+            </div>
+            <div class="font-light truncate" id="commit">
+                <div class="grid w-full place-items-center overflow-x-scroll rounded-lg lg:overflow-visible">
+                    <svg class="text-neutral-300 animate-spin" viewBox="0 0 64 64" fill="none"
+                        xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+                        <path
+                            d="M32 3C35.8083 3 39.5794 3.75011 43.0978 5.20749C46.6163 6.66488 49.8132 8.80101 52.5061 11.4939C55.199 14.1868 57.3351 17.3837 58.7925 20.9022C60.2499 24.4206 61 28.1917 61 32C61 35.8083 60.2499 39.5794 58.7925 43.0978C57.3351 46.6163 55.199 49.8132 52.5061 52.5061C49.8132 55.199 46.6163 57.3351 43.0978 58.7925C39.5794 60.2499 35.8083 61 32 61C28.1917 61 24.4206 60.2499 20.9022 58.7925C17.3837 57.3351 14.1868 55.199 11.4939 52.5061C8.801 49.8132 6.66487 46.6163 5.20749 43.0978C3.7501 39.5794 3 35.8083 3 32C3 28.1917 3.75011 24.4206 5.2075 20.9022C6.66489 17.3837 8.80101 14.1868 11.4939 11.4939C14.1868 8.80099 17.3838 6.66487 20.9022 5.20749C24.4206 3.7501 28.1917 3 32 3L32 3Z"
+                            stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+                        </path>
+                        <path
+                            d="M32 3C36.5778 3 41.0906 4.08374 45.1692 6.16256C49.2477 8.24138 52.7762 11.2562 55.466 14.9605C58.1558 18.6647 59.9304 22.9531 60.6448 27.4748C61.3591 31.9965 60.9928 36.6232 59.5759 40.9762"
+                            stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+                            class="text-neutral-900">
+                        </path>
+                    </svg>
+                </div>
+            </div>
+        </li>
+    </ul>
+
+
+    <div class="border m-5 rounded-lg hidden dark:border-zinc-500" id="processing">
+        <button class="w-full px-2 h-12 -mt-px first:rounded-t-lg first:mt-0 last:rounded-b-lg border-b dark:border-zinc-500 flex justify-between items-center hover:bg-neutral-50
+            dark:hover:bg-zinc-800 dark:bg-zinc-900" id="headingOne" title="Expand">
+            <text class="text px-2 dark:text-neutral-200" id="hint">Downloading repository into
+                server</text>
+            <svg class="w-6 dark:text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        </button>
+
+        <div id="collapseOne" class="font-mono dark:text-neutral-300">
+            <div class="px-4" id="status">
+                <div class="truncate text-neutral-700 dark:text-neutral-300"><strong id="git"></strong></div>
+                <div class="truncate text-neutral-700 dark:text-neutral-300" id="cloning"></div>
+                <div class="truncate text-neutral-700 dark:text-neutral-300" id="enumerating"></div>
+                <div class="truncate text-neutral-700 dark:text-neutral-300" id="counting"></div>
+                <div class="truncate text-neutral-700 dark:text-neutral-300" id="compressing"></div>
+                <div class="truncate text-neutral-700 dark:text-neutral-300" id="total"></div>
+                <div class="truncate text-neutral-700 dark:text-neutral-300" id="receiving"></div>
+                <div class="truncate text-neutral-700 dark:text-neutral-300" id="resolving"></div>
+                <div class="truncate text-neutral-700 dark:text-neutral-300" id="updating"></div>
+            </div>
         </div>
-        <div class="progress shadow" style="height: 12px; border-radius: 0%;">
-            <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment one" style="width: 0%;"
-                aria-valuenow="10" aria-valuemin="0" aria-valuemax="100" id="pg_cloning">
+
+        <div class="flex bg-neutral-100 rounded-br-lg dark:bg-zinc-800 dark:border-zinc-500 items-center">
+            <!-- <div class="w-full h-4 rounded-b-lg flex flex-col justify-center overflow-hidden bg-zinc-900 dark:bg-neutral-300 text-white text-center whitespace-nowrap transition duration-500"
+                role="progressbar" aria-label="Segment one" style="width: 0%;" aria-valuenow="10" aria-valuemin="0"
+                aria-valuemax="100" id="pg_cloning">
             </div>
-            <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment two" style="width: 0%"
-                aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_enumerating">
+            <div class="w-full h-4 rounded-b-lg flex flex-col justify-center overflow-hidden bg-zinc-900 dark:bg-neutral-300 text-white text-center whitespace-nowrap transition duration-500"
+                role="progressbar" aria-label="Segment two" style="width: 0%" aria-valuenow="80" aria-valuemin="0"
+                aria-valuemax="100" id="pg_enumerating">
+            </div> -->
+            <div class="w-full h-4 rounded-bl-lg flex flex-col justify-center overflow-hidden bg-zinc-900 dark:bg-neutral-300 text-white text-center whitespace-nowrap transition duration-500"
+                role="progressbar" aria-label="Segment three" style="width: 0%" aria-valuenow="80" aria-valuemin="0"
+                aria-valuemax="100" id="pg_counting">
             </div>
-            <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three" style="width: 0%"
-                aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_counting">
+            <div class="w-full h-4 flex flex-col justify-center overflow-hidden bg-zinc-900 dark:bg-neutral-300 text-white text-center whitespace-nowrap transition duration-500"
+                role="progressbar" aria-label="Segment one" style="width: 0%;" aria-valuenow="10" aria-valuemin="0"
+                aria-valuemax="100" id="pg_compressing">
             </div>
-            <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment one" style="width: 0%;"
-                aria-valuenow="10" aria-valuemin="0" aria-valuemax="100" id="pg_compressing">
+            <div class="w-full h-4 flex flex-col justify-center overflow-hidden bg-zinc-900 dark:bg-neutral-300 text-white text-center whitespace-nowrap transition duration-500"
+                role="progressbar" aria-label="Segment two" style="width: 0%" aria-valuenow="90" aria-valuemin="0"
+                aria-valuemax="100" id="pg_receiving">
             </div>
-            <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment two" style="width: 0%"
-                aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_receiving">
+            <div class="w-full h-4 flex flex-col justify-center overflow-hidden bg-zinc-900 dark:bg-neutral-300 text-white text-center whitespace-nowrap transition duration-500"
+                role="progressbar" aria-label="Segment three" style="width: 0%" aria-valuenow="85" aria-valuemin="0"
+                aria-valuemax="100" id="pg_resolving">
             </div>
-            <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three" style="width: 0%"
-                aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" id="pg_resolving">
-            </div>
-            <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment three" style="width: 0%"
-                aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" id="pg_updating">
+            <div class="w-full h-4 rounded-br-lg flex flex-col justify-center overflow-hidden bg-zinc-900 dark:bg-neutral-300 text-white text-center whitespace-nowrap transition duration-500"
+                role="progressbar" aria-label="Segment three" style="width: 0%" aria-valuenow="100" aria-valuemin="0"
+                aria-valuemax="100" id="pg_updating">
             </div>
         </div>
     </div>
-    <div class="collapse mt-4" data-bs-toggle="collapse" role="button" id="warning"></div>
-    <div class="table-responsive card shadow mt-4 pt-3 pb-2 px-4" id="t" hidden></div>
-    <div id="cocomo" class="card mt-5 px-0 shadow" hidden></div>
+
+    <div class="px-5 align-middle overflow-x-auto" id="repository">
+        <div class="hidden p-4 border bg-neutral-100 font-light dark:border-zinc-500 border-neutral-300 dark:bg-zinc-800 dark:text-neutral-300 rounded-t-lg rounded-b-lg"
+            id="warning"></div>
+        <div id="t"
+            class="overflow-x-auto hidden px-2.5 pt-1 py-5 border-r border-l border-b border-t rounded-t-lg rounded-b-lg overflow-hidden dark:border-zinc-500 border-neutral-300">
+        </div>
+    </div>
+    <div id="cocomo" class="m-5 hidden rounded-lg border border-neutral-300 dark:border-zinc-500 dark:text-neutral-300">
+    </div>
 </div>

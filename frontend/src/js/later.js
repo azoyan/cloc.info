@@ -1,4 +1,4 @@
-const later = (delay, value) => {
+const later = function (delay, value) {
     let timer = 0;
     let reject = null;
     const promise = new Promise((resolve, _reject) => {

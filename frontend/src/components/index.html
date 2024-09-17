@@ -1,143 +1,136 @@
-<main class="flex-fill">
-    <div class="container mt-3">
-        <div class="row align-items-center">
-            <h1 class="d-flex justify-content-center py-3">
-                <label for="input" class="form-label">Count lines of code</label>
-            </h1>
+<main class="min-h-screen justify-center">
+    <h1 class="my-10 font-medium text-4xl text-center dark:text-neutral-300">Count lines of code</h1>
+    <div class="max-w-[72rem] mx-auto px-5 sm:px-1">
+        <div class="relative">
+            <input id="input" aria-describedby="insert repository url" placeholder="Repository URL" required name="url"
+                type="url" pattern="https?://.*" class="truncate text-nowrap rounded-lg border border-neutral-300 focus:outline-none dark:focus:outline-1 focus:ring  dark:bg-zinc-900 dark:border-neutral-500 dark:text-neutral-300 dark:placeholder-neutral-500 placeholder:text-sm block
+                w-full py-1.5 px-2.5">
+            <span id="check"
+                class="invisible absolute top-1/2 right-2 -translate-y-1/2 text-green-500 dark:text-green-500 rounded-md px-1 text-xl">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                    class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+                    <path
+                        d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z" />
+                </svg>
+            </span>
         </div>
-        <div class="row align-items-top">
-            <div class="d-flex justify-content-start align-items-center">
-                <div class="col col-12 float-left">
-                    <div class="input-group has-validation" id="inputGroupPrepend">
-                        <input onkeypress="return event.charCode != 32" v-model="url" type="url" class="form-control"
-                            placeholder="Repository URL" id="input" aria-describedby="inputGroupPrepend" required>
-                        <div class="invalid-feedback" id="invalidFeedback"></div>
-                    </div>
+        <p id="hint" class="pt-1.5 text-sm text-neutral-500 dark:text-neutral-300">For example: <text role="button"
+                id="hintUrl" class="underline underline-offset-2 hover:text-neutral-700 dark:hover:text-neutral-300">
+                https://github.com/tokio-rs/axum
+            </text>
+        </p>
+        <div id="repoInfo" class="flex space-x-2 items-center invisible">
+            <a target="_blank" rel="noopener noreferrer canonical" id="repoUrl" class="link-dark">
+                <div id="repoButton"
+                    class="inline-flex min-w-12 justify-center rounded-lg border border-neutral-300 items-center px-2 py-1.5 hover:bg-neutral-100 dark:text-neutral-300 dark:border-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800">
                 </div>
-            </div>
+            </a>
+            <div>
+                <div id="dropdownButton"
+                    class="flex w-28 sm:w-64 truncate border text-neutral-800 border-neutral-300 hover:bg-neutral-100 focus:bg-white rounded-lg text-sm px-2.5 py-2 items-center dark:border-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                    type="button">
+                    <div>
+                        <svg class="w-6 h-4 dark:text-neutral-300" xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 21 21" fill="none" stroke="currentColor" stroke-width="1"
+                            stroke-linecap="round">
+                            <path d="M6 9v6" />
+                            <circle cx="18" cy="6" r="2.5" />
+                            <circle cx="6" cy="6" r="2.5" />
+                            <circle cx="6" cy="18" r="2.5" />
+                            <path d="M18 9a9 9 0 0 1-9 9" />
+                        </svg>
+                    </div>
+                    <div id="branchLabel" class="truncate w-28 sm:w-52 text-start px-1 dark:text-neutral-300">dummy
+                    </div>
+                    <svg class="w-4 h-4 ml-auto dark:text-neutral-300" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </div>
 
-            <div class="d-flex align-items-center">
-                <div class="row" id="hint">
-                    <div class="form-text">
-                        For example: <a role="button"
-                            class="link-secondary link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover "
-                            id="hint_url">https://github.com/actix/actix-web</a>
-                    </div>
-                </div>
+                <ul id="dropdownList"
+                    class="absolute z-10 w-3/4 sm:w-1/12 min-w-64 divide-y bg-white my-1 border border-neutral-300 rounded-lg shadow-lg max-h-72 overflow-auto px-2 py-2 text-sm text-neutral-700 dark:bg-zinc-800 dark:border-zinc-600">
+                </ul>
             </div>
+            <div class="grow"></div>
+            <div id="commit"></div>
         </div>
 
-        <div id="repoInfo" class="row justify-content-md-start">
-            <div class="col col-sm-auto">
-                <div class="row align-items-center">
-                    <div class="col col-sm-auto" id="select"></div>
-                    <div class="col col-sm-auto">
-                        <a target="_blank" rel="noopener noreferrer canonical" id="repository_pic"
-                            class="invisible link-dark">
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <div class="col col-sm-auto align-self-center text-truncate float-start">
-                <div class="fs-6 mt-1 text-center" id="commit">&nbsp;</div>
-            </div>
+        <div id="invalidFeedback"
+            class="flex invisible items-center p-4 mb-4 text-sm text-red-800 border border-red-300 rounded-lg bg-red-50 transform  origin-top transition-transform duration-700 ease-in-out"
+            role="alert">
+            dummy
         </div>
+    </div>
 
-        <div class="container mt-4 align-items-top text-center">
-            <button class="btn btn-success btn-lg" style="width: calc(5% + 100px);" id="submitButton" type="submit"
-                disabled>
-                <span class="spinner-border spinner-border-sm" hidden="true" id="checkSpinner" role="status">
-                </span>
-                <span id="buttonText">
+    <div class='grid grid-flow-row max-w-screen-lg mx-auto'>
+        <button id="submitButton" type="button" disabled class="text-white disabled:border-zinc-500 bg-green-700 hover:bg-green-800 disabled:bg-zinc-500 focus:outline-none text-xl justify-self-center lg:w-1/6 md:w-1/5 font-medium rounded-lg px-5 py-3 my-10 me-2 mb-2 focus:ring-4 
+                dark:text-neutral-300 dark:bg-green-800 dark:hover:bg-green-700 focus:ring-green-300">
+            <div class="flex justify-center">
+                <div class="flex-none hidden" id="checkSpinner" role="status">
+                    <img class="inline w-4 h-4 me-3 animate-spin" src="assets/spinner.svg">
+                </div>
+                <div id="buttonText" class="flex-shrink-0">
                     Submit
-                </span>
-            </button>
-        </div>
+                </div>
+            </div>
+        </button>
     </div>
 </main>
 
-<statistic class="bg-light pt-1 pb-5">
-    <div class="container">
-        <div class="row">
-            <div class="col mt-5">
-                <div class="card shadow col mx-4">
-                    <label class="card-header text-center bg-white">
-                        Recent
-                    </label>
-                    <div class="card-body p-2">
-                        <ul class="list-group list-group-flush" id="recent"></ul>
-                    </div>
-                </div>
-            </div>
-            <div class="col mt-5">
-                <div class="card shadow col mx-4">
-                    <label class="card-header text-center bg-white">
-                        Popular
-                    </label>
-                    <div class="card-body p-2">
-                        <ul class="list-group list-group-flush" id="popular"></ul>
-                    </div>
-                </div>
-            </div>
-            <div class="col mt-5">
-                <div class="card shadow col mx-4">
-                    <label class="card-header text-center bg-white">
-                        Largest
-                    </label>
-                    <div class="card-body p-2">
-                        <ul class="list-group list-group-flush" id="largest"></ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+
+<statistic
+    class="bg-neutral-100 dark:bg-zinc-900 min-h-lvh flex flex-wrap items-center justify-center gap-14 py-12 sm:px-2">
 </statistic>
-<about class="container bg-white pt-5 pb-5">
-    <div class="container py-3">
-        <h2 class="pb-3">How it works</h2>
-        <p>Under the hood is <strong>scc</strong> tool, a fast and
+
+
+<about class="flex flex-col items-center px-5 sm:px-1 py-10 mx-auto max-w-[72rem] dark:text-neutral-300">
+    <div class="container">
+        <h2 class="pb-4 text-3xl text font-medium">How it works</h2>
+        <p class="pt-2">Under the hood is <strong>scc</strong> tool, a fast and
             accurate code counter that supports over 300 languages and multiple output formats. We are grateful
-            to
-            the developers of scc for creating such a powerful and reliable tool. You can learn more about scc
-            and
-            its features on its <a href="https://github.com/boyter/scc" title="Go to scc GitHub repository"
-                target="_blank" rel="noopener noreferrer" class="link-secondary">GitHub page</a>.</p>
-        <p>
+            to the developers of scc for creating such a powerful and reliable tool. You can learn more about scc
+            and its features on its <a href="https://github.com/boyter/scc" title="Go to scc GitHub repository"
+                target="_blank" rel="noopener noreferrer"
+                class="underline hover:text-neutral-800 dark:hover:text-neutral-200 text-neutral-500 dark:text-neutral-300">GitHub
+                page</a>.</p>
+        <p class="pt-4">
             You can also use this service from terminal browsers, such as lynx, or as an API, by sending a
             request with <strong>curl</strong> and getting a human-readable response.
         </p>
     </div>
 
-    <div class="container py-3">
-        <h2 class="pb-3">How to use curl</h2>
-        <p><a class="link-secondary" title="Go to curl official website" href="https://curl.se" target="_blank"
-                rel="noopener noreferrer">curl</a> is a
-            command-line utility
-            that allows you to send requests to an API.
-            To send a request
-            with curl to this service, you need to use the following syntax:</p>
-        <div class="d-flex bg-light code-block mb-3 px-3 mt-1 pt-3 border">
-            <pre><code>curl https://cloc.info/[git_host]/[git_owner]/[git_repo]</code></pre>
+    <div class="container py-8">
+        <h2 class="pb-4 text-3xl font-medium">How to use curl</h2>
+        <p class="pt-2"><a
+                class="underline hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100 text-neutral-500"
+                title="Go to curl official website" href="https://curl.se" target="_blank"
+                rel="noopener noreferrer">curl</a> is a command-line utility that
+            allows you to send requests to an API.
+            To send a request to this service, you need to use the following syntax:</p>
+        <div
+            class="bg-neutral-50 border dark:border-neutral-600 my-4 py-4 px-4 pe-10 rounded-md overflow-auto dark:bg-neutral-800">
+            <pre><code class="pe-4">curl https://cloc.info/[git_host]/[git_owner]/[git_repo]</code></pre>
         </div>
-        <p>where <text class="text-secondary-emphasis font-monospace">[git_host]</text> is the hosting platform for
-            git,
-            <text class="text-secondary-emphasis font-monospace">[git_owner]</text> is the owner of the repository
-            and
-            <text class="text-secondary-emphasis font-monospace">[git_repo]</text> is the name of the repository.
+        <p class="pb-4">where <text class="font-mono">[git_host]</text> is the hosting platform for git,
+            <text class="font-mono">[git_owner]</text> is the owner of the repository and
+            <text class="font-mono">[git_repo]</text> is the name of the repository.
         </p>
-        <h3 class="pb-1 pt-2">Example</h3>
-        <p>If you want to count lines of code for the repository <a class="link-secondary"
-                href="https://github.com/intel" title="Go to intel GitHub repository" target="_blank"
+        <h3 class="text-2xl font-medium pt-2">Example</h3>
+        <p class="pt-2">If you want to count lines of code for the repository <a
+                class="underline hover:text-neutral-800 dark:hover:text-neutral-100" href="https://github.com/intel"
+                title="Go to intel GitHub repository" target="_blank"
                 rel="noopener noreferrer">https://gthub.com/intel/tinycrypt</a>, just add to <text
-                class="text-secondary-emphasis font-monospace">https://cloc.info/</text> rest part of url
-            <text class="text-primary-emphasis font-monospace">github.com/intel/tinycrypt</text>
+                class="font-mono">https://cloc.info/</text> rest part of url
+            <text class="font-mono">github.com/intel/tinycrypt</text>
         </p>
-        <div class="d-flex bg-light code-block mb-3 px-3 mt-1 pt-3 border">
-            <pre><code style="user-select: none;">$ </code><code>curl </code><code class="text-seondary-emphasis">https://cloc.info/</code><code class="text-primary-emphasis">github.com/intel/tinycrypt</code></pre>
+        <div class="bg-neutral-50 border dark:border-neutral-600 my-4 p-4 rounded-md overflow-auto dark:bg-neutral-800">
+            <pre><code style="user-select: none;">$ </code><code>curl </code><code>https://cloc.info/</code><code class="pe-4">github.com/intel/tinycrypt</code></pre>
         </div>
-        <div class="d-flex bg-light code-block mb-3 px-3 mt-0 pt-0 border">
-            <pre><samp>
--------------------------------------------------------------------------------
+        <div
+            class="bg-neutral-50 border dark:border-neutral-600 my-4 py-2 px-4 pe-10 rounded-md overflow-auto dark:bg-neutral-800">
+            <pre class="font-mono text-sm whitespace-pre">
+<samp class="pe-4">-------------------------------------------------------------------------------
 Language                 Files     Lines   Blanks  Comments     Code Complexity
 -------------------------------------------------------------------------------
 C                           27     17138     1463      1749    13926        964
@@ -156,17 +149,18 @@ Estimated People Required (organic) 3.98
 Processed 717583 bytes, 0.718 megabytes (SI)
 -------------------------------------------------------------------------------</samp></pre>
         </div>
-        <p>This command will return a table with the number of lines of code for each programming
+        <p class="pt-4">This command will return a table with the number of lines of code for each programming
             language in the repository, as well as some metrics, such as the estimated cost of development, the
             estimated time of completion, and the estimated number of people
             required.</p>
-        <p>You can use the same syntax for any other git platform, such as gitlab.com or bitbucket.org,
+        <p class="pt-4">You can use the same syntax for any other git platform, such as
+            gitlab.com or bitbucket.org,
             just by replacing <text class="text-secondary-emphasis font-monospace">[git_host]</text></code> with the
             corresponding host.</p>
     </div>
-    <div class="container py-3">
-        <h2 class="pb-3">Feedback</h2>
-        <p>If you have any suggestions or questions, please feel free to open issue on <a
+    <div class="container py-4">
+        <h2 class="pb-4 text-3xl text font-medium">Feedback</h2>
+        <p class="pt-2">If you have any suggestions or questions, please feel free to open issue on <a
                 href="https://github.com/azoyan/cloc.info" target="_blank" rel="noopener noreferrer"
                 class="link-secondary">GitHub
                 repository</a>. I would appreciate your feedback.</p>

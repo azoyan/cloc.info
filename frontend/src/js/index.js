@@ -1,20 +1,41 @@
 import later from "./later.js"
-import { createRepositoryIcon } from "./common.js";
-import { gitUrlParse, extractBranchFromGitUrl } from "./git_url_parser.js";
-// import { Tooltip } from "bootstrap";
-const input = document.getElementById('input');
 
-let Later = null;
-let hint_url = document.getElementById("hint_url");
+import { DIV, TEXT, DOCUMENT, createRepositoryIcon, createCommitSvgIcon, extractRepositoryHost, appendChildren, classListAdd, classListRemove, disable, swapElements, documentGetElementById, documentCreateElement } from "./common.js"
+import {
+  FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, BORDER_R, ROUNDED, TEXT_NEUTRAL, HIDDEN, PX2, PY2, W_2, TEXT_SM, BORDER_RED, FOCUS_RING, BG_NEUTRAL_100, SM, MD, BLOCK, INVISIBLE, SPACE_X_3, CURSOR_POINTER, HOVER_TEXT_BLACK, PX_1, RING_1, RING_INSET, RING_GRAY_500_10, ROUNDED_L_LG, SM_PL_2, SM_PR_4, HOVER_ROUNDED, FONT_MONO, FONT_LIGHT
+} from './tailwind-classes.js'
+import { gitUrlParse, extractBranchFromGitUrl } from "./git_url_parser.js"
+import { log } from "./common.js"
+const DEFAULT = "default"
+const COMMIT = "Commit"
+const LAST_COMMIT_SHA = "Last commit SHA"
 
-const submitButton = document.getElementById('submitButton');
+const input = documentGetElementById('input')
+const commit = documentGetElementById("commit")
+const invalidFeedback = documentGetElementById('invalidFeedback')
+const repositoryInfo = documentGetElementById("repoInfo")
+const hint = documentGetElementById("hint")
+const hintUrl = documentGetElementById("hintUrl")
+const checkMark = documentGetElementById("check")
+const dropdownButton = documentGetElementById("dropdownButton")
+const repoUrl = documentGetElementById("repoUrl")
+const dropdownList = documentGetElementById("dropdownList")
+const branchLabel = documentGetElementById("branchLabel")
+const submitButton = documentGetElementById("submitButton")
+const buttonText = documentGetElementById("buttonText")
+const submitText = "Submit"
+
+let Later = null
+let Visibility = 0
+let Branches
 
 submitButton.onclick = function () {
-  let url = gitUrlParse(input.value)
-  let selected = document.getElementById("select-child").value;
-  console.log("SubmitButton onclick()", selected, url)
+  const url = gitUrlParse(input.value)
+  log(branchLabel.value)
+  const selected = branchLabel.innerText;
+  // log("SubmitButton onclick()", selected, url)
   let path = url.host + '/' + url.owner + '/' + url.name;
-  if (selected !== branches.default_branch) {
+  if (selected !== Branches.default_branch) {
     if (url.host === "github.com" || url.host === "gitlab.com") {
       path += '/tree/'
     } else if (url.host === "bitbucket.org") {
@@ -26,222 +47,278 @@ submitButton.onclick = function () {
     else if (url.host === "gitea.com") {
       path += "/src/branch/"
     }
-
     path += selected;
   }
 
   path = path.replace(/\/+$/g, '')
-
-  console.log("path", path);
-
+  log("path", path);
   window.location.href = path
 }
 
-hint_url.onclick = function () {
-  input.value = hint_url.innerText
+hintUrl.onclick = function () {
+  input.value = hintUrl.innerText
   check(input.value);
 }
 
 input.oninput = (evt) => {
   const isPasted = evt.inputType && evt.inputType.startsWith("insertFromPaste");
+  const value = evt.target.value
   if (isPasted) {
-    pasteValue(evt)
+    pasteValue(value)
   } else {
-    editValue(evt)
+    if (value === "") {
+      reset()
+    }
+    else {
+      editValue(value)
+    }
   }
-};
-
-function reset() {
-  console.log("reset");
-  document.getElementById("input").classList.remove("is-valid");
-  document.getElementById("input").classList.remove("is-invalid");
-  hint.style.removeProperty('display');
-  document.getElementById("select").innerHTML = ''
-  document.getElementById("repoInfo").classList.add("invisible")
-  document.getElementById("repository_pic").classList.remove("visible");
-  document.getElementById("repository_pic").classList.add("invisible")
-
-  document.getElementById("hint").classList.remove("invisible")
-  document.getElementById("hint").classList.add("visible")
-
-  submitButton.setAttribute("disabled", "");
-  submitButton.classList.add('btn-outline-success');
-  submitButton.classList.remove("btn-success")
 }
 
-async function editValue(e) {
+input.onkeydown = (e) => { if (e.key === ' ') e.preventDefault(); }
+
+function reset() {
+  cancelLaterTimer()
+  // log("reset")
+  setVisible(false, repositoryInfo, invalidFeedback, checkMark)
+  setVisible(true, hint)
+  classListAdd(input, FOCUS_RING)
+  classListRemove(input, BORDER_RED)
+  disable(submitButton)
+
+  appendChildren(invalidFeedback.parentElement, invalidFeedback)
+}
+
+function setVisible(needVisible, ...elements) {
+  for (let i = 0; i < elements.length; i++) {
+    if (needVisible) {
+      classListRemove(elements[i], INVISIBLE)
+    } else {
+      classListAdd(elements[i], INVISIBLE)
+    }
+  }
+}
+
+function cancelLaterTimer() {
   if (Later != null) {
     Later.cancel();
     Later = null;
   }
-  if (e.target.value === "") {
-    return reset();
-  }
+}
 
+async function editValue(value) {
+  cancelLaterTimer()
+  // log("edit", value)
   if (Later === null) {
-    Later = later(2000, false)
+    Later = later.later(2000, false)
     Later.promise
       .then(function () {
-        console.log(e.target.value)
-        check(e.target.value)
+        // log(value)
+        check(value)
       })
-      .catch((e) => { console.log("later cancelled", e); });
+      .catch(() => {
+        // log("later cancelled", e); 
+      });
   }
 }
 
-function pasteValue(e) {
-  if (e.target.value === "") return;
-  check(e.target.value)
+function pasteValue(value) {
+  if (value === "") return;
+  check(value)
 }
 
-let branches;
+function check(urlStr) {
+  urlStr = urlStr.replace(/\/+$/g, '')
 
-function check(url_str) {
-  hint.style.display = 'invisible'
-  url_str = url_str.replace(/\/+$/g, '')
+  // let git_extension = urlStr.slice(-4);
+  // if (git_extension !== ".git") {
+  //     url_str += ".git"
+  // }
 
-  let git_extension = url_str.slice(-4);
-
-  let parsed_url = gitUrlParse(url_str)
-  console.log("parsed:", parsed_url)
+  // let is_git_regex = /(?:git|ssh|https?|git@[-\w.]+):(\/\/)?(.*?)(\.git)(\/?|\#[-\d\w._]+?)$/;
+  // if (!url_str.match(is_git_regex)) { url_str = 'https://' + url_str; }
+  // log(url_str);
+  let parsed_url
+  try {
+    parsed_url = gitUrlParse(urlStr)
+  }
+  catch (error) {
+    showError(notValidUrlText(urlStr))
+    return
+  }
+  // log("parsed:", parsed_url)
+  // reset()
   if (parsed_url.parse_failed) {
-    console.log("Invalid URL:", error);
-    document.getElementById("invalidFeedback").innerText = '"' + url_str + '" is not valid URL.'
-    document.getElementById("input").classList.add("is-invalid");
+    showError(notValidUrlText(urlStr))
     return
   }
 
-  document.getElementById("buttonText").innerText = "Check"
-  let checkSpinner = document.getElementById("checkSpinner");
-  checkSpinner.hidden = false;
+  buttonText.innerText = "Checking..."
+  disable(submitButton)
+  setVisible(false, repositoryInfo, checkMark)
+  classListRemove(checkSpinner, HIDDEN);
 
-  let submitButton = document.getElementById("submitButton");
-  let repository_name = parsed_url.name
+  const repository_name = parsed_url.name
   // if (repository_name.slice(-4) !== ".git") { repository_name += ".git" }
-  let branches_api = document.URL + "api/" + parsed_url.host + '/' + parsed_url.owner + '/' + repository_name + "/branches";
+  let branches_api = DOCUMENT.URL + "api/" + parsed_url.host + '/' + parsed_url.owner + '/' + repository_name + "/branches";
   branches_api = branches_api.replace(/([^:]\/)\/+/g, "$1");
-  let current_branch = extractBranchFromGitUrl(parsed_url)
+  const current_branch = extractBranchFromGitUrl(parsed_url)
 
-
-  console.log("branches_api", branches_api, parsed_url.toString())
-  console.log("current_branch", current_branch)
+  // log("branches_api", branches_api, parsed_url.toString())
+  // log("current_branch", current_branch)
 
   fetch(branches_api)
     .then((response) => response.json())
     .then((response) => {
-      branches = response;
-
-      let select = document.getElementById("select");
-      let html_select = createSelect(branches, "select-child", current_branch);
-      select.appendChild(createElementFromHTML(html_select));
+      Branches = response;
+      updateRepositoryPicture()
+      updateSelect(Branches, current_branch);
+      updateCommitLabel()
 
       submitButton.removeAttribute("disabled");
-      submitButton.classList.remove('btn-outline-success');
-      submitButton.classList.add("btn-success");
 
-      document.addEventListener("keypress", function (event) {
+      DOCUMENT.addEventListener("keypress", function (event) {
         if (event.key === "Enter") {
           event.preventDefault();
           submitButton.click();
         }
       });
+      setVisible(true, repositoryInfo, checkMark)
+      dropdownButton.onclick = () => { Visibility = 1, setVisible(true, dropdownList) }
+      setVisible(false, hint, invalidFeedback)
 
-      document.getElementById("input").classList.add("is-valid");
-      document.getElementById("input").classList.remove("is-invalid");
-      document.getElementById("invalidFeedback").classList.remove("is-invalid");
-      document.getElementById("invalidFeedback").classList.add("invisible");
-      document.getElementById("repoInfo").classList.remove("invisible");
-      document.getElementById("buttonText").innerText = "Submit"
-      document.getElementById("hint").classList.add("invisible")
-      checkSpinner.hidden = true;
+      classListRemove(input, BORDER_RED);
+      classListAdd(input, FOCUS_RING)
+      appendChildren(invalidFeedback.parentElement, invalidFeedback)
+      classListAdd(checkSpinner, HIDDEN);
+      buttonText.innerText = submitText
     })
     .catch(function (error) {
-      document.getElementById("invalidFeedback").innerText = error
-      checkSpinner.hidden = true;
-      submitButton.classList.add("disabled");
-      submitButton.classList.add('btn-outline-success');
-      document.getElementById("buttonText").innerText = "Submit"
-      document.getElementById("repoInfo").classList.add("invisible");
-      document.getElementById("invalidFeedback").classList.remove("invisible");
-      document.getElementById("input").classList.add("is-invalid");
       if (error.response) {
+        showError(error.response.data)
         console.error(error.response.data);
         console.error(error.response.status);
         console.error(error.response.headers);
       }
       else {
-        console.log("error", error)
+        log("error", error)
+        showError(notValidUrlText(urlStr))
       }
     });
 }
+function showError(errorText) {
+  setVisible(true, invalidFeedback)
+  invalidFeedback.innerText = errorText
+  classListAdd(input, BORDER_RED);
+  classListRemove(input, FOCUS_RING)
+  setVisible(false, repositoryInfo, checkMark, hint)
 
-function createSelect(all_branches, id, preselected_branch) {
-  let branches = all_branches.branches;
-  let defaultBranch = all_branches.default_branch;
-  document.getElementById(id)?.remove() // delete previous if exists
-  let select = '<select class="form-select form-select-sm" aria-label=".form-select-sm example" id="' + id + '" onchange="setCommit(this.value)">'
-  console.log("branches", branches, "preselected", preselected_branch)
+  disable(submitButton)
+  swapElements(repositoryInfo, invalidFeedback)
+
+  buttonText.innerText = submitText
+  checkSpinner.hidden = true
+}
+
+function notValidUrlText(urlStr) {
+  return '"' + urlStr + '" is not valid URL.'
+}
+function updateSelect(all_branches, preselected_branch) {
+  dropdownList.innerHTML = ''
+  const branches = all_branches.branches;
+  const defaultBranch = all_branches.default_branch;
+
   for (var i = 0; i < branches.length; ++i) {
-    let branchName = branches[i].name
-    if (preselected_branch === branchName) {
-      console.log("branchName", branchName)
-      select += createSelectOption(branchName, true)
-      document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Last commit">' + branches[i].commit
+    const branchName = branches[i].name;
+    const isDefaultBranch = branchName === defaultBranch
+
+    const isPreselected = preselected_branch === branchName;
+    const shouldSetCommitHash = preselected_branch === undefined ? isDefaultBranch : isPreselected;
+
+    if (shouldSetCommitHash) {
+      setCommitHash(branches[i].commit);
     }
-    else if (branchName === defaultBranch && preselected_branch === undefined) {
-      select += createSelectOption(branchName, true)
-      document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Last commit">' + branches[i].commit
-    }
-    else {
-      select += createSelectOption(branchName)
-    }
+
+    const dropdownItem = createListItem(
+      branchName,
+      shouldSetCommitHash,
+      isDefaultBranch,
+      branches[i].commit
+    );
+
+    branchLabel.innerText = preselected_branch ? preselected_branch : defaultBranch
+    appendChildren(dropdownList, dropdownItem)
   }
-  let pic = document.getElementById("repository_pic")
-  pic.classList.add("visible")
-  pic.classList.remove("invisible")
-  pic.setAttribute("data-bs-toggle", "tooltip")
-  pic.setAttribute("data-bs-title", "Go to repository " + input.value)
-  pic.setAttribute("data-bs-placement", "top")
-  pic.setAttribute("href", input.value)
-  pic.innerHTML = createRepositoryIcon(input.value, 32, 32);
-
-  // const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
-  // const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new Tooltip(tooltipTriggerEl))
-  select += '</select>'
-  return select;
 }
 
-function substitute() {
-  pasteValue("https://github.com/actix/actix-web")
+function createListItem(branchName, isCurrentBranch, isDefaultBranch, commitHash) {
+  const listItem = documentCreateElement("li")
+  classListAdd(listItem, FLEX, CURSOR_POINTER, ITEMS_CENTER, SPACE_X_3, PY2, HOVER_TEXT_BLACK, HOVER_ROUNDED, 'dark:hover:rounded', 'dark:hover:text-neutral-100', 'dark:border-zinc-600', 'dark:text-neutral-300')
+  const mark = documentCreateElement(DIV)
+  const text = documentCreateElement(TEXT)
+  classListAdd(mark, W_2, PX_1, 'dark:text-neutral-300')
+  text.innerText = branchName
+  appendChildren(listItem, mark, text)
+  if (isCurrentBranch) {
+    mark.innerText = "✓"
+  }
+  if (isDefaultBranch) {
+    const span = documentCreateElement("span")
+    classListAdd(span, ROUNDED, BG_NEUTRAL_100, PX2, TEXT_NEUTRAL, RING_1, RING_INSET, RING_GRAY_500_10, 'dark:border-zinc-500', 'dark:bg-zinc-900', 'dark:text-neutral-300'),
+      span.innerText = DEFAULT
+    appendChildren(listItem, span)
+  }
+  listItem.onclick = () => {
+    updateSelect(Branches, branchName, commitHash)
+  }
+  return listItem
 }
 
-function setCommit(branchName) {
-  // let branchName = e.value
-  console.log("branchName", branchName, branches)
-  let branches_array = branches.branches;
+function updateRepositoryPicture() {
+  const pic = documentGetElementById("repoButton")
+  setVisible(true, pic)
+  pic.innerHTML = ""
+  pic.setAttribute("title", "Open repository " + input.value);
+
+  repoUrl.setAttribute("href", input.value)
+  const text = documentCreateElement(TEXT)
+  classListAdd(text, HIDDEN, `${MD}:${BLOCK}`, PX2)
+  text.innerText = extractRepositoryHost(input.value)
+
+  appendChildren(pic, createRepositoryIcon(input.value, 24, 24), text)
+}
+
+function updateCommitLabel(branchName) {
+  const branches_array = Branches.branches;
   for (let i = 0; i < branches_array.length; ++i) {
-    console.log("branch", branches_array[i])
     if (branches_array[i].name === branchName) {
-      document.getElementById("commit").innerHTML = '<p class="font-monospace text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Last commit">' + branches_array[i].commit
-      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
-      const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+      setCommitHash(branches_array[i].commit)
     }
   }
 }
 
-function createSelectOption(branch, isMain) {
-  if (isMain) {
-    return "<option selected>" + branch + "</option>"
-  }
-  else {
-    return "<option>" + branch + "</option>"
-  }
+function setCommitHash(commitHash) {
+  classListAdd(commit, FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, ROUNDED, 'dark:border-zinc-600')
+  const label = documentCreateElement(DIV)
+  classListAdd(label, FLEX, "justify-center", ITEMS_CENTER, TEXT_SM, ROUNDED_L_LG, PY2, PX2, SM_PL_2, SM_PR_4, TEXT_NEUTRAL, BORDER_R, 'dark:text-neutral-100', 'dark:border-zinc-500', 'dark:bg-zinc-800');
+  const commitIcon = createCommitSvgIcon(20, 20)
+
+  const text = documentCreateElement(TEXT)
+  classListAdd(text, HIDDEN, `${SM}:${BLOCK}`)
+  text.innerText = COMMIT
+  appendChildren(label, commitIcon, text)
+
+  const p = documentCreateElement("p")
+  classListAdd(p, TRUNCATE, PX2, SM_PR_4, FONT_MONO, FONT_LIGHT, TEXT_SM, TEXT_NEUTRAL, 'dark:text-neutral-100')
+  p.innerText = commitHash
+  commit.innerHTML = ""
+  commit.title = LAST_COMMIT_SHA
+  appendChildren(commit, label, p)
 }
 
-function createElementFromHTML(htmlString) {
-  var div = document.createElement('div');
-  div.innerHTML = htmlString.trim();
-
-  // Change this to div.childNodes to support multiple top-level nodes.
-  return div.firstChild;
-}
+DOCUMENT.addEventListener('click', () => {
+  Visibility -= 1
+  if (Visibility < 0) {
+    setVisible(false, dropdownList)
+  }
+});

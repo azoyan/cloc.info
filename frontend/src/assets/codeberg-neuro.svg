@@ -1,0 +1,13 @@
+<svg width="16" height="16" viewBox="0 0 4.2333332 4.2333335">
+    <defs>
+        <linearGradient id="linearGradient6924">
+            <stop offset="0%" style="stop-color:#2185d0;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#2185d0;stop-opacity:1" />
+        </linearGradient>
+    </defs>
+    <g transform="matrix(0.06551432,0,0,0.06551432,-2.232417,-1.431776)">
+        <path id="path6733-5" style="fill:url(#linearGradient6924);fill-opacity:1;stroke:none"
+            d="m 42519.285,-7078.7891 a 0.76086879,0.56791688 0 0 0 -0.738,0.6739 l 33.586,125.8886 a 87.182358,87.182358 0 0 0 39.381,-33.7636 l -71.565,-92.5196 a 0.76086879,0.56791688 0 0 0 -0.664,-0.2793 z"
+            transform="matrix(0.37058478,0,0,0.37058478,-15690.065,2662.0533)" />
+    </g>
+</svg>

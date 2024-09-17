@@ -1,10 +1,46 @@
 import { gitUrlParse } from "./git_url_parser";
-import { createRepositoryIcon } from "./common";
+import { createRepositoryIcon, isGithub, isGitlab, isBitbucket, isCodeberg, isGitbucket, isGitea, isGitverse, isGnu, isLaunchpad, documentGetElementById, documentCreateElement, classListRemove, classListAdd, appendChildren, TEXT, DOCUMENT, DIV } from "./common";
+import {
+    TABLE, TABLE_AUTO, FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, BORDER_R, ROUNDED, TEXT_NEUTRAL, HIDDEN, PX2, PY2, W_2, TEXT_SM, BORDER_RED, FOCUS_RING, BG_NEUTRAL_100, SM, MD, BLOCK, INVISIBLE, SPACE_X_3, CURSOR_POINTER, HOVER_TEXT_BLACK, PX_1, RING_1, RING_INSET, RING_GRAY_500_10, ROUNDED_L_LG, SM_PL_2, SM_PR_4, HOVER_ROUNDED, FONT_MONO, FONT_LIGHT,
+    DARK_TEXT_NEUTRAL_400,
+    W_FULL,
+    TABLE_FIXED,
+    TEXT_WHITE, DARK,
+    TEXT_XL,
+    FONT_MEDIUM,
+    UNDERLINE,
+    BORDER_T_TRANSPARENT,
+    BORDER_T,
+    PX_2_5,
+    PT_1_5,
+    BORDER_B,
+    TEXT_START,
+    MB_2,
+    TEXT_NEUTRAL_700,
+    TRANSFORM,
+    DARK_TEXT_NEUTRAL_300,
+    BORDER_RED_300,
+    BORDER_NEUTRAL_300,
+    PX_5,
+    ROUNDED_LG,
+    MY_4,
+    PT_2,
+    HOVER_TEXT_WHITE,
+    DARK_HOVER_TEXT_WHITE
+} from './tailwind-classes.js'
 
 let Url = new URL(document.URL);
 
 let json;
 
+const TABLE_DIV = documentGetElementById("t")
+const WARNING_DIV = documentGetElementById("warning")
+const REPOSITORY_DIV = documentGetElementById("repository")
+const COCOMO_DIV = documentGetElementById("cocomo")
+const PROCESSING_DIV = documentGetElementById("processing")
+
+
+const SEMICOLON_STR = ":"
 
 async function fetch_cloc() {
     let response = await fetch(Url, { headers: { 'If-Match': 'cloc' } });
@@ -41,8 +77,10 @@ class Reply {
         this.textData = textData;
     }
 }
+
 function extractContent(response, error_msg) {
-    let message = error_msg ? error_msg + ":\n" : ""
+    console.log("extractContent", response);
+    let msg = error_msg ? error_msg + ":\n" : ""
     const contentType = response.headers.get("content-type");
     let result = new Reply(response.status)
     if (contentType && contentType.indexOf("application/json") !== -1) {
@@ -53,7 +91,7 @@ function extractContent(response, error_msg) {
     } else {
         if (response.status >= 400) {
             response.text().then(text => {
-                throw new FetchError(response.status, message + text)
+                throw new FetchError(response.status, msg + text)
             });
         }
         else {
@@ -104,9 +142,9 @@ async function preparePage(url) {
     let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
     let show_url = "https://" + repository_hostname + '/' + owner + '/' + repository_name
     for (let i = 3; i < path_name_array.length; ++i) { show_url += '/' + path_name_array[i] }
-    document.getElementById("url").innerText = show_url
-    document.getElementById("url").setAttribute("href", origin_url)
-    document.getElementById("url_pic").innerHTML = pic_ref
+    documentGetElementById("url").innerText = show_url
+    documentGetElementById("url").setAttribute("href", origin_url)
+    // documentGetElementById("url_pic").innerHTML = pic_ref
     // }
     // catch (e) {
     //     throw new Error("Can't setup URL" + e)
@@ -115,23 +153,23 @@ async function preparePage(url) {
     if (path_name_array[3] === undefined) {
         let branch_info = await fetch_branch_info(Url.protocol + Url.host + "/api" + Url.pathname)
         branch = branch_info.getJsonData()
-        document.getElementById("branch").innerText = branch.default_branch
+        documentGetElementById("branch").innerText = branch.default_branch
         let commit_info = await fetch_branch_commit(Url.protocol + Url.host + "/api" + Url.pathname + "/tree/" + branch.default_branch)
         let commit = commit_info.getJsonData()
-        console.log("commit", commit)
-        document.getElementById("commit").innerText = commit.commit
+
+        documentGetElementById("commit").innerText = commit.commit
     }
     else if (repository_hostname === "github.com" && path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
         for (let i = 4; i < path_name_array.length; ++i) {
             console.log("el:", path_name_array[i])
             branch += '/' + path_name_array[i]
         }
-        document.getElementById("branch").innerText = branch.slice(1)
+        documentGetElementById("branch").innerText = branch.slice(1)
         let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/tree" + branch
         let commit = await fetch_branch_commit(url_str)
-        document.getElementById("commit").innerText = commit.commit
+        documentGetElementById("commit").innerText = commit.commit
     }
-    else if (repository_hostname === "gitlab.com") {
+    else if (isGithub(repository_hostname)) {
         if (path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
             for (let i = 4; i < path_name_array.length; ++i) {
                 console.log("el:", path_name_array[i])
@@ -149,20 +187,20 @@ async function preparePage(url) {
             console.error(error_msg)
             throw new PrepareError("Incorrect URL", error_msg)
         }
-        document.getElementById("branch").innerText = branch.slice(1)
+        documentGetElementById("branch").innerText = branch.slice(1)
         let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/tree" + branch
         let commit = await fetch_branch_commit(url_str)
-        document.getElementById("commit").innerText = commit.commit
+        documentGetElementById("commit").innerText = commit.commit
     }
     else if (repository_hostname === "bitbucket.org" && path_name_array[3] === "src" && path_name_array[4] !== undefined) {
         for (let i = 4; i < path_name_array.length; ++i) {
             console.log("el:", path_name_array[i])
             branch += '/' + path_name_array[i]
         }
-        document.getElementById("branch").innerText = branch.slice(1)
+        documentGetElementById("branch").innerText = branch.slice(1)
         let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/src" + branch
         let commit = await fetch_branch_commit(url_str)
-        document.getElementById("commit").innerText = commit.commit
+        documentGetElementById("commit").innerText = commit.commit
     }
     else if (repository_hostname == "codeberg.org" && path_name_array[3] === "src") {
         let index;
@@ -177,10 +215,10 @@ async function preparePage(url) {
             branch += '/' + path_name_array[i]
         }
 
-        document.getElementById("branch").innerText = branch.slice(1)
+        documentGetElementById("branch").innerText = branch.slice(1)
         let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/src" + branch
         let commit = await fetch_branch_commit(url_str)
-        document.getElementById("commit").innerText = commit.commit
+        documentGetElementById("commit").innerText = commit.commit
     }
     else if (repository_hostname == "gitea.com" && path_name_array[3] === "src") {
         let index;
@@ -195,10 +233,10 @@ async function preparePage(url) {
             branch += '/' + path_name_array[i]
         }
 
-        document.getElementById("branch").innerText = branch.slice(1)
+        documentGetElementById("branch").innerText = branch.slice(1)
         let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/src" + branch
         let commit = await fetch_branch_commit(url_str)
-        document.getElementById("commit").innerText = commit.commit
+        documentGetElementById("commit").innerText = commit.commit
     }
     else {
         let error_msg = url + "\nAfter tree/ must be followed by a branch name"
@@ -210,62 +248,65 @@ async function preparePage(url) {
 }
 
 function showError(status, message) {
-    console.error(message)
     console.trace()
-    let alert = document.getElementById("alert_block")
-    alert.classList.toggle('show')
+    // let alert = documentGetElementById("warning")
+    // alert.classList.toggle('show')
     let bodyText = message ? message : ""
     let headerText = status ? status : ""
-    alert.appendChild(createAlertBlock("danger", headerText, bodyText))
+    console.log("BODY", bodyText, "HEADER", headerText)
+
 }
 
-function showWarning(message) {
-    let alert = document.getElementById("warning")
-    alert.classList.toggle("collapse")
-    let bodyText = message ? message : ""
-    let headerText = ""
-    alert.appendChild(createAlertBlock("warning", headerText, bodyText))
-}
+function createWarning(prev) {
+    let date = new Date(prev.date).toISOString().substring(0, 16).replace('T', ' ').replace(' ', "\xa0");
 
-function createAlertBlock(alertType, headerText, bodyText) {
-    let alert = document.createElement("div")
-    alert.classList.add("alert", `alert-${alertType}`)
-    alert.setAttribute("role", "alert")
+    let p1 = documentCreateElement("p")
+    classListAdd(p1, "text-wrap")
+    let text = documentCreateElement(TEXT);
+    text.innerText = "This information is current as of "
 
-    let header = document.createElement("h")
-    header.classList.add("alert-heading")
-    header.innerText = headerText
-    alert.appendChild(header)
+    let strongDate = documentCreateElement(TEXT)
+    classListAdd(strongDate, FONT_MEDIUM)
+    strongDate.innerText = date
 
-    let body = document.createElement("p")
-    body.classList.add("mb-4", "font-monospace", "text-break")
-    body.innerText = bodyText
-    alert.appendChild(body)
+    let text2 = documentCreateElement("span")
+    text2.innerText = " (Commit: "
+    let strongCommit = documentCreateElement("span")
 
-    return alert
+    strongCommit.innerText = prev.commit + ")"
+    classListAdd(text2, TRUNCATE)
+
+    appendChildren(p1, text, strongDate, text2, strongCommit)
+    return p1
+
 }
 
 async function start(_e) {
     let ok = false
 
     try {
-        ok = await preparePage(new URL(document.URL))
+        ok = await preparePage(new URL(DOCUMENT.URL))
         let cloc_reply = await fetch_cloc();
 
         console.log("cloc_promise", cloc_reply)
 
         if (cloc_reply.statusCode === 200) {
-            createTableFromResponse(cloc_reply.getTextData());
+            createTableFromResponse(cloc_reply.getTextData())
+            classListAdd(TABLE_DIV, BORDER_T)
+            classListRemove(TABLE_DIV, HIDDEN)
             return
         }
         else if (cloc_reply.statusCode === 206) {
             let prev = cloc_reply.getJsonData().Previous;
             let data = String.fromCharCode(...prev.data);
-
-            showWarning(warningText(prev.date, prev.commit))
-            createTableFromResponse(data);
+            classListRemove(REPOSITORY_DIV, HIDDEN)
+            appendChildren(WARNING_DIV, createWarning(prev, prev))
+            classListRemove(TABLE_DIV, BORDER_T, "rounded-l-lg", "rounded-r-lg", "rounded-t-lg", HIDDEN)
+            classListRemove(WARNING_DIV, "rounded-b-lg", HIDDEN, BORDER_T, "rounded-l-lg", "rounded-r-lg")
+            createTableFromResponse(data)
         }
-        document.getElementById("processing").removeAttribute("hidden")
+        classListRemove(PROCESSING_DIV, HIDDEN)
+
         let url = document.location.host + "/ws" + document.location.pathname
         let websocket;
         console.log("protocol", document.location.protocol)
@@ -286,12 +327,12 @@ async function start(_e) {
         } else {
             showError(err)
         }
-        document.getElementById("repository").hidden = true
-        document.getElementById("processing").hidden = true
+        // documentGetElementById("repository").hidden = true
+        // documentGetElementById("processing").hidden = true
     }
 }
 
-document.onload = start
+DOCUMENT.addEventListener("DOMContentLoaded", start)
 
 async function stopStreaming(ws) {
     return await ws.close()
@@ -314,7 +355,7 @@ function startStreaming(ws) {
 
     ws.onclose = function (event) {
         console.log("event", event);
-        document.getElementById("hint").setAttribute("hidden", true)
+        documentGetElementById("hint").setAttribute(HIDDEN, true)
         console.log("WEB SOCKET  CLOSED");
         stopRotate()
     }
@@ -329,8 +370,10 @@ function startStreaming(ws) {
                 stopStreaming(ws)
                 const CLOC = String.fromCharCode(...cloc);
                 createTableFromResponse(CLOC);
-                document.getElementById("processing").hidden = true
-                document.getElementById("warning").classList.toggle('collapse')
+                classListAdd(PROCESSING_DIV, HIDDEN)
+                classListAdd(WARNING_DIV, HIDDEN)
+                classListAdd(TABLE_DIV, BORDER_T)
+                classListRemove(TABLE_DIV, HIDDEN)
             }
             return
         }
@@ -342,81 +385,79 @@ function startStreaming(ws) {
                 let payload = lines[i];
                 // console.log("payload line:", payload)
                 // console.log("Done?", payload, payload.hasOwnProperty("Done"));
+                classListAdd(documentGetElementById("status"), PY2)
 
-                // document.getElementById("status").innerText += payload
-                document.getElementById("hint").innerHTML = "Downloading repository into server"
                 if (payload.includes("git")) {
-                    document.getElementById("git").innerText = payload
+                    documentGetElementById("git").innerText = payload
                 }
                 if (payload.includes("Cloning")) {
-                    document.getElementById("cloning").innerText = payload
+                    documentGetElementById("cloning").innerText = payload
                 }
                 if (payload.includes("Enumerating")) {
-                    let parts = payload.split(":");
+                    let parts = payload.split(SEMICOLON_STR);
                     if (parts.length >= 3) {
 
                         // console.log(percent)
-                        // document.getElementById("pg_enumerating").style.width = percent;
-                        document.getElementById("enumerating").innerText = "remote: Enumerating objects:" + parts[parts.length - 1]
+                        // documentGetElementById("pg_enumerating").style.width = percent;
+                        documentGetElementById("enumerating").innerText = "remote: Enumerating objects:" + parts[parts.length - 1]
                     }
                 }
                 if (payload.includes("Counting")) {
-                    let parts = payload.split(":");
+                    let parts = payload.split(SEMICOLON_STR);
                     if (parts.length >= 3) {
                         let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g)[0])
                         // console.log("counting", percent)
                         percent = percent * 1 / 100
-                        document.getElementById("pg_counting").style.width = percent + '%';
-                        document.getElementById("counting").innerText = "remote: Counting objects:" + parts[parts.length - 1]
+                        documentGetElementById("pg_counting").style.width = percent + '%';
+                        documentGetElementById("counting").innerText = "remote: Counting objects:" + parts[parts.length - 1]
 
                     }
                 }
                 if (payload.includes("Compressing")) {
-                    let parts = payload.split(":");
+                    let parts = payload.split(SEMICOLON_STR);
                     if (parts.length >= 3) {
                         let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g))
                         // console.log("compressing", percent)
                         percent = percent * 16 / 100
-                        document.getElementById("pg_compressing").style.width = percent + '%';
-                        document.getElementById("compressing").innerText = "remote: Compressing objects:" + parts[parts.length - 1]
+                        documentGetElementById("pg_compressing").style.width = percent + '%';
+                        documentGetElementById("compressing").innerText = "remote: Compressing objects:" + parts[parts.length - 1]
                     }
                 }
                 if (payload.includes("Total")) {
-                    let parts = payload.split(":");
+                    let parts = payload.split(SEMICOLON_STR);
                     if (parts.length >= 2) {
-                        document.getElementById("total").innerText = "remote:" + parts[parts.length - 1]
+                        documentGetElementById("total").innerText = "remote:" + parts[parts.length - 1]
                     }
                 }
                 if (payload.includes("Receiving")) {
-                    let parts = payload.split(":");
+                    let parts = payload.split(SEMICOLON_STR);
                     if (parts.length >= 2) {
                         let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g)[0]);
-                        percent = percent * 70 / 100
-                        // console.log("receving ", percent)
-                        document.getElementById("pg_receiving").style.width = percent + '%';
-                        document.getElementById("receiving").innerText = "Receiving objects:" + parts[parts.length - 1];
+                        percent = percent * 75 / 100
+                        documentGetElementById("pg_receiving").style.width = percent + '%';
+                        documentGetElementById("receiving").innerText = "Receiving objects:" + parts[parts.length - 1];
                     }
                 }
                 if (payload.includes("Resolving")) {
-                    let parts = payload.split(":");
+                    let parts = payload.split(SEMICOLON_STR);
                     if (parts.length >= 2) {
                         let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g))
-                        percent = percent * 2 / 100
-                        document.getElementById("pg_resolving").style.width = percent + '%';
-                        document.getElementById("resolving").innerText = "Resolving deltas:" + parts[parts.length - 1]
+                        percent = percent * 4 / 100
+                        documentGetElementById("pg_resolving").style.width = percent + '%';
+                        documentGetElementById("resolving").innerText = "Resolving deltas:" + parts[parts.length - 1]
                     }
                 }
                 if (payload.includes("Updating")) {
                     if (payload.includes("done")) {
                         console.log("done?", payload);
-                        document.getElementById("hint").innerText = "Counting lines of code"
+                        documentGetElementById("hint").innerText = "Counting lines of code"
                     }
-                    let parts = payload.split(":");
+                    let parts = payload.split(SEMICOLON_STR);
                     if (parts.length >= 2) {
                         let percent = parseInt(parts[parts.length - 1].match(/[0-99]+/g))
-                        percent = percent * 11 / 100
-                        document.getElementById("pg_updating").style.width = percent + '%';
-                        document.getElementById("updating").innerText = "Updating objects:" + parts[parts.length - 1]
+                        percent = percent * 9 / 100
+                        documentGetElementById("pg_updating").style.width = percent + '%';
+                        documentGetElementById("updating").innerText = "Updating objects:" + parts[parts.length - 1]
                     }
                 }
             }
@@ -424,7 +465,6 @@ function startStreaming(ws) {
     }
 }
 
-document.addEventListener("DOMContentLoaded", start);
 
 class FetchError extends Error {
     constructor(status, message) {
@@ -442,33 +482,157 @@ class PrepareError extends Error {
     }
 }
 
-function warningText(dateStr, commit) {
-    let date = new Date(dateStr).toString()
-    return `The information about the repository provided below is accurate as of ${date} and applies to commit ${commit}.`
+function createTableFromResponse(data) {
+    let strings = data.split("\n")
+    console.log(data)
+
+    strings.splice(0, 1);
+    strings.splice(1, 1);
+    console.log(strings.splice(-1, 1))
+
+    console.log(strings.splice(-2, 2))
+
+    let processed = strings.splice(-1, 1)
+    console.log(strings.splice(-1, 1))
+    let cocomo = strings.splice(-3, 3);
+
+    console.log(strings.splice(-1))
+    console.log(strings.splice(-2, 1))
+
+    for (let i = 0; i < strings.length; ++i) {
+        let array = strings[i].trim().split(/\s+/);
+        while (array.length > 7) {
+            array[0] += array[1]
+            array.splice(1, 1)
+        }
+        strings[i] = array;
+    }
+
+    let table = documentCreateElement(TABLE)
+    classListAdd(table, TABLE, TABLE_AUTO, `${MD}:${TABLE_FIXED}`, W_FULL, `${DARK}:${TEXT_WHITE}`)
+
+    let thead = createTableHead(strings[0]);
+    let tbody = documentCreateElement("tbody")
+
+    for (let i = 1; i < strings.length; ++i) {
+        let row = createTableRow(strings[i])
+        appendChildren(tbody, row)
+    }
+    appendChildren(table, thead, tbody)
+
+    TABLE_DIV.replaceChildren()
+
+    let caption = documentCreateElement(DIV);
+    caption.textContent = processed;
+    classListAdd(caption, PT_1_5, PX_2_5, FONT_LIGHT, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_300)
+
+    appendChildren(TABLE_DIV, table, caption)
+
+    console.log(strings, cocomo)
+    createCocomoFromResponse(cocomo)
 }
 
-let interval;
-const worker = new Worker("dist/sw.js")
+function createTableHead(array) {
+    let thead = documentCreateElement('thead')
+    let tr = documentCreateElement('tr')
+
+    array.forEach((item) => {
+        let th = documentCreateElement('th');
+        th.scope = 'col'
+        classListAdd(th, PX_2_5, "pt-4", "pb-2", TEXT_START, FONT_MEDIUM, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_300, BORDER_NEUTRAL_300)
+        th.textContent = item;
+
+        appendChildren(tr, th)
+    });
+
+    appendChildren(thead, tr)
+    return thead;
+}
+
+function createTableRow(array) {
+    let row = documentCreateElement('tr');
+
+    array.forEach((item, index) => {
+        let td = documentCreateElement('td');
+        classListAdd(td, PX_2_5, PY2, BORDER_B, TEXT_NEUTRAL_700, "dark:text-neutral-200", "border-neutral-200", "dark:border-zinc-600")
+        td.textContent = item.substring(0, 17)
+        if (item.length >= 20) {
+            td.textContent += '...'
+        }
+        if (index === 0) {
+            td.title = td.textContent
+            classListAdd(td, FONT_MEDIUM, TRUNCATE)
+        }
+        appendChildren(row, td)
+    });
+
+    return row;
+}
+
+function createCocomoFromResponse(cocomo_data) {
+    COCOMO_DIV.replaceChildren()
+    classListRemove(COCOMO_DIV, HIDDEN)
+    let cardBody = documentCreateElement("ul")
+    classListAdd(cardBody, "max-w-full", MY_4, FLEX, "flex-col", ROUNDED_LG, "dark:text-neutral-200")
+
+    let cardTitle = documentCreateElement(DIV)
+    classListAdd(cardTitle, TEXT_XL, FONT_MEDIUM, PX_5, BORDER_B, "dark:border-zinc-600")
+
+    cardTitle.textContent = 'COCOMO'
+
+    let cardSubtitle = documentCreateElement(DIV)
+    classListAdd(cardSubtitle, MB_2, TEXT_NEUTRAL_700, FONT_LIGHT, DARK_TEXT_NEUTRAL_300, "text-base")
+    cardSubtitle.textContent = 'Constructive Cost Model ('
+    let link = documentCreateElement('a')
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer canonical'
+    link.href = 'https://en.wikipedia.org/wiki/COCOMO'
+    link.textContent = 'wiki';
+    classListAdd(link, FONT_MEDIUM, UNDERLINE, "hover:text-neutral-800", DARK_HOVER_TEXT_WHITE)
+
+    appendChildren(cardSubtitle, link, document.createTextNode(')'))
+    appendChildren(cardTitle, cardSubtitle)
+    appendChildren(cardBody, cardTitle)
+
+    for (let i = 0; i < cocomo_data.length; i++) {
+        let paragraph = documentCreateElement('li')
+        classListAdd(paragraph, PX_5, PT_2)
+        paragraph.textContent = cocomo_data[i]
+
+        appendChildren(cardBody, paragraph)
+    }
+    appendChildren(COCOMO_DIV, cardBody)
+}
+
+const HEADING_ONE = documentGetElementById('headingOne');
+
+HEADING_ONE.addEventListener('click', () => {
+    documentGetElementById('collapseOne').classList.toggle('hidden');
+    const icon = HEADING_ONE.querySelector('svg');
+    icon.classList.toggle('rotate-180');
+});
+
+const worker = new Worker("/assets/sw.js")
 worker.onmessage = (event) => rotate(event.data);
 
 // Get the favicon element
-const faviconElement = document.getElementById('favicon');
+const FAVICON_ELEMENT = documentGetElementById('favicon');
 
 // Load the original favicon image
 const originalFavicon = new Image();
-originalFavicon.src = 'dist/assets/favicon.ico';
+originalFavicon.src = '/assets/favicon.ico';
 
-const LOGO = document.getElementById("logo")
+const LOGO = documentGetElementById("logo")
 
 function rotate(angle) {
-    // LOGO.setAttribute("transform", "rotate(" + angle + ")");
+    LOGO.setAttribute(TRANSFORM, "rotate(" + angle + ")");
 
     const rotatedFavicon = rotateImage(originalFavicon, angle);
-    faviconElement.href = rotatedFavicon;
+    FAVICON_ELEMENT.href = rotatedFavicon;
 }
 
 function rotateImage(image, angle) {
-    const canvas = document.createElement('canvas');
+    const canvas = documentCreateElement('canvas');
     const ctx = canvas.getContext('2d');
     canvas.width = image.width;
     canvas.height = image.height;
@@ -483,6 +647,6 @@ function rotateImage(image, angle) {
 function stopRotate() {
     worker.postMessage({ start: false })
     rotate(0);
-    faviconElement.href = originalFavicon.src;
-    LOGO.removeAttribute("transform")
+    FAVICON_ELEMENT.href = originalFavicon.src;
+    LOGO.removeAttribute(TRANSFORM)
 }
