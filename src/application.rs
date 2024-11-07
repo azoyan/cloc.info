@@ -115,13 +115,7 @@ pub async fn start_application(
         )
         .layer(CorsLayer::new().allow_credentials(true))
         .layer(axum::middleware::from_fn(set_static_cache_control))
-        .layer(
-            CompressionLayer::new()
-                .br(true)
-                .deflate(true)
-                .gzip(true)
-                .zstd(true),
-        )
+        .layer(CompressionLayer::new())
         .layer(axum::middleware::from_fn(print_request_response))
         .layer(TraceLayer::new_for_http());
 
