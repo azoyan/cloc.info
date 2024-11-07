@@ -1,7 +1,22 @@
 import { DIV, TEXT, DOCUMENT, documentCreateElement, insertAt, appendChildren, classListAdd, classListRemove, documentGetElementById, createRepositoryIcon } from "./common.js";
+
 import {
-    FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, ROUNDED, TEXT_NEUTRAL, HIDDEN, PY2, SPACE_X_3, BG_NEUTRAL_600, BG_NEUTRAL_100, SHADOW_LG, BG_WHITE, TEXT_CENTER, FONT_MEDIUM, TEXT_2XL, BORDER_B, LIST_NONE, LIST_INSIDE, DIVIDE_Y, PB_1, LIST_GROUP_ITEM, MX_3, SM_MX_2, MX_2, H_12, W_36, SM_W_32, UNDERLINE, W_24, W_28, SM_W_24, W_8, H_8, P_1, W_2, PY_1_5, COLLAPSABLE, P_2, JUSTIFY_START, W_32
-} from "./tailwind-classes.js";
+    FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, ROUNDED, TEXT_NEUTRAL_600, HIDDEN, PY_2, SPACE_X_3, BG_WHITE, TEXT_CENTER, FONT_MEDIUM, TEXT_2XL, BORDER_B, LIST_NONE, LIST_INSIDE, DIVIDE_Y, PB_1, LIST_GROUP_ITEM, MX_2, H_12, W_36, SM_W_32, UNDERLINE, W_24, W_28, W_8, H_8, P_1, W_2, PY_1_5, COLLAPSABLE, P_2, JUSTIFY_START, W_32,
+    HOVER_BG_NEUTRAL_100,
+    DARK_TEXT_NEUTRAL_300,
+    DARK_BORDER_ZINC_500,
+    DARK_TEXT_WHITE,
+    DARK_TEXT_NEUTRAL_400,
+    DARK_BG_ZINC_900,
+    DARK_HOVER_BG_ZINC_800,
+    DARK_BG_ZINC_800,
+    ROUNDED_T_LG,
+    DARK_DIVIDE_ZINC_600,
+    ME_2,
+    MX_1,
+    DIVIDE_ZINC_600,
+    DARK
+} from './tailwind-classes.js';
 
 function start() {
     const statisticElement = DOCUMENT.querySelector("statistic");
@@ -31,13 +46,13 @@ function start() {
 function createStatisticBlock(name, id) {
     const block = documentCreateElement(DIV);
 
-    classListAdd(block, BG_WHITE, ROUNDED, BORDER, BORDER_NEUTRAL, `dark:bg-zinc-900`, `dark:border-zinc-500`);
+    classListAdd(block, BG_WHITE, ROUNDED, BORDER, BORDER_NEUTRAL, DARK_BG_ZINC_900, DARK_BORDER_ZINC_500);
     const elementHeader = documentCreateElement(DIV);
-    classListAdd(elementHeader, TEXT_CENTER, FONT_MEDIUM, TEXT_2XL, BORDER_B, PY2, BORDER_NEUTRAL, `dark:border-neutral-600`, `dark:text-neutral-300`, `dark:bg-zinc-800`, 'rounded-t-lg');
+    classListAdd(elementHeader, TEXT_CENTER, FONT_MEDIUM, TEXT_2XL, BORDER_B, PY_2, BORDER_NEUTRAL, DARK_BORDER_ZINC_500, DARK_TEXT_NEUTRAL_300, ROUNDED_T_LG, DARK_BG_ZINC_800);
     elementHeader.innerText = name;
     const list = documentCreateElement("ul");
     list.id = id;
-    classListAdd(list, LIST_NONE, LIST_INSIDE, DIVIDE_Y, PB_1, 'dark:divide-neutral-600');
+    classListAdd(list, LIST_NONE, LIST_INSIDE, DIVIDE_Y, PB_1, DARK_DIVIDE_ZINC_600);
 
     appendChildren(block, elementHeader, list);
 
@@ -150,11 +165,11 @@ class ListItem {
         let repository_array = repository.branches;
         let listItem = documentCreateElement("li");
 
-        classListAdd(listItem, LIST_GROUP_ITEM, MX_3, "sm:mx-1", `dark:text-neutral-300`);
+        classListAdd(listItem, LIST_GROUP_ITEM, MX_2, DARK_TEXT_NEUTRAL_300);
 
         let local_href = "/" + repository.hostname + "/" + repository.owner + "/" + repository.repository_name;
 
-        let row = createRow(FLEX, MX_2, H_12, ITEMS_CENTER, SPACE_X_3);
+        let row = createRow(FLEX, "me-3", H_12, ITEMS_CENTER, SPACE_X_3);
         let col1 = createColumn(W_36, SM_W_32, TRUNCATE);
 
         let title = `${repository.repository_name}`;
@@ -168,7 +183,7 @@ class ListItem {
         const href = 'https://' + repository.hostname + "/" + repository.owner + "/" + repository.repository_name;
         const external = createExternalLink(href, "", `Open repository ${href}`);
         const externalLink = createRepositoryIcon(repository.hostname, 16, 16);
-        classListAdd(externalLink, BORDER, W_8, H_8, P_1, ROUNDED, `hover:${BG_NEUTRAL_100}`, 'dark:text-white', 'dark:border-neutral-500', 'dark:hover:bg-zinc-800');
+        classListAdd(externalLink, BORDER, W_8, H_8, P_1, ROUNDED, HOVER_BG_NEUTRAL_100, DARK_TEXT_WHITE, DARK_BORDER_ZINC_500, DARK_HOVER_BG_ZINC_800);
         appendChildren(external, externalLink);
         let col4 = createColumn(W_2, PY_1_5);
 
@@ -366,7 +381,7 @@ class LargestCollapseContent extends CollapseContent {
 
 function createSmallText(text) {
     let div = documentCreateElement(TEXT);
-    classListAdd(div, TEXT_NEUTRAL, 'dark:text-neutral-400');
+    classListAdd(div, TEXT_NEUTRAL_600, DARK_TEXT_NEUTRAL_400);
     div.innerText = text;
     return div;
 }

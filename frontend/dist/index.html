@@ -1,281 +1,223 @@
+<!DOCTYPE html><html lang="en"><link rel="canonical" href="https://cloc.info"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#000000"><meta name="description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code"><meta name="og:description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code"><meta name="og:title" content="Count lines of code"><meta name="og:site_name" content="Count lines of code"><meta name="og:url" content="https://cloc.info"><meta name="og:image" content="./android-chrome-192x192.png"><meta name="og:image:width" content="192"><meta name="og:image:height" content="192"><meta name="og:locale" content="en_US"><meta name="og:type" content="website"><meta name="google-site-verification" content="ckQrLb6lG-zoXPWIEyOB13ZXK7Sgcx1IRHfxtexytI4"><link rel="shortcut icon" type="image/ico" id="favicon" href="/assets/favicon-D2pXn3IS.ico"><link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon-CHwmFDZ-.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32-DNESycOY.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16-CtKDRR54.png"><title>Count Lines of Code Online - cloc.info</title></html><script type="module" crossorigin src="/assets/index.pug-ClsAALsN.js"></script>
+<link rel="modulepreload" crossorigin href="/assets/common-BtJT3fLw.js">
+<link rel="modulepreload" crossorigin href="/assets/git_url_parser-DFMSNwUD.js">
+<link rel="stylesheet" crossorigin href="/assets/main-B2o_ky7R.css">
 
-<!DOCTYPE html>
-<html lang="en">
-  <link rel="canonical" href="https://cloc.info">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#000000">
-<meta name="description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code">
-<meta name="og:description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code">
-<meta name="og:title" content="Count lines of code">
-<meta name="og:site_name" content="Count lines of code">
-<meta name="og:url" content="https://cloc.info">
-<meta name="og:image" content="./android-chrome-192x192.png">
-<meta name="og:image:width" content="192">
-<meta name="og:image:height" content="192">
-<meta name="og:locale" content="en_US">
-<meta name="og:type" content="webisite">
-<meta name="google-site-verification" content="ckQrLb6lG-zoXPWIEyOB13ZXK7Sgcx1IRHfxtexytI4">
-<link rel="shortcut icon" type="image/ico" href="/assets/favicon-D2pXn3IS.ico">
-<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon-CHwmFDZ-.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32-DNESycOY.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16-CtKDRR54.png">
-<title>Count Lines of Code Online - cloc.info</title>
+<body class="dark:bg-zinc-900"><nav class="flex w-full bg-zinc-950 p-4 sticky top-0">
+    <div class="inline-flex items-center pr-8 text-neutral-100 hover:text-white">
+        <a class="inline-flex items-center font-mono font-normal text-xl" href="/"
+            aria-label="Go to cloc.info home page">
+            <svg id="logo" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="16" cy="16" r="16" fill="currentColor" />
+                <text x="50%" y="50%" dy="43%" font-size="45px"
+                    style="font-family: 'Ubuntu', 'sans-serif';font-weight: 500;" text-anchor="middle"
+                    fill="black">~</text>
+            </svg>
 
-  
-
-  <script type="module" crossorigin src="/assets/index.liquid-CQ51IKol.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/common-x52839AR.js">
-  <link rel="modulepreload" crossorigin href="/assets/git_url_parser-DI46v0mF.js">
-  <link rel="stylesheet" crossorigin href="/assets/main-WKFOtZeT.css">
-
-  <body class="d-flex flex-column min-vh-100">
-    <header>
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-        <div class="container-fluid">
-            <a class="navbar-brand text-center pe-4" href="/">
-                <svg width="32" height="32">
-                    <circle cx="16" cy="16" r="16" fill="white" />
-                    <text x="50%" y="50%" dy="43%" font-size="45px"
-                        style="font-family: 'Ubuntu', 'sans-serif';font-weight: 500;" text-anchor="middle"
-                        fill="black">~</text>
+            <div class="px-2 sm:block hidden">cloc.info</div>
+        </a>
+    </div>
+    <div class="flex w-full justify-between">
+        <div class="inline-flex items-center px-2 text-neutral-100 hover:text-white">
+            <a class="inline-flex items-center px-1" href="/upload">
+                <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    strokeWidth={1.5} stroke="currentColor" class="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                        d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                 </svg>
-                cloc.info</a>
-            <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"
-                aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarCollapse">
-                <ul class="navbar-nav me-auto mb-2 mb-md-0">
-                    <li class="nav-item">
-                        <a class="nav-link" title="Upload your code" href="/upload">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                                class="bi bi-upload" viewBox="0 0 16 16">
-                                <path
-                                    d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z" />
-                                <path
-                                    d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z" />
-                            </svg>
-                            Upload
-                        </a>
-                    </li>
+                <div class="px-2">Upload</div>
+            </a>
+        </div>
+        <div class='inline-flex items-center text-neutral-100 hover:text-white'>
+            <a class="inline-flex items-center px-1" href="https://github.com/azoyan/cloc.info"
+                aria-label="Open cloc.info repository">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                    <path
+                        d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8" />
+                </svg>
+                <div class="px-2 md:block hidden">Github</div>
+            </a>
+        </div>
+    </div>
+</nav><main class="min-h-screen justify-center">
+    <h1 class="my-10 font-medium text-4xl text-center dark:text-neutral-300">Count lines of code</h1>
+    <div class="max-w-[72rem] mx-auto px-2">
+        <input id="input" aria-describedby="insert repository url" placeholder="Repository URL" required name="url"
+            type="url" pattern="https?://.*" class="truncate text-nowrap rounded-lg border border-neutral-300 focus:outline-none dark:focus:outline-1 focus:ring  dark:bg-zinc-900 dark:border-zinc-500 dark:text-neutral-300 dark:placeholder-neutral-500 placeholder:text-sm block
+                w-full py-1.5 px-2.5">
+        <span id="check"
+            class="invisible fixed top-1/2 right-2 -translate-y-1/2 text-green-500 dark:text-green-500 rounded-md px-1 text-xl">
+            <!-- <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+                <path
+                    d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z" />
+            </svg> -->
+        </span>
+
+        <p id="hint" class="text-sm pt-1 text-neutral-500 dark:text-neutral-300">For example: <text role="button"
+                id="hintUrl" class="underline underline-offset-2 hover:text-neutral-700 dark:hover:text-neutral-300">
+                https://github.com/tokio-rs/axum
+            </text>
+        </p>
+        <div id="repoInfo" class="flex space-x-2 items-center invisible">
+            <a target="_blank" rel="noopener noreferrer canonical" id="repoUrl" class="link-dark">
+                <div id="repoButton"
+                    class="inline-flex min-w-12 justify-center rounded-lg border border-neutral-300 items-center px-2 py-1.5 hover:bg-neutral-100 dark:text-neutral-300 dark:border-zinc-500 dark:bg-zinc-900 dark:hover:bg-zinc-800">
+                </div>
+            </a>
+            <div>
+                <div id="dropdownButton"
+                    class="flex w-28 sm:w-64 truncate border text-neutral-800 border-neutral-300 hover:bg-neutral-100 focus:bg-white rounded-lg text-sm px-2.5 py-2 items-center dark:border-zinc-500 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                    type="button">
+                    <div>
+                        <svg class="w-6 h-4 dark:text-neutral-300" xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 21 21" fill="none" stroke="currentColor" stroke-width="1"
+                            stroke-linecap="round">
+                            <path d="M6 9v6" />
+                            <circle cx="18" cy="6" r="2.5" />
+                            <circle cx="6" cy="6" r="2.5" />
+                            <circle cx="6" cy="18" r="2.5" />
+                            <path d="M18 9a9 9 0 0 1-9 9" />
+                        </svg>
+                    </div>
+                    <div id="branchLabel" class="truncate w-28 sm:w-52 text-start px-1 dark:text-neutral-300">dummy
+                    </div>
+                    <svg class="w-4 h-4 ml-auto dark:text-neutral-300" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                        </path>
+                    </svg>
+                </div>
+
+                <ul id="dropdownList"
+                    class="absolute z-10 w-3/4 sm:w-1/12 min-w-64 divide-y bg-white my-1 border border-neutral-300 rounded-lg shadow-lg max-h-72 overflow-auto px-2 py-2 text-sm text-neutral-700 dark:bg-zinc-800 dark:border-zinc-500">
                 </ul>
-
-                <ul class="navbar-nav me-2 mb-2 mb-md-0">
-                    <li class="nav-item me-0">
-                        <a class="nav-link" title="Go to cloc.info GitHub repository" target="_blank"
-                            rel="noopener noreferrer canonical" href="https://github.com/azoyan/cloc.info">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
-                                class="bi bi-github" viewBox="0 0 20 10">
-                                <path
-                                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z">
-                                </path>
-                            </svg>GitHub</a>
-                    </li>
-                </ul>
             </div>
+            <div class="grow"></div>
+            <div id="commit"></div>
         </div>
-    </nav>
-</header>
 
-    
-<main class="flex-fill">
-    <div class="container mt-3">
-        <div class="row align-items-center">
-            <h1 class="d-flex justify-content-center py-3">
-                <label for="input" class="form-label">Count lines of code</label>
-            </h1>
+        <div id="invalidFeedback"
+            class="flex invisible items-center p-4 mb-4 text-sm text-red-800 border border-red-300 rounded-lg bg-red-50 transform  origin-top transition-transform"
+            role="alert">
+
         </div>
-        <div class="row align-items-top">
-            <div class="d-flex justify-content-start align-items-center">
-                <div class="col col-12 float-left">
-                    <div class="input-group has-validation" id="inputGroupPrepend">
-                        <input onkeypress="return event.charCode != 32" v-model="url" type="url" class="form-control"
-                            placeholder="Repository URL" id="input" aria-describedby="inputGroupPrepend" required>
-                        <div class="invalid-feedback" id="invalidFeedback"></div>
-                    </div>
+    </div>
+
+    <div class='grid items-center min-w-screen-lg sm:h-auto h-2/3 max-h-screen'>
+        <button id="submitButton" type="button" disabled class="h-16 self-end justify-self-center text-white disabled:border-zinc-500 bg-green-700 hover:bg-green-800 disabled:bg-zinc-500 focus:outline-none text-xl  w-1/2 lg:w-1/6 md:w-1/5 font-medium rounded-lg px-5 py-3 my-10 me-2 mb-2 focus:ring-4 
+                dark:text-neutral-300 dark:bg-green-800 dark:hover:bg-green-700 focus:ring-green-300">
+            <div class="flex justify-center">
+                <div class="flex-none hidden" id="checkSpinner" role="status">
+                    <img class="inline w-4 h-4 me-3 animate-spin" src="assets/spinner.svg">
                 </div>
-            </div>
-
-            <div class="d-flex align-items-center">
-                <div class="row" id="hint">
-                    <div class="form-text">
-                        For example: <a role="button"
-                            class="link-secondary link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover "
-                            id="hint_url">https://github.com/actix/actix-web</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="repoInfo" class="row justify-content-md-start">
-            <div class="col col-sm-auto">
-                <div class="row align-items-center">
-                    <div class="col col-sm-auto" id="select"></div>
-                    <div class="col col-sm-auto">
-                        <a target="_blank" rel="noopener noreferrer canonical" id="repository_pic"
-                            class="invisible link-dark">
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <div class="col col-sm-auto align-self-center text-truncate float-start">
-                <div class="fs-6 mt-1 text-center" id="commit">&nbsp;</div>
-            </div>
-        </div>
-
-        <div class="container mt-4 align-items-top text-center">
-            <button class="btn btn-success btn-lg" style="width: calc(5% + 100px);" id="submitButton" type="submit"
-                disabled>
-                <span class="spinner-border spinner-border-sm" hidden="true" id="checkSpinner" role="status">
-                </span>
-                <span id="buttonText">
+                <div id="buttonText" class="flex-shrink-0">
                     Submit
-                </span>
-            </button>
-        </div>
+                </div>
+            </div>
+        </button>
     </div>
 </main>
 
-<statistic class="bg-light pt-1 pb-5">
-    <div class="container">
-        <div class="row">
-            <div class="col mt-5">
-                <div class="card shadow col mx-4">
-                    <label class="card-header text-center bg-white">
-                        Recent
-                    </label>
-                    <div class="card-body p-2">
-                        <ul class="list-group list-group-flush" id="recent"></ul>
-                    </div>
-                </div>
-            </div>
-            <div class="col mt-5">
-                <div class="card shadow col mx-4">
-                    <label class="card-header text-center bg-white">
-                        Popular
-                    </label>
-                    <div class="card-body p-2">
-                        <ul class="list-group list-group-flush" id="popular"></ul>
-                    </div>
-                </div>
-            </div>
-            <div class="col mt-5">
-                <div class="card shadow col mx-4">
-                    <label class="card-header text-center bg-white">
-                        Largest
-                    </label>
-                    <div class="card-body p-2">
-                        <ul class="list-group list-group-flush" id="largest"></ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</statistic>
-<about class="container bg-white pt-5 pb-5">
-    <div class="container py-3">
-        <h2 class="pb-3">How it works</h2>
-        <p>Under the hood is <strong>scc</strong> tool, a fast and
-            accurate code counter that supports over 300 languages and multiple output formats. We are grateful
-            to
-            the developers of scc for creating such a powerful and reliable tool. You can learn more about scc
-            and
-            its features on its <a href="https://github.com/boyter/scc" title="Go to scc GitHub repository"
-                target="_blank" rel="noopener noreferrer" class="link-secondary">GitHub page</a>.</p>
-        <p>
-            You can also use this service from terminal browsers, such as lynx, or as an API, by sending a
-            request with <strong>curl</strong> and getting a human-readable response.
-        </p>
-    </div>
 
-    <div class="container py-3">
-        <h2 class="pb-3">How to use curl</h2>
-        <p><a class="link-secondary" title="Go to curl official website" href="https://curl.se" target="_blank"
-                rel="noopener noreferrer">curl</a> is a
-            command-line utility
-            that allows you to send requests to an API.
-            To send a request
-            with curl to this service, you need to use the following syntax:</p>
-        <div class="d-flex bg-light code-block mb-3 px-3 mt-1 pt-3 border">
-            <pre><code>curl https://cloc.info/[git_host]/[git_owner]/[git_repo]</code></pre>
+<statistic class="bg-neutral-100 dark:bg-zinc-900 min-h-svh flex flex-wrap items-center justify-center py-12 gap-12">
+</statistic>
+
+<about class="flex flex-col items-center py-12 px-2 mx-auto max-w-[72rem] dark:text-neutral-300 space-y-8">
+    <div class="container space-y-2">
+        <h2 class="text-3xl text font-medium">How it works</h2>
+        <p>Under the hood is <a href="https://github.com/boyter/scc" title="Go to scc GitHub repository" target="_blank"
+                rel="noopener noreferrer"
+                class="underline hover:text-neutral-800 dark:hover:text-neutral-100 text-neutral-500 dark:text-neutral-300">scc</a>
+            tool, a fast and accurate code counter that supports over 300 languages and multiple output formats. We
+            are
+            grateful to the developers of scc for creating such a powerful and reliable tool.</p>
+    </div>
+    <div class="container space-y-4">
+        <div class="space-y-2">
+            <h3 class="text-2xl font-medium">How to use from terminal</h3>
+            You can use this service as an API by sending a request with <a
+                class="underline hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100 text-neutral-500"
+                title="Go to wget official webpage" href="https://www.gnu.org/software/wget" target="_blank"
+                rel="noopener noreferrer">wget</a> or <a
+                class="underline hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100 text-neutral-500"
+                title="Go to curl official website" href="https://curl.se" target="_blank"
+                rel="noopener noreferrer">curl</a> and getting a human-readable
+            response. Terminal browsers such as lynx are also supported.
+            <p>
+                To send a request to this service, use the following link structure:
+            </p>
+            <div
+                class="bg-neutral-50 border dark:border-zinc-500 py-4 px-4 pe-10 rounded-md overflow-auto dark:bg-neutral-800">
+                <pre><code class="pe-4">https://cloc.info/[git_host]/[git_owner]/[git_repo]</code></pre>
+            </div>
+            <p>where <text class="font-mono">[git_host]</text> is the hosting platform for git,
+                <text class="font-mono">[git_owner]</text> is the owner of the repository and
+                <text class="font-mono">[git_repo]</text> is the name of the repository.
+            </p>
         </div>
-        <p>where <text class="text-secondary-emphasis font-monospace">[git_host]</text> is the hosting platform for
-            git,
-            <text class="text-secondary-emphasis font-monospace">[git_owner]</text> is the owner of the repository
-            and
-            <text class="text-secondary-emphasis font-monospace">[git_repo]</text> is the name of the repository.
-        </p>
-        <h3 class="pb-1 pt-2">Example</h3>
-        <p>If you want to count lines of code for the repository <a class="link-secondary"
-                href="https://github.com/intel" title="Go to intel GitHub repository" target="_blank"
-                rel="noopener noreferrer">https://gthub.com/intel/tinycrypt</a>, just add to <text
-                class="text-secondary-emphasis font-monospace">https://cloc.info/</text> rest part of url
-            <text class="text-primary-emphasis font-monospace">github.com/intel/tinycrypt</text>
-        </p>
-        <div class="d-flex bg-light code-block mb-3 px-3 mt-1 pt-3 border">
-            <pre><code style="user-select: none;">$ </code><code>curl </code><code class="text-seondary-emphasis">https://cloc.info/</code><code class="text-primary-emphasis">github.com/intel/tinycrypt</code></pre>
-        </div>
-        <div class="d-flex bg-light code-block mb-3 px-3 mt-0 pt-0 border">
-            <pre><samp>
--------------------------------------------------------------------------------
+        <div class="space-y-2">
+            <h4 class="text-xl font-medium">Example</h4>
+            <p>To count lines of code for the repository <a
+                    class="underline hover:text-neutral-800 dark:hover:text-neutral-100"
+                    href="https://github.com/torvalds/libgit2" title="Linus Torvalds Github Repository" target="_blank"
+                    rel="noopener noreferrer">https://github.com/torvalds/libgit2</a>, just append
+                to <text class="font-mono">https://cloc.info/</text> the rest of the URL
+                <text class="font-mono">github.com/torvalds/libgit2</text>
+            </p>
+            <div
+                class="bg-neutral-50 border dark:border-zinc-500 my-4 p-4 rounded-md overflow-auto dark:bg-neutral-800">
+                <pre><code style="user-select: none;">$ </code><code>curl </code><code>https://cloc.info/</code><code class="pe-4">github.com/torvalds/libgit2</code></pre>
+                <pre><code style="user-select: none;">$ </code><code>wget -qO- </code><code>https://cloc.info/</code><code class="pe-4">github.com/torvalds/libgit2</code></pre>
+            </div>
+            <div
+                class="bg-neutral-50 border dark:border-zinc-500 my-4 py-2 px-4 pe-10 rounded-md overflow-auto dark:bg-neutral-800">
+                <pre class="font-mono text-sm whitespace-pre">
+<samp class="pe-4">-------------------------------------------------------------------------------
 Language                 Files     Lines   Blanks  Comments     Code Complexity
 -------------------------------------------------------------------------------
-C                           27     17138     1463      1749    13926        964
-C Header                    17      2695      256      1912      527         11
-Makefile                     4       162       35        36       91          0
-License                      1        61       15         0       46          0
-ReStructuredText             1       352      106         0      246          0
-gitignore                    1         5        0         0        5          0
+C                          717    287940    53208     23097   211635      35225
+C Header                   355     66273     7175     25338    33760       1372
+Plain Text                 113       994       93         0      901          0
+CMake                       49      2632      421       406     1805        230
+Markdown                    27      4958     1170         0     3788          0
+Shell                       17      1562      297       108     1157        242
+BASH                        12        96       24        12       60          0
+License                      6      1455      266         0     1189          0
+HTML                         5       175        0         0      175          0
+PHP                          5       201       18        30      153         15
+JSON                         4        64        0         0       64          0
+YAML                         4       859       26        37      796          0
+Autoconf                     3       125       26        97        2          2
+gitignore                    3        11        0         2        9          0
+Module-Definition            2        58        0         0       58          0
+Python                       2       507       40        12      455         48
 -------------------------------------------------------------------------------
-Total                       51     20413     1875      3697    14841        975
+Total                     1324    367910    62764     49139   256007      37134
 -------------------------------------------------------------------------------
-Estimated Cost to Develop (organic) $458,808
-Estimated Schedule Effort (organic) 10.23 months
-Estimated People Required (organic) 3.98
+Estimated Cost to Develop (organic) $9,125,564
+Estimated Schedule Effort (organic) 31.86 months
+Estimated People Required (organic) 25.44
 -------------------------------------------------------------------------------
-Processed 717583 bytes, 0.718 megabytes (SI)
+Processed 11310219 bytes, 11.310 megabytes (SI)
 -------------------------------------------------------------------------------</samp></pre>
+            </div>
+            <p>This command will return a table with the number of lines of code for each programming
+                language in the repository, as well as some metrics, such as the estimated cost of development, the
+                estimated time of completion, and the estimated number of people
+                required.</p>
+            <p>You can use the same syntax for any other git platform, such as
+                gitlab.com or bitbucket.org,
+                just by replacing <text class="text-secondary-emphasis font-monospace">[git_host]</text></code> with
+                the
+                corresponding host.</p>
         </div>
-        <p>This command will return a table with the number of lines of code for each programming
-            language in the repository, as well as some metrics, such as the estimated cost of development, the
-            estimated time of completion, and the estimated number of people
-            required.</p>
-        <p>You can use the same syntax for any other git platform, such as gitlab.com or bitbucket.org,
-            just by replacing <text class="text-secondary-emphasis font-monospace">[git_host]</text></code> with the
-            corresponding host.</p>
     </div>
-    <div class="container py-3">
-        <h2 class="pb-3">Feedback</h2>
-        <p>If you have any suggestions or questions, please feel free to open issue on <a
+    <div class="container space-y-4">
+        <h2 class="text-3xl text font-medium">Feedback</h2>
+        <p class="">If you have any suggestions or questions, please feel free to open issue on <a
                 href="https://github.com/azoyan/cloc.info" target="_blank" rel="noopener noreferrer"
                 class="link-secondary">GitHub
                 repository</a>. I would appreciate your feedback.</p>
     </div>
-</about>
-
-
-    <footer class="footer mt-auto py-4">
-  <div class="container fw-lighter">
-    <div class="row">
-      <div class="col col-md-6 d-flex justify-content-between">
-        <div>
-          <p class="text-muted text-start mb-0">Ivan Azoyan © 2024</p>
-        </div>
-      </div>
-      <div class="col col-md-6 text-md-end d-flex justify-content-center">
-        <ul class="list-inline mb-0">
-          <li class="list-inline-item">
-            <a href="upload" title="Upload your own code" class="text-muted text-decoration-none">Upload</a>
-          </li>
-          <li class="list-inline-item">
-            <a href="https://github.com/azoyan/cloc.info" title="Go to cloc.info GitHub repository" class="text-muted text-decoration-none">GitHub</a>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</footer>
-
-  </body>
-</html>
+</about><footer class="pt-10 text-sm font-light text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-zinc-950"><div class="grid grid-flow-col gap-10 justify-center"><a class="hover:text-neutral-900 dark:hover:text-white inline-flex items-center px-1 link link-hover hover:underline" href="/upload"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"></path></svg><div class="mx-1">Upload</div></a><a class="hover:text-neutral-900 dark:hover:text-white inline-flex items-center px-1 link link-hover hover:underline" href="https://github.com/azoyan/cloc.info"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"></path></svg><div class="mx-1">Github</div></a></div><div class="pt-10 pb-8 text-center">Copyright 2024 (c) Ivan Azoyan</div></footer></body>

@@ -1,15 +1,13 @@
 import { gitUrlParse } from "./git_url_parser";
-import { createRepositoryIcon, isGithub, isGitlab, isBitbucket, isCodeberg, isGitbucket, isGitea, isGitverse, isGnu, isLaunchpad, documentGetElementById, documentCreateElement, classListRemove, classListAdd, appendChildren, TEXT, DOCUMENT, DIV } from "./common";
+import { createRepositoryIcon, isGithub, documentGetElementById, documentCreateElement, classListRemove, classListAdd, appendChildren, TEXT, DOCUMENT, DIV } from "./common";
 import {
-    TABLE, TABLE_AUTO, FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, BORDER_R, ROUNDED, TEXT_NEUTRAL, HIDDEN, PX2, PY2, W_2, TEXT_SM, BORDER_RED, FOCUS_RING, BG_NEUTRAL_100, SM, MD, BLOCK, INVISIBLE, SPACE_X_3, CURSOR_POINTER, HOVER_TEXT_BLACK, PX_1, RING_1, RING_INSET, RING_GRAY_500_10, ROUNDED_L_LG, SM_PL_2, SM_PR_4, HOVER_ROUNDED, FONT_MONO, FONT_LIGHT,
-    DARK_TEXT_NEUTRAL_400,
+    TABLE, TABLE_AUTO, FLEX, TRUNCATE, HIDDEN, PY_2, MD, FONT_LIGHT,
     W_FULL,
     TABLE_FIXED,
     TEXT_WHITE, DARK,
     TEXT_XL,
     FONT_MEDIUM,
     UNDERLINE,
-    BORDER_T_TRANSPARENT,
     BORDER_T,
     PX_2_5,
     PT_1_5,
@@ -19,14 +17,26 @@ import {
     TEXT_NEUTRAL_700,
     TRANSFORM,
     DARK_TEXT_NEUTRAL_300,
-    BORDER_RED_300,
     BORDER_NEUTRAL_300,
     PX_5,
     ROUNDED_LG,
     MY_4,
     PT_2,
-    HOVER_TEXT_WHITE,
-    DARK_HOVER_TEXT_WHITE
+    DARK_HOVER_TEXT_WHITE,
+    DARK_BORDER_ZINC_500,
+    TEXT_BASE,
+    MAX_W_SCREEN_LG,
+    P_4,
+    FLEX_COL,
+    HOVER_TEXT_NEUTRAL_800,
+    DARK_TEXT_NEUTRAL_200,
+    BORDER_NEUTRAL_200,
+    ROUNDED_T_LG,
+    ROUNDED_R_LG,
+    ROUNDED_L_LG,
+    ROUNDED_B_LG,
+    DARK_TEXT_WHITE,
+    MD_TABLE_FIXED
 } from './tailwind-classes.js'
 
 let Url = new URL(document.URL);
@@ -248,20 +258,18 @@ async function preparePage(url) {
 }
 
 function showError(status, message) {
-    console.trace()
+    // console.trace()
     // let alert = documentGetElementById("warning")
     // alert.classList.toggle('show')
     let bodyText = message ? message : ""
     let headerText = status ? status : ""
-    console.log("BODY", bodyText, "HEADER", headerText)
-
+    // console.log("BODY", bodyText, "HEADER", headerText)
 }
 
 function createWarning(prev) {
     let date = new Date(prev.date).toISOString().substring(0, 16).replace('T', ' ').replace(' ', "\xa0");
 
     let p1 = documentCreateElement("p")
-    classListAdd(p1, "text-wrap")
     let text = documentCreateElement(TEXT);
     text.innerText = "This information is current as of "
 
@@ -301,8 +309,8 @@ async function start(_e) {
             let data = String.fromCharCode(...prev.data);
             classListRemove(REPOSITORY_DIV, HIDDEN)
             appendChildren(WARNING_DIV, createWarning(prev, prev))
-            classListRemove(TABLE_DIV, BORDER_T, "rounded-l-lg", "rounded-r-lg", "rounded-t-lg", HIDDEN)
-            classListRemove(WARNING_DIV, "rounded-b-lg", HIDDEN, BORDER_T, "rounded-l-lg", "rounded-r-lg")
+            classListRemove(TABLE_DIV, BORDER_T, ROUNDED_L_LG, ROUNDED_R_LG, ROUNDED_T_LG, HIDDEN)
+            classListRemove(WARNING_DIV, ROUNDED_B_LG, HIDDEN, BORDER_T, ROUNDED_R_LG, ROUNDED_L_LG)
             createTableFromResponse(data)
         }
         classListRemove(PROCESSING_DIV, HIDDEN)
@@ -385,7 +393,7 @@ function startStreaming(ws) {
                 let payload = lines[i];
                 // console.log("payload line:", payload)
                 // console.log("Done?", payload, payload.hasOwnProperty("Done"));
-                classListAdd(documentGetElementById("status"), PY2)
+                classListAdd(documentGetElementById("status"), PY_2)
 
                 if (payload.includes("git")) {
                     documentGetElementById("git").innerText = payload
@@ -509,7 +517,7 @@ function createTableFromResponse(data) {
     }
 
     let table = documentCreateElement(TABLE)
-    classListAdd(table, TABLE, TABLE_AUTO, `${MD}:${TABLE_FIXED}`, W_FULL, `${DARK}:${TEXT_WHITE}`)
+    classListAdd(table, TABLE, TABLE_AUTO, MD_TABLE_FIXED, W_FULL, DARK_TEXT_WHITE)
 
     let thead = createTableHead(strings[0]);
     let tbody = documentCreateElement("tbody")
@@ -539,7 +547,7 @@ function createTableHead(array) {
     array.forEach((item) => {
         let th = documentCreateElement('th');
         th.scope = 'col'
-        classListAdd(th, PX_2_5, "pt-4", "pb-2", TEXT_START, FONT_MEDIUM, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_300, BORDER_NEUTRAL_300)
+        classListAdd(th, PX_2_5, P_4, TEXT_START, FONT_MEDIUM, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_300, BORDER_NEUTRAL_300)
         th.textContent = item;
 
         appendChildren(tr, th)
@@ -554,7 +562,7 @@ function createTableRow(array) {
 
     array.forEach((item, index) => {
         let td = documentCreateElement('td');
-        classListAdd(td, PX_2_5, PY2, BORDER_B, TEXT_NEUTRAL_700, "dark:text-neutral-200", "border-neutral-200", "dark:border-zinc-600")
+        classListAdd(td, PX_2_5, PY_2, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_200, BORDER_NEUTRAL_200, DARK_BORDER_ZINC_500)
         td.textContent = item.substring(0, 17)
         if (item.length >= 20) {
             td.textContent += '...'
@@ -572,36 +580,37 @@ function createTableRow(array) {
 function createCocomoFromResponse(cocomo_data) {
     COCOMO_DIV.replaceChildren()
     classListRemove(COCOMO_DIV, HIDDEN)
-    let cardBody = documentCreateElement("ul")
-    classListAdd(cardBody, "max-w-full", MY_4, FLEX, "flex-col", ROUNDED_LG, "dark:text-neutral-200")
+    let card = documentCreateElement("ul")
+    classListAdd(card, MAX_W_SCREEN_LG, MY_4, FLEX, FLEX_COL, ROUNDED_LG, DARK_TEXT_NEUTRAL_200)
 
     let cardTitle = documentCreateElement(DIV)
-    classListAdd(cardTitle, TEXT_XL, FONT_MEDIUM, PX_5, BORDER_B, "dark:border-zinc-600")
+    
 
     cardTitle.textContent = 'COCOMO'
 
     let cardSubtitle = documentCreateElement(DIV)
-    classListAdd(cardSubtitle, MB_2, TEXT_NEUTRAL_700, FONT_LIGHT, DARK_TEXT_NEUTRAL_300, "text-base")
+    classListAdd(cardSubtitle, MB_2, TEXT_NEUTRAL_700, FONT_LIGHT, DARK_TEXT_NEUTRAL_300, TEXT_BASE)
     cardSubtitle.textContent = 'Constructive Cost Model ('
     let link = documentCreateElement('a')
     link.target = '_blank'
     link.rel = 'noopener noreferrer canonical'
     link.href = 'https://en.wikipedia.org/wiki/COCOMO'
     link.textContent = 'wiki';
-    classListAdd(link, FONT_MEDIUM, UNDERLINE, "hover:text-neutral-800", DARK_HOVER_TEXT_WHITE)
+    classListAdd(link, FONT_MEDIUM, UNDERLINE, HOVER_TEXT_NEUTRAL_800, DARK_HOVER_TEXT_WHITE)
+    classListAdd(cardTitle, TEXT_XL, FONT_MEDIUM, PX_5, BORDER_B, DARK_BORDER_ZINC_500)
 
     appendChildren(cardSubtitle, link, document.createTextNode(')'))
     appendChildren(cardTitle, cardSubtitle)
-    appendChildren(cardBody, cardTitle)
+    appendChildren(card, cardTitle)
 
     for (let i = 0; i < cocomo_data.length; i++) {
         let paragraph = documentCreateElement('li')
         classListAdd(paragraph, PX_5, PT_2)
         paragraph.textContent = cocomo_data[i]
 
-        appendChildren(cardBody, paragraph)
+        appendChildren(card, paragraph)
     }
-    appendChildren(COCOMO_DIV, cardBody)
+    appendChildren(COCOMO_DIV, card)
 }
 
 const HEADING_ONE = documentGetElementById('headingOne');

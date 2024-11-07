@@ -2,7 +2,17 @@ import later from "./later.js"
 
 import { DIV, TEXT, DOCUMENT, createRepositoryIcon, createCommitSvgIcon, extractRepositoryHost, appendChildren, classListAdd, classListRemove, disable, swapElements, documentGetElementById, documentCreateElement } from "./common.js"
 import {
-  FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, BORDER_R, ROUNDED, TEXT_NEUTRAL, HIDDEN, PX2, PY2, W_2, TEXT_SM, BORDER_RED, FOCUS_RING, BG_NEUTRAL_100, SM, MD, BLOCK, INVISIBLE, SPACE_X_3, CURSOR_POINTER, HOVER_TEXT_BLACK, PX_1, RING_1, RING_INSET, RING_GRAY_500_10, ROUNDED_L_LG, SM_PL_2, SM_PR_4, HOVER_ROUNDED, FONT_MONO, FONT_LIGHT
+  FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, BORDER_R, ROUNDED, TEXT_NEUTRAL_600, HIDDEN, PX_2, PY_2, W_2, TEXT_SM, BORDER_RED, FOCUS_RING, BG_NEUTRAL_100, SM, MD, BLOCK, INVISIBLE, SPACE_X_3, CURSOR_POINTER, HOVER_TEXT_BLACK, PX_1, RING_1, RING_INSET, RING_GRAY_500_10, ROUNDED_L_LG, SM_PL_2, SM_PR_4, HOVER_ROUNDED, FONT_MONO, FONT_LIGHT,
+  DARK_TEXT_NEUTRAL_300,
+  DARK_BORDER_ZINC_500,
+  DARK_BG_ZINC_900,
+  DARK_HOVER_TEXT_NEUTRAL_100,
+  ROUNDED_LG,
+  DARK_TEXT_NEUTRAL_200,
+  DARK_BG_ZINC_800,
+  MD_BLOCK,
+  SM_BLOCK,
+  DARK_HOVER_ROUNDED_LG
 } from './tailwind-classes.js'
 import { gitUrlParse, extractBranchFromGitUrl } from "./git_url_parser.js"
 import { log } from "./common.js"
@@ -253,10 +263,10 @@ function updateSelect(all_branches, preselected_branch) {
 
 function createListItem(branchName, isCurrentBranch, isDefaultBranch, commitHash) {
   const listItem = documentCreateElement("li")
-  classListAdd(listItem, FLEX, CURSOR_POINTER, ITEMS_CENTER, SPACE_X_3, PY2, HOVER_TEXT_BLACK, HOVER_ROUNDED, 'dark:hover:rounded', 'dark:hover:text-neutral-100', 'dark:border-zinc-600', 'dark:text-neutral-300')
+  classListAdd(listItem, FLEX, CURSOR_POINTER, ITEMS_CENTER, SPACE_X_3, PY_2, HOVER_TEXT_BLACK, HOVER_ROUNDED, DARK_HOVER_ROUNDED_LG, DARK_HOVER_TEXT_NEUTRAL_100, DARK_BORDER_ZINC_500, DARK_TEXT_NEUTRAL_300)
   const mark = documentCreateElement(DIV)
   const text = documentCreateElement(TEXT)
-  classListAdd(mark, W_2, PX_1, 'dark:text-neutral-300')
+  classListAdd(mark, W_2, PX_1, DARK_TEXT_NEUTRAL_300)
   text.innerText = branchName
   appendChildren(listItem, mark, text)
   if (isCurrentBranch) {
@@ -264,7 +274,7 @@ function createListItem(branchName, isCurrentBranch, isDefaultBranch, commitHash
   }
   if (isDefaultBranch) {
     const span = documentCreateElement("span")
-    classListAdd(span, ROUNDED, BG_NEUTRAL_100, PX2, TEXT_NEUTRAL, RING_1, RING_INSET, RING_GRAY_500_10, 'dark:border-zinc-500', 'dark:bg-zinc-900', 'dark:text-neutral-300'),
+    classListAdd(span, ROUNDED, BG_NEUTRAL_100, PX_2, TEXT_NEUTRAL_600, RING_1, RING_INSET, RING_GRAY_500_10, DARK_BORDER_ZINC_500, DARK_BG_ZINC_900, DARK_TEXT_NEUTRAL_300),
       span.innerText = DEFAULT
     appendChildren(listItem, span)
   }
@@ -282,7 +292,7 @@ function updateRepositoryPicture() {
 
   repoUrl.setAttribute("href", input.value)
   const text = documentCreateElement(TEXT)
-  classListAdd(text, HIDDEN, `${MD}:${BLOCK}`, PX2)
+  classListAdd(text, HIDDEN, MD_BLOCK, PX_2)
   text.innerText = extractRepositoryHost(input.value)
 
   appendChildren(pic, createRepositoryIcon(input.value, 24, 24), text)
@@ -298,18 +308,18 @@ function updateCommitLabel(branchName) {
 }
 
 function setCommitHash(commitHash) {
-  classListAdd(commit, FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, ROUNDED, 'dark:border-zinc-600')
+  classListAdd(commit, FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, ROUNDED, DARK_BORDER_ZINC_500)
   const label = documentCreateElement(DIV)
-  classListAdd(label, FLEX, "justify-center", ITEMS_CENTER, TEXT_SM, ROUNDED_L_LG, PY2, PX2, SM_PL_2, SM_PR_4, TEXT_NEUTRAL, BORDER_R, 'dark:text-neutral-100', 'dark:border-zinc-500', 'dark:bg-zinc-800');
+  classListAdd(label, FLEX, "justify-center", ITEMS_CENTER, TEXT_SM, ROUNDED_L_LG, PY_2, PX_2, SM_PL_2, SM_PR_4, TEXT_NEUTRAL_600, BORDER_R, DARK_TEXT_NEUTRAL_200, DARK_BORDER_ZINC_500, DARK_BG_ZINC_800);
   const commitIcon = createCommitSvgIcon(20, 20)
 
   const text = documentCreateElement(TEXT)
-  classListAdd(text, HIDDEN, `${SM}:${BLOCK}`)
+  classListAdd(text, HIDDEN, SM_BLOCK)
   text.innerText = COMMIT
   appendChildren(label, commitIcon, text)
 
   const p = documentCreateElement("p")
-  classListAdd(p, TRUNCATE, PX2, SM_PR_4, FONT_MONO, FONT_LIGHT, TEXT_SM, TEXT_NEUTRAL, 'dark:text-neutral-100')
+  classListAdd(p, TRUNCATE, PX_2, SM_PR_4, FONT_MONO, FONT_LIGHT, TEXT_SM, TEXT_NEUTRAL_600, DARK_TEXT_NEUTRAL_200)
   p.innerText = commitHash
   commit.innerHTML = ""
   commit.title = LAST_COMMIT_SHA

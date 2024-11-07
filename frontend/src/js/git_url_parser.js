@@ -747,4 +747,4 @@ function protocols(input, first) {
 };
 
 
-// export default { gitUrlParse, extractBranchFromGitUrl };
+export default { gitUrlParse, extractBranchFromGitUrl };
