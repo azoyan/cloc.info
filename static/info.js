@@ -55,6 +55,7 @@ function extractContent(response, error_msg) {
         }
         else {
             return response.text().then(text => {
+
                 result.setTextData(text)
                 return result;
             });
@@ -226,9 +227,7 @@ function showWarning(message) {
 
 function createAlertBlock(alertType, headerText, bodyText) {
     let alert = document.createElement("div")
-    alert.classList.add("alert", `alert-${alertType}`)
-    alert.setAttribute("role", "alert")
-
+    alert.classList.add("overflow-x-auto")
     let header = document.createElement("h")
     header.classList.add("alert-heading")
     header.innerText = headerText
@@ -353,7 +352,7 @@ function startStreaming(ws) {
                     if (parts.length >= 3) {
 
                         // console.log(percent)
-                        // document.getElementById("pg_enumerating").style.width = percent;
+                        document.getElementById("pg_enumerating").style.width = percent;
                         document.getElementById("enumerating").innerText = "remote: Enumerating objects:" + parts[parts.length - 1]
                     }
                 }
