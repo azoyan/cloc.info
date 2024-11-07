@@ -45,7 +45,7 @@ pub fn create_general_router(provider: RepositoryProvider) -> Router {
 }
 
 fn static_page() -> Result<Response<Body>, Error> {
-    let file = std::fs::File::open("static/info.html").unwrap();
+    let file = std::fs::File::open("dist/info.html").unwrap();
     let mut reader = std::io::BufReader::new(file);
 
     let mut buffer = vec![];
@@ -53,6 +53,7 @@ fn static_page() -> Result<Response<Body>, Error> {
     std::io::Read::read_to_end(&mut reader, &mut buffer).unwrap();
     Response::builder()
         .header("Cache-Control", "no-cache,private,max-age=0") // TODO, maybe rewrite AddHeader
+        .header("Content-Type", "text/html; charset=utf-8")
         .body(Body::from(buffer))
         .context(StaticPageSnafu)
 }
@@ -63,7 +64,7 @@ fn static_page() -> Result<Response<Body>, Error> {
 async fn default_handler(
     Path((host, owner, mut repository_name)): Path<(String, String, String)>,
     state: State<RepositoryProvider>,
-    request: Request<Body>, // recomended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
+    request: Request<Body>, // recommended be last https://docs.rs/axum/latest/axum/extract/index.html#extracting-request-bodies
 ) -> Result<Response<Body>, Error> {
     tracing::debug!("Default Handler {:?}, host: {host}", request);
     if host != "git.sr.ht" && !repository_name.ends_with(".git") {
@@ -233,7 +234,7 @@ async fn terminal_browser(
                 .context(ResponseSnafu)?,
             };
             if counter == 0 {
-                let message = format!("Your request {} has been received and we are currently processing it. Please wait for a 5 minutes and try again.\n", key);
+                let message = format!("Your request {} has been received and is currently being processed. Please wait for some time (depending on the size of the repository) and try again.\n", key);
                 break Response::builder()
                     .status(StatusCode::ACCEPTED)
                     .body(Body::from(message))
@@ -245,7 +246,7 @@ async fn terminal_browser(
     }).await {
         Ok(response) => response,
         Err(_elapsed) => {
-            let message = format!("Your request {} has been received and we are currently processing it. Please wait for a 5 minutes and try again.\n", unique_name);
+            let message = format!("Your request {} has been received and is currently being processed. Please wait for some time (depending on the size of the repository) and try again.\n", unique_name);
                  Response::builder()
                     .status(StatusCode::ACCEPTED)
                     .body(Body::from(message))
@@ -260,6 +261,7 @@ fn is_terminal_browser(user_agent: &str) -> bool {
         || user_agent.contains("Links")
         || user_agent.contains("Not mandatory") // Netrik User agent
         || user_agent.contains("curl")
+        || user_agent.contains("Wget")
 }
 
 fn extract_user_agent(request: &Request<Body>) -> String {

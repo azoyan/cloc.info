@@ -140,7 +140,7 @@ function createExternalButtons(repository) {
         icon.setAttribute("width", "18px")
         icon.setAttribute("height", "22px")
         icon.setAttribute("alt", "GitLab")
-        icon.setAttribute("src", "/static/gitlab-3.svg")
+        icon.setAttribute("src", "/dist/assets/gitlab-3.svg")
         icon.classList.add("float-start")
     }
     else if (repository.hostname === "bitbucket.org") {
@@ -148,7 +148,7 @@ function createExternalButtons(repository) {
         icon.setAttribute("width", "20px")
         icon.setAttribute("height", "22px")
         icon.setAttribute("alt", "GitHub")
-        icon.setAttribute("src", "/static/bitbucket-icon.svg")
+        icon.setAttribute("src", "/dist/assets/bitbucket-icon.svg")
         icon.classList.add("float-start")
     }
     else if (repository.hostname === "codeberg.org") {
@@ -162,7 +162,7 @@ function createExternalButtons(repository) {
         icon.setAttribute("width", "18px")
         icon.setAttribute("height", "22px")
         icon.setAttribute("alt", "Gitea")
-        icon.setAttribute("src", "/static/gitea.svg")
+        icon.setAttribute("src", "/dist/assets/gitea.svg")
         icon.classList.add("float-start")
     }
     else {

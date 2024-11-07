@@ -219,17 +219,3 @@ impl Cloner {
         }
     }
 }
-
-trait ContainsSlice<T>: PartialEq<[T]> {
-    fn contains_slice(&'_ self, slice: &'_ [T]) -> bool;
-}
-
-impl<T, Item: PartialEq<T>> ContainsSlice<T> for [Item] {
-    fn contains_slice(self: &'_ [Item], slice: &'_ [T]) -> bool {
-        let len = slice.len();
-        if len == 0 {
-            return true;
-        }
-        self.windows(len).any(move |sub_slice| sub_slice == slice)
-    }
-}

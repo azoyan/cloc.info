@@ -295,7 +295,6 @@ async function stopStreaming(ws) {
 }
 
 function startStreaming(ws) {
-    // setFavicon('/static/animated.gif')
     let send_ping = function () {
         if (ws.readyState === WebSocket.OPEN) {
             // console.log("ping ws")
@@ -315,7 +314,6 @@ function startStreaming(ws) {
         document.getElementById("hint").setAttribute("hidden", true)
         console.log("WEB SOCKET  CLOSED");
         stopRotate()
-        // setFavicon('/static/favicon.ico')
     }
 
     ws.onmessage = function (event) {
@@ -447,7 +445,7 @@ function warningText(dateStr, commit) {
 }
 
 let interval;
-const worker = new Worker("/static/sw.js")
+const worker = new Worker("/dist/sw.js")
 worker.onmessage = (event) => rotate(event.data);
 
 // Get the favicon element
@@ -455,13 +453,11 @@ const faviconElement = document.getElementById('favicon');
 
 // Load the original favicon image
 const originalFavicon = new Image();
-originalFavicon.src = '/static/favicon.ico';
+originalFavicon.src = '/dist/assets/favicon.ico';
 
 const LOGO = document.getElementById("logo")
 
 function rotate(angle) {
-    // LOGO.setAttribute("transform", "rotate(" + angle + ")");
-
     const rotatedFavicon = rotateImage(originalFavicon, angle);
     faviconElement.href = rotatedFavicon;
 }

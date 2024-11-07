@@ -1,0 +1,8 @@
+extends ../layouts/main.pug
+
+block scripts
+    script(type="module", src='/src/js/upload.js') 
+    script(type="module", src='/src/js/common.js')
+
+block content
+    include ../components/upload.html

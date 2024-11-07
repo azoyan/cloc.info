@@ -42,7 +42,7 @@ pub async fn start_application(
     connection_pool: Pool<PostgresConnectionManager<NoTls>>,
 ) {
     let root_service =
-        get_service(ServeFile::new("static/index.html")).handle_error(|error| async move {
+        get_service(ServeFile::new("dist/index.html")).handle_error(|error| async move {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Unhandled internal error: {}", error),
@@ -50,7 +50,7 @@ pub async fn start_application(
         });
 
     let upload_service = HandleError::new(
-        get_service(ServeFile::new("static/upload.html")),
+        get_service(ServeFile::new("dist/upload.html")),
         |error| async move {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -89,7 +89,15 @@ pub async fn start_application(
 
     let api_router = handlers::create_api_router(repository_provider.clone());
     let general_router = handlers::create_general_router(repository_provider.clone());
-
+    let assets_service = get_service(ServeDir::new("dist/assets"))
+        .handle_error(|error| async move {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Unhandled internal error: {}", error),
+            )
+        })
+        // .layer(CompressionLayer::new().gzip(true).deflate(true).br(true))
+        ;
     let app = Router::new()
         .route_service("/", root_service)
         .route_service("/upload", upload_service)
@@ -98,7 +106,7 @@ pub async fn start_application(
         .nest("/api", statistic_router)
         .nest("/api/:host", api_router)
         .nest("/:host", general_router)
-        .nest_service("/static", ServeDir::new("static"))
+        .nest_service("/assets", assets_service)
         .fallback_service(not_found.into_service())
         .layer(
             ServiceBuilder::new()
@@ -106,7 +114,8 @@ pub async fn start_application(
                 .timeout(std::time::Duration::from_secs(600)),
         )
         .layer(CorsLayer::new().allow_credentials(true))
-        .layer(CompressionLayer::new().br(true).gzip(true))
+        .layer(axum::middleware::from_fn(set_static_cache_control))
+        .layer(CompressionLayer::new())
         .layer(axum::middleware::from_fn(print_request_response))
         .layer(TraceLayer::new_for_http());
 
@@ -123,9 +132,17 @@ pub async fn start_application(
         Err(e) => tracing::error!("Error at stopping server: {e}"),
     }
 }
+async fn set_static_cache_control(request: Request<Body>, next: Next) -> Response {
+    let mut response = next.run(request).await;
+    response.headers_mut().insert(
+        hyper::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("public, max-age=31536000"),
+    );
+    response
+}
 
 pub async fn not_found(_uri: axum::http::Uri) -> Response<Body> {
-    let file = std::fs::File::open("static/404.html").unwrap();
+    let file = std::fs::File::open("dist/404.html").unwrap();
     let mut reader = std::io::BufReader::new(file);
 
     let mut buffer = vec![];

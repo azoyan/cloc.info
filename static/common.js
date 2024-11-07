@@ -80,10 +80,10 @@ function createCocomoFromResponse(cocomo_data) {
 }
 
 function createRepositoryIcon(input, width, height) {
-    if (input.includes("github.com")) { return `<img width=${width} height=${height} src="/static/github-icon-1.svg" alt="Open repository" class="float-start">` }
-    else if (input.includes("gitlab.com")) { return `<img width=${width} height=${height} src="/static/gitlab-3.svg" alt="Open repository" class="float-start">` }
-    else if (input.includes("bitbucket.org")) { return `<img width=${width} height=${height} src="/static/bitbucket-icon.svg" alt="Open repository" class="float-start">` }
-    else if (input.includes("codeberg.org")) { return `<img width=${width} height=${height} src="/static/codeberg-svgrepo-com.svg" alt="Open repository" class="float-start">` }
-    else if (input.includes("gitea.com")) { return `<img width=${width} height=${height} src="/static/gitea.svg" alt="Open repository" class="float-start">` }
-    else { return `<img width=${width} height=${height} src="/static/git-icon.svg" alt="Open repository" class="float-start">` }
+    if (input.includes("github.com")) { return `<img width=${width} height=${height} src="/dist/assets//github-icon-1.svg" alt="Open repository" class="float-start">` }
+    else if (input.includes("gitlab.com")) { return `<img width=${width} height=${height} src="/dist/assets//gitlab-3.svg" alt="Open repository" class="float-start">` }
+    else if (input.includes("bitbucket.org")) { return `<img width=${width} height=${height} src="/dist/assets//bitbucket-icon.svg" alt="Open repository" class="float-start">` }
+    else if (input.includes("codeberg.org")) { return `<img width=${width} height=${height} src="/dist/assets//codeberg-svgrepo-com.svg" alt="Open repository" class="float-start">` }
+    else if (input.includes("gitea.com")) { return `<img width=${width} height=${height} src="/dist/assets//gitea.svg" alt="Open repository" class="float-start">` }
+    else { return `<img width=${width} height=${height} src="/dist/assets//git-icon.svg" alt="Open repository" class="float-start">` }
 }

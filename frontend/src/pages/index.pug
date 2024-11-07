@@ -1,0 +1,11 @@
+extends ../layouts/main.pug
+
+block scripts
+    script(type="module", src='/src/js/index.js')
+    script(type="module", src='/src/js/api.js')
+    script(type="module", src='/src/js/git_url_parser.js')
+    script(type="module", src='/src/js/later.js')
+    script(type="module", src='/src/js/common.js')
+
+block content
+    include ../components/index.html
