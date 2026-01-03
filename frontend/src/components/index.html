@@ -21,7 +21,7 @@
         <div id="repoInfo" class="flex space-x-2 items-center invisible">
             <a target="_blank" rel="noopener noreferrer canonical" id="repoUrl" class="link-dark">
                 <div id="repoButton"
-                    class="inline-flex min-w-12 justify-center rounded-lg border border-neutral-300 items-center px-2 py-1.5 hover:bg-neutral-100 dark:text-neutral-300 dark:border-zinc-500 dark:bg-zinc-900 dark:hover:bg-zinc-800">
+                    class="whitespace-nowrap inline-flex min-w-12 justify-center rounded-lg border border-neutral-300 items-center px-2 py-1.5 hover:bg-neutral-100 dark:text-neutral-300 dark:border-zinc-500 dark:bg-zinc-900 dark:hover:bg-zinc-800">
                 </div>
             </a>
             <div>
@@ -29,7 +29,7 @@
                     class="flex w-28 sm:w-64 truncate border text-neutral-800 border-neutral-300 hover:bg-neutral-100 focus:bg-white rounded-lg text-sm px-2.5 py-2 items-center dark:border-zinc-500 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                     type="button">
                     <div>
-                        <svg class="w-6 h-4 dark:text-neutral-300" xmlns="http://www.w3.org/2000/svg"
+                        <svg class="w-6 h-4 dark:text-neutral-300" width="24" height="16" xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 21 21" fill="none" stroke="currentColor" stroke-width="1"
                             stroke-linecap="round">
                             <path d="M6 9v6" />
@@ -41,7 +41,7 @@
                     </div>
                     <div id="branchLabel" class="truncate w-28 sm:w-52 text-start px-1 dark:text-neutral-300">dummy
                     </div>
-                    <svg class="w-4 h-4 ml-auto dark:text-neutral-300" fill="none" stroke="currentColor"
+                    <svg class="w-4 h-4 ml-auto dark:text-neutral-300" width="16" height="16" fill="none" stroke="currentColor"
                         viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
                         </path>
@@ -53,7 +53,7 @@
                 </ul>
             </div>
             <div class="grow"></div>
-            <div id="commit"></div>
+            <div id="commit" class="dark:bg-neutral-300 bg-neutral-100"></div>
         </div>
 
         <div id="invalidFeedback"
@@ -71,7 +71,7 @@
                     <img class="inline w-4 h-4 me-3 animate-spin" src="assets/spinner.svg">
                 </div>
                 <div id="buttonText" class="flex-shrink-0">
-                    Submit
+                    Count
                 </div>
             </div>
         </button>

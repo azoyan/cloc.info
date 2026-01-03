@@ -13,6 +13,7 @@ import {
     PT_1_5,
     BORDER_B,
     TEXT_START,
+    TEXT_END,
     MB_2,
     TEXT_NEUTRAL_700,
     TRANSFORM,
@@ -510,8 +511,12 @@ function createTableFromResponse(data) {
     for (let i = 0; i < strings.length; ++i) {
         let array = strings[i].trim().split(/\s+/);
         while (array.length > 7) {
-            array[0] += array[1]
+            array[0] += " " + array[1]
             array.splice(1, 1)
+        }
+        if (array.length >= 7) {
+            let files = array.splice(1, 1)[0];
+            array.splice(5, 0, files);
         }
         strings[i] = array;
     }
@@ -544,10 +549,15 @@ function createTableHead(array) {
     let thead = documentCreateElement('thead')
     let tr = documentCreateElement('tr')
 
-    array.forEach((item) => {
+    array.forEach((item, index) => {
         let th = documentCreateElement('th');
         th.scope = 'col'
-        classListAdd(th, PX_2_5, P_4, TEXT_START, FONT_MEDIUM, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_300, BORDER_NEUTRAL_300)
+        if (index === 0) {
+            classListAdd(th, TEXT_START)
+        } else {
+            classListAdd(th, TEXT_END)
+        }
+        classListAdd(th, PX_2_5, P_4, FONT_MEDIUM, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_300, BORDER_NEUTRAL_300)
         th.textContent = item;
 
         appendChildren(tr, th)
@@ -563,13 +573,22 @@ function createTableRow(array) {
     array.forEach((item, index) => {
         let td = documentCreateElement('td');
         classListAdd(td, PX_2_5, PY_2, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_200, BORDER_NEUTRAL_200, DARK_BORDER_ZINC_500)
-        td.textContent = item.substring(0, 17)
-        if (item.length >= 20) {
-            td.textContent += '...'
-        }
+        
         if (index === 0) {
-            td.title = td.textContent
+            td.textContent = item.substring(0, 17)
+            if (item.length >= 20) {
+                td.textContent += '...'
+            }
+            td.title = item
             classListAdd(td, FONT_MEDIUM, TRUNCATE)
+        } else {
+            classListAdd(td, TEXT_END)
+            const num = Number(item);
+            if (!isNaN(num)) {
+                td.textContent = num.toLocaleString()
+            } else {
+                td.textContent = item
+            }
         }
         appendChildren(row, td)
     });

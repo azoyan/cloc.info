@@ -33,7 +33,7 @@ const dropdownList = documentGetElementById("dropdownList")
 const branchLabel = documentGetElementById("branchLabel")
 const submitButton = documentGetElementById("submitButton")
 const buttonText = documentGetElementById("buttonText")
-const submitText = "Submit"
+const submitText = "Count"
 
 let Later = null
 let Visibility = 0
@@ -118,6 +118,7 @@ function cancelLaterTimer() {
 
 async function editValue(value) {
   cancelLaterTimer()
+  setVisible(false, repositoryInfo, checkMark)
   // log("edit", value)
   if (Later === null) {
     Later = later.later(2000, false)
@@ -293,7 +294,7 @@ function updateRepositoryPicture() {
   repoUrl.setAttribute("href", input.value)
   const text = documentCreateElement(TEXT)
   classListAdd(text, HIDDEN, MD_BLOCK, PX_2)
-  text.innerText = extractRepositoryHost(input.value)
+  text.innerText = "Open " + extractRepositoryHost(input.value)
 
   appendChildren(pic, createRepositoryIcon(input.value, 24, 24), text)
 }
@@ -308,7 +309,7 @@ function updateCommitLabel(branchName) {
 }
 
 function setCommitHash(commitHash) {
-  classListAdd(commit, FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, ROUNDED, DARK_BORDER_ZINC_500)
+  classListAdd(commit, FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, ROUNDED, DARK_BORDER_ZINC_500, DARK_BG_ZINC_800)
   const label = documentCreateElement(DIV)
   classListAdd(label, FLEX, "justify-center", ITEMS_CENTER, TEXT_SM, ROUNDED_L_LG, PY_2, PX_2, SM_PL_2, SM_PR_4, TEXT_NEUTRAL_600, BORDER_R, DARK_TEXT_NEUTRAL_200, DARK_BORDER_ZINC_500, DARK_BG_ZINC_800);
   const commitIcon = createCommitSvgIcon(20, 20)
@@ -319,7 +320,7 @@ function setCommitHash(commitHash) {
   appendChildren(label, commitIcon, text)
 
   const p = documentCreateElement("p")
-  classListAdd(p, TRUNCATE, PX_2, SM_PR_4, FONT_MONO, FONT_LIGHT, TEXT_SM, TEXT_NEUTRAL_600, DARK_TEXT_NEUTRAL_200)
+  classListAdd(p, TRUNCATE, PX_2, SM_PR_4, FONT_MONO, FONT_LIGHT, TEXT_SM, TEXT_NEUTRAL_600, DARK_TEXT_NEUTRAL_300)
   p.innerText = commitHash
   commit.innerHTML = ""
   commit.title = LAST_COMMIT_SHA

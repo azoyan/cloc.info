@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><link rel="canonical" href="https://cloc.info"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#000000"><meta name="description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code"><meta name="og:description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code"><meta name="og:title" content="Count lines of code"><meta name="og:site_name" content="Count lines of code"><meta name="og:url" content="https://cloc.info"><meta name="og:image" content="./android-chrome-192x192.png"><meta name="og:image:width" content="192"><meta name="og:image:height" content="192"><meta name="og:locale" content="en_US"><meta name="og:type" content="website"><meta name="google-site-verification" content="ckQrLb6lG-zoXPWIEyOB13ZXK7Sgcx1IRHfxtexytI4"><link rel="shortcut icon" type="image/ico" id="favicon" href="/assets/favicon-D2pXn3IS.ico"><link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon-CHwmFDZ-.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32-DNESycOY.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16-CtKDRR54.png"><title>Count Lines of Code Online - cloc.info</title></html><script type="module" crossorigin src="/assets/index.pug-ClsAALsN.js"></script>
-<link rel="modulepreload" crossorigin href="/assets/common-BtJT3fLw.js">
-<link rel="modulepreload" crossorigin href="/assets/git_url_parser-DFMSNwUD.js">
-<link rel="stylesheet" crossorigin href="/assets/main-B2o_ky7R.css">
+<!DOCTYPE html><html lang="en"><link rel="canonical" href="https://cloc.info"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#000000"><meta name="description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code"><meta name="og:description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code"><meta name="og:title" content="Count lines of code"><meta name="og:site_name" content="Count lines of code"><meta name="og:url" content="https://cloc.info"><meta name="og:image" content="./android-chrome-192x192.png"><meta name="og:image:width" content="192"><meta name="og:image:height" content="192"><meta name="og:locale" content="en_US"><meta name="og:type" content="website"><meta name="google-site-verification" content="ckQrLb6lG-zoXPWIEyOB13ZXK7Sgcx1IRHfxtexytI4"><link rel="shortcut icon" type="image/ico" id="favicon" href="/assets/favicon-D2pXn3IS.ico"><link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon-CHwmFDZ-.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32-DNESycOY.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16-CtKDRR54.png"><title>Count Lines of Code Online - cloc.info</title></html><script type="module" crossorigin src="/assets/index.pug-DPBGNyUO.js"></script>
+<link rel="modulepreload" crossorigin href="/assets/common-jLFJ1HoF.js">
+<link rel="modulepreload" crossorigin href="/assets/git_url_parser-D-slnpxz.js">
+<link rel="stylesheet" crossorigin href="/assets/main-BbYhiQ8p.css">
 
 <body class="dark:bg-zinc-900"><nav class="flex w-full bg-zinc-950 p-4 sticky top-0">
     <div class="inline-flex items-center pr-8 text-neutral-100 hover:text-white">
@@ -62,7 +62,7 @@
         <div id="repoInfo" class="flex space-x-2 items-center invisible">
             <a target="_blank" rel="noopener noreferrer canonical" id="repoUrl" class="link-dark">
                 <div id="repoButton"
-                    class="inline-flex min-w-12 justify-center rounded-lg border border-neutral-300 items-center px-2 py-1.5 hover:bg-neutral-100 dark:text-neutral-300 dark:border-zinc-500 dark:bg-zinc-900 dark:hover:bg-zinc-800">
+                    class="whitespace-nowrap inline-flex min-w-12 justify-center rounded-lg border border-neutral-300 items-center px-2 py-1.5 hover:bg-neutral-100 dark:text-neutral-300 dark:border-zinc-500 dark:bg-zinc-900 dark:hover:bg-zinc-800">
                 </div>
             </a>
             <div>
@@ -70,7 +70,7 @@
                     class="flex w-28 sm:w-64 truncate border text-neutral-800 border-neutral-300 hover:bg-neutral-100 focus:bg-white rounded-lg text-sm px-2.5 py-2 items-center dark:border-zinc-500 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                     type="button">
                     <div>
-                        <svg class="w-6 h-4 dark:text-neutral-300" xmlns="http://www.w3.org/2000/svg"
+                        <svg class="w-6 h-4 dark:text-neutral-300" width="24" height="16" xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 21 21" fill="none" stroke="currentColor" stroke-width="1"
                             stroke-linecap="round">
                             <path d="M6 9v6" />
@@ -82,7 +82,7 @@
                     </div>
                     <div id="branchLabel" class="truncate w-28 sm:w-52 text-start px-1 dark:text-neutral-300">dummy
                     </div>
-                    <svg class="w-4 h-4 ml-auto dark:text-neutral-300" fill="none" stroke="currentColor"
+                    <svg class="w-4 h-4 ml-auto dark:text-neutral-300" width="16" height="16" fill="none" stroke="currentColor"
                         viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
                         </path>
@@ -94,7 +94,7 @@
                 </ul>
             </div>
             <div class="grow"></div>
-            <div id="commit"></div>
+            <div id="commit" class="dark:bg-neutral-300 bg-neutral-100"></div>
         </div>
 
         <div id="invalidFeedback"
@@ -112,7 +112,7 @@
                     <img class="inline w-4 h-4 me-3 animate-spin" src="assets/spinner.svg">
                 </div>
                 <div id="buttonText" class="flex-shrink-0">
-                    Submit
+                    Count
                 </div>
             </div>
         </button>

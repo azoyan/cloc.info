@@ -288,3 +288,4 @@ export const LAST_ROUNDED_B_LG = `${LAST}:${ROUNDED_B_LG}`
 export const FIRST_ROUNDED_T_LG = `${FIRST}:${ROUNDED_T_LG}`
 export const HOVER_TEXT_NEUTRAL_900 = `${HOVER}:${TEXT_NEUTRAL_900}`
 export const DARK_HOVER_ROUNDED_LG = `${DARK}:${HOVER}:${ROUNDED_LG}`
+export const TEXT_END = "text-end"

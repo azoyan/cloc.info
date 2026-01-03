@@ -305,7 +305,12 @@ export function createTableRow(array) {
     row += '<th>' + array[0] + '</th>'
 
     for (let i = 1; i < array.length; ++i) {
-        row += "<td>" + array[i] + "</td>"
+        let val = array[i];
+        const num = Number(val);
+        if (!isNaN(num)) {
+            val = num.toLocaleString()
+        }
+        row += "<td>" + val + "</td>"
     }
     row += "</tr>"
     return row
