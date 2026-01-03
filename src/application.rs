@@ -250,6 +250,8 @@ where
 }
 
 async fn upload(mut multipart: extract::Multipart) -> Response<Body> {
+    // Ensure the directory exists
+    let _ = std::fs::create_dir_all("cloc_repo");
     let tempdir = tempdir_in("cloc_repo").unwrap();
     let path = tempdir.path().to_str().unwrap();
     while let Some(field) = multipart.next_field().await.unwrap() {

@@ -312,14 +312,14 @@ impl RepositoryProvider {
     ) -> Result<Id, Error> {
         let repository_id: Id = row.get("repository_id");
         tracing::debug!(
-                "INSERT INTO branches VALUES(DEFAULT, {}, '{}', '{}', 'scc', {}) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id;",
+                "INSERT INTO branches VALUES(DEFAULT, {}, '{}', '{}', 'scc', {}) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha, scc_output = EXCLUDED.scc_output, size = EXCLUDED.size RETURNING id;",
                 repository_id,
                 branch,
                 last_commit_local,
                 repository_size
             );
 
-        let upsert_branch = "INSERT INTO branches VALUES(DEFAULT, $1, $2, $3, $4, $5) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id";
+        let upsert_branch = "INSERT INTO branches VALUES(DEFAULT, $1, $2, $3, $4, $5) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha, scc_output = EXCLUDED.scc_output, size = EXCLUDED.size RETURNING id";
         let transaction = connection
             .build_transaction()
             .isolation_level(Serializable)
@@ -393,7 +393,7 @@ impl RepositoryProvider {
         let repository_id: Id = row.get("id");
 
         tracing::debug!(
-            "INSERT INTO branches VALUES(DEFAULT, {}, '{}', '{}', 'scc', {}) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id;",
+            "INSERT INTO branches VALUES(DEFAULT, {}, '{}', '{}', 'scc', {}) RETURNING id;",
             repository_id,
             branch,
             &last_commit_local,

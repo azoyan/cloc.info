@@ -75,15 +75,28 @@ fn main() {
 }
 
 async fn start_all(socket: SocketAddr) {
+    // Read database connection parameters from environment variables
+    let db_host = std::env::var("DATABASE_HOST").unwrap_or_else(|_| "localhost".to_string());
+    let db_user = std::env::var("DATABASE_USER").unwrap_or_else(|_| "postgres".to_string());
+    let db_name = std::env::var("DATABASE_NAME").unwrap_or_else(|_| "clocdb".to_string());
+    let db_password = std::env::var("DATABASE_PASSWORD").ok();
+    
+    let connection_string = match db_password {
+        Some(pwd) => format!("host={} user={} password={} dbname={}", db_host, db_user, pwd, db_name),
+        None => format!("host={} user={} dbname={}", db_host, db_user, db_name),
+    };
+    
+    tracing::info!("Connecting to database at host={}", db_host);
+    
     let manager = PostgresConnectionManager::new_from_stringlike(
-        "host=localhost user=postgres dbname=clocdb",
+        &connection_string,
         NoTls,
     )
     .unwrap();
     let _config = tokio_postgres::Config::new()
-        .dbname("clocdb")
-        .host("localhost")
-        .user("postgres")
+        .dbname(&db_name)
+        .host(&db_host)
+        .user(&db_user)
         .to_owned();
     // let manager = PostgresConnectionManager::new(config, NoTls);
     let pool = Pool::builder().build(manager).await.unwrap();
