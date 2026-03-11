@@ -13,20 +13,18 @@ use axum::{
     extract,
     handler::HandlerWithoutStateExt,
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::Response,
     routing::{get, get_service, post},
     serve::serve,
     Router,
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
-use bytes::Bytes;
-use http_body_util::BodyExt;
 use hyper::{Request, StatusCode};
 use retainer::Cache;
-use std::{future::IntoFuture, net::SocketAddr, sync::Arc, time::Duration};
+use std::{future::IntoFuture, net::SocketAddr, path::Path, sync::Arc, time::Duration};
 use tempfile::tempdir_in;
-use tokio::signal::{self, ctrl_c};
+use tokio::{fs, signal::{self, ctrl_c}};
 use tokio_postgres::NoTls;
 use tokio_util::sync::CancellationToken;
 use tower::{BoxError, ServiceBuilder};
@@ -116,7 +114,6 @@ pub async fn start_application(
         .layer(CorsLayer::new().allow_credentials(true))
         .layer(axum::middleware::from_fn(set_static_cache_control))
         .layer(CompressionLayer::new())
-        .layer(axum::middleware::from_fn(print_request_response))
         .layer(TraceLayer::new_for_http());
 
     let tcp_listener = tokio::net::TcpListener::bind(&socket).await.unwrap();
@@ -133,11 +130,16 @@ pub async fn start_application(
     }
 }
 async fn set_static_cache_control(request: Request<Body>, next: Next) -> Response {
+    let should_cache = request.uri().path().starts_with("/assets/");
     let mut response = next.run(request).await;
-    response.headers_mut().insert(
-        hyper::header::CACHE_CONTROL,
-        axum::http::HeaderValue::from_static("public, max-age=31536000"),
-    );
+
+    if should_cache && !response.headers().contains_key(hyper::header::CACHE_CONTROL) {
+        response.headers_mut().insert(
+            hyper::header::CACHE_CONTROL,
+            axum::http::HeaderValue::from_static("public, max-age=31536000"),
+        );
+    }
+
     response
 }
 
@@ -210,61 +212,55 @@ async fn handle_errors(err: BoxError) -> (StatusCode, String) {
     }
 }
 
-async fn print_request_response(
-    req: Request<Body>,
-    next: Next,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let (parts, body) = req.into_parts();
-    let bytes = buffer_and_print("request", body).await?;
-    let req = Request::from_parts(parts, Body::from(bytes));
+async fn upload(mut multipart: extract::Multipart) -> Result<Response<Body>, (StatusCode, String)> {
+    fs::create_dir_all("cloc_repo")
+        .await
+        .map_err(internal_server_error)?;
 
-    let res = next.run(req).await;
+    let tempdir = tempdir_in("cloc_repo").map_err(internal_server_error)?;
+    let path = tempdir.path().to_path_buf();
+    let path_str = path
+        .to_str()
+        .ok_or_else(|| internal_server_error("temporary path is not valid UTF-8"))?;
 
-    let (parts, body) = res.into_parts();
-    let bytes = buffer_and_print("response", body).await?;
-    let res = Response::from_parts(parts, Body::from(bytes));
+    let mut index = 0usize;
+    while let Some(field) = multipart.next_field().await.map_err(bad_request)? {
+        let source_name = field.file_name().or(field.name()).unwrap_or("upload");
+        let name = sanitize_upload_name(source_name, index);
+        let data = field.bytes().await.map_err(bad_request)?;
 
-    Ok(res)
-}
+        fs::write(path.join(&name), &data)
+            .await
+            .map_err(internal_server_error)?;
 
-async fn buffer_and_print<B>(direction: &str, body: B) -> Result<Bytes, (StatusCode, String)>
-where
-    B: axum::body::HttpBody<Data = Bytes>,
-    B::Error: std::fmt::Display,
-{
-    let bytes = match body.collect().await {
-        Ok(collected) => collected.to_bytes(),
-        Err(err) => {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                format!("failed to read {direction} body: {err}"),
-            ));
-        }
-    };
-
-    if let Ok(body) = std::str::from_utf8(&bytes) {
-        tracing::debug!("{direction} body = {body:?}");
+        tracing::debug!("write file '{name}'");
+        index += 1;
     }
 
-    Ok(bytes)
-}
+    let scc_output = count_line_of_code(path_str, "")
+        .await
+        .map_err(|e| internal_server_error(e.to_string()))?;
 
-async fn upload(mut multipart: extract::Multipart) -> Response<Body> {
-    // Ensure the directory exists
-    let _ = std::fs::create_dir_all("cloc_repo");
-    let tempdir = tempdir_in("cloc_repo").unwrap();
-    let path = tempdir.path().to_str().unwrap();
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        let name = field.name().unwrap().to_string();
-        let data = field.bytes().await.unwrap();
-
-        std::fs::write(&format!("{path}/{name}"), &data).unwrap();
-
-        tracing::debug!("write file '{name}' ")
-    }
-    let scc_output = count_line_of_code(path, "").await.unwrap();
     Response::builder()
         .header("Content-Type", "text/plain")
         .body(Body::from(scc_output))
-        .unwrap()
+        .map_err(internal_server_error)
+}
+
+fn sanitize_upload_name(name: &str, index: usize) -> String {
+    let file_name = Path::new(name)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("upload");
+
+    format!("{index:04}_{file_name}")
+}
+
+fn bad_request(error: impl std::fmt::Display) -> (StatusCode, String) {
+    (StatusCode::BAD_REQUEST, error.to_string())
+}
+
+fn internal_server_error(error: impl std::fmt::Display) -> (StatusCode, String) {
+    (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
 }

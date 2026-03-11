@@ -248,10 +248,8 @@ impl RepositoryProvider {
         Ok((unique_name, result_status))
     }
 
-    pub fn current_status(&self, unique_name: &str) -> Status {
-        let status = self.statuses.get(unique_name).unwrap().value().clone();
-        // tracing::debug!("current_status for {unique_name}: {}", status);
-        status
+    pub fn current_status(&self, unique_name: &str) -> Option<Status> {
+        self.statuses.get(unique_name).map(|status| status.value().clone())
     }
 
     pub async fn default_branch_remote(

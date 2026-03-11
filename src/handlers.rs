@@ -207,10 +207,13 @@ async fn terminal_browser(
 
     let mut counter = 5;
     let key = unique_name.clone();
-    match tokio::time::timeout(Duration::from_secs(9), async move  {
+    match tokio::time::timeout(Duration::from_secs(9), async move {
         Ok(loop {
-            // let status = repository_provider.current_status(&key);
-            match status {
+            let current_status = repository_provider
+                .current_status(&key)
+                .unwrap_or_else(|| status.clone());
+
+            match current_status {
                 Status::Done(scc_output) => {
                     break Response::builder()
                         .status(StatusCode::OK)

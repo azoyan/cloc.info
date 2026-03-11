@@ -85,7 +85,17 @@ input.oninput = (evt) => {
   }
 }
 
-input.onkeydown = (e) => { if (e.key === ' ') e.preventDefault(); }
+input.onkeydown = (e) => {
+  if (e.key === ' ') {
+    e.preventDefault();
+    return;
+  }
+
+  if (e.key === 'Enter' && !submitButton.disabled) {
+    e.preventDefault();
+    submitButton.click();
+  }
+}
 
 function reset() {
   cancelLaterTimer()
@@ -179,7 +189,14 @@ function check(urlStr) {
   // log("current_branch", current_branch)
 
   fetch(branches_api)
-    .then((response) => response.json())
+    .then(async (response) => {
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || notValidUrlText(urlStr));
+      }
+
+      return response.json();
+    })
     .then((response) => {
       Branches = response;
       updateRepositoryPicture()
@@ -187,13 +204,6 @@ function check(urlStr) {
       updateCommitLabel()
 
       submitButton.removeAttribute("disabled");
-
-      DOCUMENT.addEventListener("keypress", function (event) {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          submitButton.click();
-        }
-      });
       setVisible(true, repositoryInfo, checkMark)
       dropdownButton.onclick = () => { Visibility = 1, setVisible(true, dropdownList) }
       setVisible(false, hint, invalidFeedback)
@@ -205,16 +215,8 @@ function check(urlStr) {
       buttonText.innerText = submitText
     })
     .catch(function (error) {
-      if (error.response) {
-        showError(error.response.data)
-        console.error(error.response.data);
-        console.error(error.response.status);
-        console.error(error.response.headers);
-      }
-      else {
-        log("error", error)
-        showError(notValidUrlText(urlStr))
-      }
+      log("error", error)
+      showError(error.message || notValidUrlText(urlStr))
     });
 }
 function showError(errorText) {

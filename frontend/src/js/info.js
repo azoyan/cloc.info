@@ -101,7 +101,7 @@ function extractContent(response, error_msg) {
         });
     } else {
         if (response.status >= 400) {
-            response.text().then(text => {
+            return response.text().then(text => {
                 throw new FetchError(response.status, msg + text)
             });
         }

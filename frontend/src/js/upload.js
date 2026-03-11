@@ -34,12 +34,21 @@ function handleFiles(files) {
         const submitButton = document.getElementById("submit")
         submitButton.hidden = false
         let itemsWidget = document.getElementById("items");
-        itemsWidget.innerHTML += '<h5>Files to upload (' + files.length + ' items):</h5>'
-        itemsWidget.innerHTML += '<ul class="list-group list-group-numbered">'
+        itemsWidget.replaceChildren()
+
+        const heading = document.createElement('h5')
+        heading.textContent = 'Files to upload (' + files.length + ' items):'
+        const list = document.createElement('ul')
+        list.className = 'list-group list-group-numbered'
+
         for (let i = 0; i < files.length; ++i) {
-            itemsWidget.innerHTML += '<li class="list-group-item">' + files[i].name + '</li>'
+            const item = document.createElement('li')
+            item.className = 'list-group-item'
+            item.textContent = files[i].name
+            list.appendChild(item)
         }
-        itemsWidget.innerHTML += '</ul>'
+
+        itemsWidget.append(heading, list)
 
         const area = document.getElementById("area")
         area.style.border = "1px silver solid"
@@ -48,7 +57,7 @@ function handleFiles(files) {
         document.getElementById("label").hidden = true
         document.getElementById("label2").hidden = true
 
-        submitButton.addEventListener('click', function (event) {
+        submitButton.onclick = function () {
             document.getElementById("processing").hidden = false
             const progress = document.getElementById('progress-bar');
             const data = new FormData();
@@ -60,12 +69,15 @@ function handleFiles(files) {
             const request = new XMLHttpRequest();
             request.open('POST', '/post');
             let i = 0
-            document.getElementById("status").innerHTML += '<div class="card-text p-0">Load ' + files[i].name + '</div>'
+            const status = document.getElementById("status")
+            appendStatusLine(status, 'Load ' + files[i].name)
             request.upload.addEventListener('progress', function (e) {
                 const percent = Math.floor((e.loaded / e.total) * 100)
                 if (files[i] !== undefined && Math.floor(percent / delta) === 0) {
                     i += 1
-                    document.getElementById("status").innerHTML += '<div class="card-text p-0">Load ' + files[i].name + '</div>'
+                    if (files[i] !== undefined) {
+                        appendStatusLine(status, 'Load ' + files[i].name)
+                    }
                 }
                 progress.style.width = percent + '%';
             })
@@ -79,7 +91,7 @@ function handleFiles(files) {
 
             submitButton.hidden = true
             request.send(data);
-        })
+        }
     }
 }
 
@@ -117,4 +129,11 @@ function dragOverHandler(ev) {
     // label.innerHTML += '</ul>'
     label.innerText = "Dropping " + ev.dataTransfer.items.length + " files"
     ev.preventDefault();
+}
+
+function appendStatusLine(container, text) {
+    const line = document.createElement('div')
+    line.className = 'card-text p-0'
+    line.textContent = text
+    container.appendChild(line)
 }
