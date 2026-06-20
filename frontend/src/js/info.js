@@ -49,6 +49,7 @@ const WARNING_DIV = documentGetElementById("warning")
 const REPOSITORY_DIV = documentGetElementById("repository")
 const COCOMO_DIV = documentGetElementById("cocomo")
 const PROCESSING_DIV = documentGetElementById("processing")
+const TEXT_DECODER = new TextDecoder()
 
 
 const SEMICOLON_STR = ":"
@@ -259,12 +260,35 @@ async function preparePage(url) {
 }
 
 function showError(status, message) {
-    // console.trace()
-    // let alert = documentGetElementById("warning")
-    // alert.classList.toggle('show')
-    let bodyText = message ? message : ""
-    let headerText = status ? status : ""
-    // console.log("BODY", bodyText, "HEADER", headerText)
+    const bodyText = message
+        ? message
+        : status instanceof Error
+            ? status.message
+            : String(status || "Unexpected error while loading repository information.");
+    const headerText = typeof status === "number"
+        ? `HTTP ${status}`
+        : status && !(status instanceof Error)
+            ? String(status)
+            : "Request error";
+
+    WARNING_DIV.replaceChildren();
+
+    const heading = documentCreateElement("p")
+    classListAdd(heading, FONT_MEDIUM, MB_2)
+    heading.innerText = headerText
+
+    const text = documentCreateElement("p")
+    text.innerText = bodyText
+
+    appendChildren(WARNING_DIV, heading, text)
+    classListRemove(WARNING_DIV, HIDDEN)
+    classListAdd(PROCESSING_DIV, HIDDEN)
+    classListAdd(TABLE_DIV, HIDDEN)
+    classListAdd(COCOMO_DIV, HIDDEN)
+}
+
+function decodeBytes(bytes) {
+    return TEXT_DECODER.decode(new Uint8Array(bytes))
 }
 
 function createWarning(prev) {
@@ -307,7 +331,7 @@ async function start(_e) {
         }
         else if (cloc_reply.statusCode === 206) {
             let prev = cloc_reply.getJsonData().Previous;
-            let data = String.fromCharCode(...prev.data);
+            let data = decodeBytes(prev.data);
             classListRemove(REPOSITORY_DIV, HIDDEN)
             appendChildren(WARNING_DIV, createWarning(prev, prev))
             classListRemove(TABLE_DIV, BORDER_T, ROUNDED_L_LG, ROUNDED_R_LG, ROUNDED_T_LG, HIDDEN)
@@ -377,7 +401,7 @@ function startStreaming(ws) {
             // console.log("payload", json.Done);
             if (cloc.length > 0) {
                 stopStreaming(ws)
-                const CLOC = String.fromCharCode(...cloc);
+                const CLOC = decodeBytes(cloc);
                 createTableFromResponse(CLOC);
                 classListAdd(PROCESSING_DIV, HIDDEN)
                 classListAdd(WARNING_DIV, HIDDEN)
@@ -573,7 +597,7 @@ function createTableRow(array) {
     array.forEach((item, index) => {
         let td = documentCreateElement('td');
         classListAdd(td, PX_2_5, PY_2, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_200, BORDER_NEUTRAL_200, DARK_BORDER_ZINC_500)
-        
+
         if (index === 0) {
             td.textContent = item.substring(0, 17)
             if (item.length >= 20) {
@@ -603,7 +627,7 @@ function createCocomoFromResponse(cocomo_data) {
     classListAdd(card, MAX_W_SCREEN_LG, MY_4, FLEX, FLEX_COL, ROUNDED_LG, DARK_TEXT_NEUTRAL_200)
 
     let cardTitle = documentCreateElement(DIV)
-    
+
 
     cardTitle.textContent = 'COCOMO'
 

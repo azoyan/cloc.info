@@ -45,22 +45,20 @@ impl Git {
     }
 
     pub async fn last_commit(&self, url: &str, branch: &str) -> Result<String, Error> {
-        if let Some(branches) = self.cache.get(&url.to_string()).await {
-            for branch_value in &branches.branches {
-                if branch_value.name == branch {
-                    return Ok(branch_value.commit.clone());
-                }
-            }
-            unreachable!("Branch {branch} not found in branches list for {url}");
+        let branches = if let Some(branches) = self.cache.get(&url.to_string()).await {
+            branches.clone()
         } else {
-            let branches = self.all_branches(url).await?;
-            for branch_value in &branches.branches {
-                if branch_value.name == branch {
-                    return Ok(branch_value.commit.clone());
-                }
-            }
-            unreachable!("Branch {branch} not found in branches list for {url}");
-        }
+            self.all_branches(url).await?
+        };
+
+        branches
+            .branches
+            .into_iter()
+            .find(|branch_value| branch_value.name == branch)
+            .map(|branch_value| branch_value.commit)
+            .ok_or_else(|| Error::BranchNotFound {
+                desc: format!("Branch '{branch}' not found in branches list for {url}"),
+            })
     }
 }
 
@@ -130,4 +128,39 @@ pub fn all_heads_branches(url: &str) -> Result<Branches, Error> {
         default_branch,
         branches,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Git;
+    use crate::logic::{
+        info::{BranchValue, Branches},
+        Error,
+    };
+    use retainer::Cache;
+    use std::{sync::Arc, time::Duration};
+
+    #[tokio::test]
+    async fn missing_branch_returns_error() {
+        let url = "https://example.com/org/repo.git";
+        let cache = Arc::new(Cache::new());
+        cache
+            .insert(
+                url.to_string(),
+                Branches {
+                    default_branch: "main".to_string(),
+                    branches: vec![BranchValue {
+                        name: "main".to_string(),
+                        commit: "abc123".to_string(),
+                    }],
+                },
+                Duration::from_secs(60),
+            )
+            .await;
+
+        let git = Git::new(cache);
+        let error = git.last_commit(url, "missing").await.unwrap_err();
+
+        assert!(matches!(error, Error::BranchNotFound { .. }));
+    }
 }

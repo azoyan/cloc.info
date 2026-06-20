@@ -1,6 +1,390 @@
 extends ../layouts/main.pug
 
+block styles
+    link(rel="preload" as="style" href="/assets/main.css" fetchpriority="low")
+    style.
+        :root {
+            color-scheme: light dark;
+            --page-bg: #ffffff;
+            --page-fg: #171717;
+            --page-border: #d4d4d8;
+            --page-surface: #ffffff;
+            --nav-bg: #09090b;
+            --nav-fg: #f5f5f5;
+            --button-bg: #15803d;
+            --button-bg-hover: #166534;
+            --button-disabled: #71717a;
+            --hero-fg: #171717;
+            --input-fg: #171717;
+            --hint-fg: #737373;
+            --placeholder-fg: #6b7280;
+            --button-fg: #ffffff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --page-bg: #18181b;
+                --page-fg: #e5e5e5;
+                --page-border: #71717a;
+                --page-surface: #18181b;
+                --button-bg: #166534;
+                --button-bg-hover: #15803d;
+                --hero-fg: #d4d4d4;
+                --input-fg: #d4d4d4;
+                --hint-fg: #d4d4d4;
+                --placeholder-fg: #737373;
+                --button-fg: #d4d4d4;
+            }
+        }
+
+        *,
+        ::before,
+        ::after {
+            box-sizing: border-box;
+            border-width: 0;
+            border-style: solid;
+            border-color: #e5e7eb;
+        }
+
+        html {
+            background: var(--page-bg);
+            font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+            line-height: 1.5;
+            -webkit-text-size-adjust: 100%;
+            font-feature-settings: normal;
+            font-variation-settings: normal;
+            -webkit-tap-highlight-color: transparent;
+            overflow-y: scroll;
+            scrollbar-gutter: stable;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--page-bg);
+            color: var(--page-fg);
+            line-height: inherit;
+        }
+
+        h1,
+        p {
+            margin: 0;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: inherit;
+        }
+
+        button,
+        input {
+            font-family: inherit;
+            font-feature-settings: inherit;
+            font-variation-settings: inherit;
+            font-size: 100%;
+            font-weight: inherit;
+            line-height: inherit;
+            letter-spacing: inherit;
+            color: inherit;
+            margin: 0;
+            padding: 0;
+        }
+
+        button {
+            text-transform: none;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: flex;
+            width: 100%;
+            align-items: center;
+            background: var(--nav-bg);
+            padding: 1rem;
+        }
+
+        nav > div:first-child {
+            display: inline-flex;
+            align-items: center;
+            padding-right: 2rem;
+            color: var(--nav-fg);
+        }
+
+        nav > div:last-child {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        nav > div:last-child > div {
+            display: inline-flex;
+            align-items: center;
+            color: var(--nav-fg);
+        }
+
+        nav > div:last-child > div:first-child {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+
+        nav a {
+            display: inline-flex;
+            align-items: center;
+            color: var(--nav-fg);
+            text-decoration: none;
+        }
+
+        nav a[aria-label="Go to cloc.info home page"] {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 1.25rem;
+            line-height: 1.75rem;
+            font-weight: 400;
+        }
+
+        nav a[href="/upload"] {
+            padding-left: 0.25rem;
+            padding-right: 0.25rem;
+        }
+
+        nav a[href="https://github.com/azoyan/cloc.info"] {
+            padding-left: 0.25rem;
+            padding-right: 0.25rem;
+        }
+
+        nav a[href="/upload"] svg {
+            width: 1.5rem;
+            height: 1.5rem;
+        }
+
+        nav a:hover {
+            color: #ffffff;
+        }
+
+        nav a > div {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+
+        nav svg {
+            display: block;
+        }
+
+        main {
+            min-height: 100vh;
+        }
+
+        main > h1 {
+            margin: 2.5rem 0;
+            padding: 0 1rem;
+            color: var(--hero-fg);
+            text-align: center;
+            font-size: 2.25rem;
+            line-height: 2.5rem;
+            font-weight: 500;
+        }
+
+        main > div:first-of-type {
+            max-width: 72rem;
+            margin: 0 auto;
+            padding: 0 0.5rem;
+        }
+
+        #input {
+            display: block;
+            width: 100%;
+            padding: 0.375rem 0.625rem;
+            border: 1px solid var(--page-border);
+            border-radius: 0.5rem;
+            background: var(--page-surface);
+            color: var(--input-fg);
+            font: inherit;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #input::placeholder {
+            opacity: 1;
+            color: var(--placeholder-fg);
+            font-size: 0.875rem;
+        }
+
+        #input:focus {
+            outline: 2px solid rgba(34, 197, 94, 0.25);
+            outline-offset: 1px;
+        }
+
+        #hint {
+            margin: 0.25rem 0 0;
+            padding-top: 0.25rem;
+            color: var(--hint-fg);
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+        }
+
+        #hintUrl {
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .invisible {
+            visibility: hidden !important;
+        }
+
+        main > div:last-of-type {
+            display: grid;
+            align-items: center;
+            height: 66.666667%;
+            max-height: 100vh;
+        }
+
+        #submitButton {
+            align-self: flex-end;
+            justify-self: center;
+            width: 50%;
+            height: 4rem;
+            border: 0;
+            border-radius: 0.5rem;
+            background: var(--button-bg);
+            color: var(--button-fg);
+            font: inherit;
+            font-size: 1.25rem;
+            line-height: 1.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 0.75rem 1.25rem;
+            margin-top: 2.5rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        #submitButton:hover:not([disabled]) {
+            background: var(--button-bg-hover);
+        }
+
+        #submitButton[disabled] {
+            background: var(--button-disabled);
+            cursor: not-allowed;
+        }
+
+        #submitButton > div {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #buttonText {
+            white-space: nowrap;
+        }
+
+        statistic,
+        about {
+            display: block;
+            content-visibility: auto;
+        }
+
+        statistic {
+            contain-intrinsic-size: 720px;
+        }
+
+        about {
+            contain-intrinsic-size: 1600px;
+        }
+
+        @media (max-width: 640px) {
+            nav a[href="/"] > div,
+            nav a[href="https://github.com/azoyan/cloc.info"] > div {
+                display: none;
+            }
+        }
+
+        @media (min-width: 640px) {
+            nav a[href="/"] > div {
+                display: block !important;
+            }
+
+            main > div:last-of-type {
+                height: auto;
+            }
+        }
+
+        @media (min-width: 768px) {
+            nav a[href="https://github.com/azoyan/cloc.info"] > div {
+                display: block !important;
+            }
+
+            #submitButton {
+                width: 20%;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            #submitButton {
+                width: 16.666667%;
+            }
+        }
+
 block scripts
+    script.
+        (() => {
+            const stylesheetId = "home-full-style";
+            const stylesheetHref = "/assets/main.css";
+
+            function loadStylesheet() {
+                if (document.getElementById(stylesheetId)) {
+                    return;
+                }
+
+                const link = document.createElement("link");
+                link.id = stylesheetId;
+                link.rel = "stylesheet";
+                link.href = stylesheetHref;
+                document.head.appendChild(link);
+            }
+
+            function scheduleAfterPaint() {
+                let loaded = false;
+
+                const guardedLoad = () => {
+                    if (loaded) {
+                        return;
+                    }
+
+                    loaded = true;
+                    loadStylesheet();
+                };
+
+                const timeoutId = window.setTimeout(guardedLoad, 1200);
+
+                if (window.requestAnimationFrame) {
+                    window.requestAnimationFrame(() => {
+                        window.requestAnimationFrame(() => {
+                            window.clearTimeout(timeoutId);
+                            guardedLoad();
+                        });
+                    });
+
+                    return;
+                }
+
+                guardedLoad();
+            }
+
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", scheduleAfterPaint, { once: true });
+            } else {
+                scheduleAfterPaint();
+            }
+        })();
+    script(type="module", src='/src/js/home_styles.js')
     script(type="module", src='/src/js/index.js')
     script(type="module", src='/src/js/api.js')
     script(type="module", src='/src/js/git_url_parser.js')

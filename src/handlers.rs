@@ -45,17 +45,15 @@ pub fn create_general_router(provider: RepositoryProvider) -> Router {
 }
 
 fn static_page() -> Result<Response<Body>, Error> {
-    let file = std::fs::File::open("dist/info.html").unwrap();
-    let mut reader = std::io::BufReader::new(file);
-
-    let mut buffer = vec![];
-
-    std::io::Read::read_to_end(&mut reader, &mut buffer).unwrap();
-    Response::builder()
-        .header("Cache-Control", "no-cache,private,max-age=0") // TODO, maybe rewrite AddHeader
-        .header("Content-Type", "text/html; charset=utf-8")
-        .body(Body::from(buffer))
-        .context(StaticPageSnafu)
+    let buffer = std::fs::read("dist/info.html").context(TemplatePageIoSnafu)?;
+    Ok((
+        [
+            ("Cache-Control", "no-cache,private,max-age=0"),
+            ("Content-Type", "text/html; charset=utf-8"),
+        ],
+        buffer,
+    )
+        .into_response())
 }
 
 // Если нет в БД актуальной информации:
@@ -156,7 +154,12 @@ async fn regular(
                         .header("Connection", "Upgrade")
                         .body(Body::empty())
                         .context(ResponseSnafu)?,
-                    Status::Cloned => unreachable!(),
+                    Status::Cloned => Response::builder()
+                        .status(StatusCode::ACCEPTED)
+                        .header("Upgrade", "websocket")
+                        .header("Connection", "Upgrade")
+                        .body(Body::empty())
+                        .context(ResponseSnafu)?,
                     Status::Ready => Response::builder()
                         .status(StatusCode::ACCEPTED)
                         .header("Upgrade", "websocket")
@@ -164,12 +167,12 @@ async fn regular(
                         .body(Body::empty())
                         .context(ResponseSnafu)?,
                     Status::Error(e) => Response::builder()
-                        .status(StatusCode::ACCEPTED)
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
                         .body(Body::from(e))
                         .context(ResponseSnafu)?,
                     Status::Previous { date, commit, data } => {
                         let json = serde_json::to_string(&Status::Previous { date, commit, data })
-                            .unwrap();
+                            .context(SerializeStatusSnafu)?;
                         // tracing::warn!("previous: {}", json);
                         Response::builder()
                             .header(CONTENT_TYPE, APPLICATION_JSON.essence_str())
@@ -180,8 +183,10 @@ async fn regular(
                 };
                 Ok(response)
             } else {
-                Response::builder() // ws
-                    .body(Body::empty())
+                Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .header(CONTENT_TYPE, TEXT_PLAIN.essence_str())
+                    .body(Body::from("Unsupported If-Match header"))
                     .context(ResponseSnafu)
             }
         }
@@ -269,7 +274,13 @@ fn is_terminal_browser(user_agent: &str) -> bool {
 
 fn extract_user_agent(request: &Request<Body>) -> String {
     match request.headers().get(USER_AGENT) {
-        Some(value) => value.to_str().expect("not valid utf-8"),
+        Some(value) => match value.to_str() {
+            Ok(value) => value,
+            Err(error) => {
+                tracing::warn!("Invalid user-agent header: {error}");
+                "unknown"
+            }
+        },
         None => "unknown",
     }
     .to_string()
@@ -371,6 +382,12 @@ pub enum Error {
     #[snafu(display("Can't create response: {source}"))]
     ResponseError { source: axum::http::Error },
 
+    #[snafu(display("Can't load template page: {source}"))]
+    TemplatePageIo { source: std::io::Error },
+
+    #[snafu(display("Can't serialize response payload: {source}"))]
+    SerializeStatus { source: serde_json::Error },
+
     #[snafu(display("Template page not found"))]
     TemplatePage,
 
@@ -412,4 +429,24 @@ fn message_for_previous_result(date: DateTime<Utc>, commit: String, data: Vec<u8
     let reminder = b"Currently, the repository is being downloaded and updated. Please check back in 5 minutes.\n";
 
     [warn.as_bytes(), data.as_slice(), reminder].concat()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_user_agent;
+    use axum::body::Body;
+    use hyper::{
+        header::{HeaderValue, USER_AGENT},
+        Request,
+    };
+
+    #[test]
+    fn invalid_user_agent_falls_back_to_unknown() {
+        let request = Request::builder()
+            .header(USER_AGENT, HeaderValue::from_bytes(&[0xFF]).unwrap())
+            .body(Body::empty())
+            .unwrap();
+
+        assert_eq!(extract_user_agent(&request), "unknown");
+    }
 }

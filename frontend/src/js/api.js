@@ -18,29 +18,93 @@ import {
     DARK
 } from './tailwind-classes.js';
 
+let statisticsStarted = false;
+
 function start() {
+    if (statisticsStarted) {
+        return;
+    }
+
+    statisticsStarted = true;
+
     const statisticElement = DOCUMENT.querySelector("statistic");
+
+    if (!statisticElement) {
+        return;
+    }
+
     let api = new Api();
 
-    api.recent().then(data => {
-        const id = "recent";
-        insertAt(statisticElement, createStatisticBlock("Recent", id), 0);
+    renderStatisticSection(statisticElement, "Recent", "recent", 0, () => api.recent(), RecentList);
+    renderStatisticSection(statisticElement, "Popular", "popular", 1, () => api.popular(), PopularList);
+    renderStatisticSection(statisticElement, "Largest", "largest", 2, () => api.largest(), LargestList);
+}
 
-        let fragment = new RecentList(data).toDocumentFragment();
-        appendChildren(documentGetElementById(id), fragment);
-    });
-    api.popular().then(data => {
-        const id = "popular";
-        insertAt(statisticElement, createStatisticBlock("Popular", id), 1);
-        let fragment = new PopularList(data).toDocumentFragment();
-        appendChildren(documentGetElementById(id), fragment);
-    });
-    api.largest().then(data => {
-        const id = "largest";
-        insertAt(statisticElement, createStatisticBlock("Largest", id), 2);
-        let fragment = new LargestList(data).toDocumentFragment();
-        appendChildren(documentGetElementById(id), fragment);
-    });
+function observeStatisticSection() {
+    const statisticElement = DOCUMENT.querySelector("statistic");
+
+    if (!statisticElement) {
+        return;
+    }
+
+    if (!("IntersectionObserver" in globalThis)) {
+        start();
+        return;
+    }
+
+    const observer = new IntersectionObserver(
+        (entries) => {
+            for (let i = 0; i < entries.length; i++) {
+                if (!entries[i].isIntersecting) {
+                    continue;
+                }
+
+                observer.disconnect();
+                start();
+                break;
+            }
+        },
+        {
+            rootMargin: "480px 0px 480px 0px"
+        },
+    );
+
+    observer.observe(statisticElement);
+}
+
+function observeAfterScroll(callback) {
+    let observed = false;
+
+    const start = () => {
+        if (observed) {
+            return;
+        }
+
+        observed = true;
+        window.removeEventListener("scroll", start);
+        window.removeEventListener("wheel", start);
+        window.removeEventListener("touchmove", start);
+        callback();
+    };
+
+    window.addEventListener("scroll", start, { passive: true, once: true });
+    window.addEventListener("wheel", start, { passive: true, once: true });
+    window.addEventListener("touchmove", start, { passive: true, once: true });
+}
+
+async function renderStatisticSection(statisticElement, name, id, index, loader, ListType) {
+    insertAt(statisticElement, createStatisticBlock(name, id), index);
+
+    const list = documentGetElementById(id);
+
+    try {
+        const data = await loader();
+        let fragment = new ListType(data).toDocumentFragment();
+        appendChildren(list, fragment);
+    } catch (error) {
+        console.error(error);
+        appendChildren(list, createMessageListItem(error.message || `Unable to load ${name.toLowerCase()} repositories.`));
+    }
 }
 
 function createStatisticBlock(name, id) {
@@ -59,18 +123,31 @@ function createStatisticBlock(name, id) {
     return block;
 }
 
+function createMessageListItem(text) {
+    const item = documentCreateElement("li");
+    classListAdd(item, LIST_GROUP_ITEM, MX_2, PY_2, DARK_TEXT_NEUTRAL_400);
+    item.textContent = text;
+    return item;
+}
+
 class Api {
     constructor() {
         this.url = new URL(DOCUMENT.URL);
     }
 
     async fetch(url) {
-        return await fetch(url)
-            .then((response) => { return response.json(); })
-            .then((response) => { return response; })
-            .catch(function (e) {
-                console.log(e);
-            });
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+            throw new Error("Unexpected statistics response format");
+        }
+
+        return data;
     }
 
     async recent() {
@@ -433,4 +510,4 @@ function formatBytes(a, b = 2, k = 1024) {
     return 0 == a ? "0 Bytes" : parseFloat((a / Math.pow(k, d)).toFixed(Math.max(0, b))) + " " + ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"][d];
 }
 
-DOCUMENT.addEventListener("DOMContentLoaded", start);
+DOCUMENT.addEventListener("DOMContentLoaded", () => observeAfterScroll(observeStatisticSection));

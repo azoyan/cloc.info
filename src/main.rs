@@ -6,15 +6,26 @@ use clap::Parser;
 use cloc::application::start_application;
 use const_format::formatcp;
 use std::net::{IpAddr, SocketAddr};
+use std::process::ExitCode;
 use time::{format_description, UtcOffset};
 use tokio_postgres::NoTls;
 use tracing_subscriber::{fmt::time::OffsetTime, layer::SubscriberExt, util::SubscriberInitExt};
 
-fn main() {
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> Result<(), String> {
     let timer = format_description::parse(
         "[year]-[month padding:zero]-[day padding:zero] [hour]:[minute]:[second]:[subsecond digits:3]",
     )
-    .expect("Cataplum");
+    .map_err(|error| format!("Failed to configure log timer: {error}"))?;
     let time_offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
     let timer = OffsetTime::new(time_offset, timer);
 
@@ -66,40 +77,44 @@ fn main() {
         .enable_all()
         .thread_name("main_thread")
         .build()
-        .unwrap();
+        .map_err(|error| format!("Failed to build Tokio runtime: {error}"))?;
 
-    let path = std::env::current_exe().unwrap();
+    let path = std::env::current_exe()
+        .map_err(|error| format!("Failed to resolve current executable path: {error}"))?;
 
     tracing::info!("Path: {path:?}. Starting cloc server {ip}:{port}");
-    r.block_on(start_all(socket));
+    r.block_on(start_all(socket))
 }
 
-async fn start_all(socket: SocketAddr) {
+async fn start_all(socket: SocketAddr) -> Result<(), String> {
     // Read database connection parameters from environment variables
     let db_host = std::env::var("DATABASE_HOST").unwrap_or_else(|_| "localhost".to_string());
     let db_user = std::env::var("DATABASE_USER").unwrap_or_else(|_| "postgres".to_string());
     let db_name = std::env::var("DATABASE_NAME").unwrap_or_else(|_| "clocdb".to_string());
     let db_password = std::env::var("DATABASE_PASSWORD").ok();
-    
+
     let connection_string = match db_password {
-        Some(pwd) => format!("host={} user={} password={} dbname={}", db_host, db_user, pwd, db_name),
+        Some(pwd) => format!(
+            "host={} user={} password={} dbname={}",
+            db_host, db_user, pwd, db_name
+        ),
         None => format!("host={} user={} dbname={}", db_host, db_user, db_name),
     };
-    
+
     tracing::info!("Connecting to database at host={}", db_host);
-    
-    let manager = PostgresConnectionManager::new_from_stringlike(
-        &connection_string,
-        NoTls,
-    )
-    .unwrap();
+
+    let manager = PostgresConnectionManager::new_from_stringlike(&connection_string, NoTls)
+        .map_err(|error| format!("Failed to create Postgres connection manager: {error}"))?;
     let _config = tokio_postgres::Config::new()
         .dbname(&db_name)
         .host(&db_host)
         .user(&db_user)
         .to_owned();
     // let manager = PostgresConnectionManager::new(config, NoTls);
-    let pool = Pool::builder().build(manager).await.unwrap();
+    let pool = Pool::builder()
+        .build(manager)
+        .await
+        .map_err(|error| format!("Failed to build Postgres pool: {error}"))?;
 
-    start_application(socket, pool.clone()).await;
+    start_application(socket, pool).await
 }

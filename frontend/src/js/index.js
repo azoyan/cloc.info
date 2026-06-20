@@ -33,15 +33,41 @@ const dropdownList = documentGetElementById("dropdownList")
 const branchLabel = documentGetElementById("branchLabel")
 const submitButton = documentGetElementById("submitButton")
 const buttonText = documentGetElementById("buttonText")
+const checkSpinner = documentGetElementById("checkSpinner")
 const submitText = "Count"
 
 let Later = null
 let Visibility = 0
 let Branches
+let ValidatedUrl = null
+let ValidationToken = 0
+
+function normalizeRepositoryUrl(urlStr) {
+  return urlStr.replace(/\/+$/g, '')
+}
+
+function invalidateValidatedRepository() {
+  ValidationToken += 1
+  ValidatedUrl = null
+  Branches = undefined
+  disable(submitButton)
+  classListAdd(checkSpinner, HIDDEN)
+  buttonText.innerText = submitText
+}
+
+function beginEditingRepository() {
+  invalidateValidatedRepository()
+  setVisible(false, repositoryInfo, checkMark)
+}
 
 submitButton.onclick = function () {
+  const normalizedInput = normalizeRepositoryUrl(input.value)
+  if (submitButton.hasAttribute("disabled") || Branches === undefined || ValidatedUrl !== normalizedInput) {
+    return
+  }
+
   const url = gitUrlParse(input.value)
-  log(branchLabel.value)
+  log(branchLabel.innerText)
   const selected = branchLabel.innerText;
   // log("SubmitButton onclick()", selected, url)
   let path = url.host + '/' + url.owner + '/' + url.name;
@@ -85,6 +111,14 @@ input.oninput = (evt) => {
   }
 }
 
+input.onbeforeinput = (evt) => {
+  if (!evt.inputType) {
+    return
+  }
+
+  beginEditingRepository()
+}
+
 input.onkeydown = (e) => {
   if (e.key === ' ') {
     e.preventDefault();
@@ -99,12 +133,12 @@ input.onkeydown = (e) => {
 
 function reset() {
   cancelLaterTimer()
+  invalidateValidatedRepository()
   // log("reset")
   setVisible(false, repositoryInfo, invalidFeedback, checkMark)
   setVisible(true, hint)
   classListAdd(input, FOCUS_RING)
   classListRemove(input, BORDER_RED)
-  disable(submitButton)
 
   appendChildren(invalidFeedback.parentElement, invalidFeedback)
 }
@@ -128,7 +162,7 @@ function cancelLaterTimer() {
 
 async function editValue(value) {
   cancelLaterTimer()
-  setVisible(false, repositoryInfo, checkMark)
+  beginEditingRepository()
   // log("edit", value)
   if (Later === null) {
     Later = later.later(2000, false)
@@ -149,7 +183,10 @@ function pasteValue(value) {
 }
 
 function check(urlStr) {
-  urlStr = urlStr.replace(/\/+$/g, '')
+  urlStr = normalizeRepositoryUrl(urlStr)
+  const validationToken = ++ValidationToken
+  ValidatedUrl = null
+  Branches = undefined
 
   // let git_extension = urlStr.slice(-4);
   // if (git_extension !== ".git") {
@@ -181,8 +218,10 @@ function check(urlStr) {
 
   const repository_name = parsed_url.name
   // if (repository_name.slice(-4) !== ".git") { repository_name += ".git" }
-  let branches_api = DOCUMENT.URL + "api/" + parsed_url.host + '/' + parsed_url.owner + '/' + repository_name + "/branches";
-  branches_api = branches_api.replace(/([^:]\/)\/+/g, "$1");
+  const branches_api = new URL(
+    `/api/${parsed_url.host}/${parsed_url.owner}/${repository_name}/branches`,
+    window.location.origin,
+  ).toString();
   const current_branch = extractBranchFromGitUrl(parsed_url)
 
   // log("branches_api", branches_api, parsed_url.toString())
@@ -198,7 +237,12 @@ function check(urlStr) {
       return response.json();
     })
     .then((response) => {
+      if (validationToken !== ValidationToken || normalizeRepositoryUrl(input.value) !== urlStr) {
+        return
+      }
+
       Branches = response;
+      ValidatedUrl = urlStr
       updateRepositoryPicture()
       updateSelect(Branches, current_branch);
       updateCommitLabel()
@@ -215,11 +259,17 @@ function check(urlStr) {
       buttonText.innerText = submitText
     })
     .catch(function (error) {
+      if (validationToken !== ValidationToken || normalizeRepositoryUrl(input.value) !== urlStr) {
+        return
+      }
+
       log("error", error)
       showError(error.message || notValidUrlText(urlStr))
     });
 }
 function showError(errorText) {
+  ValidatedUrl = null
+  Branches = undefined
   setVisible(true, invalidFeedback)
   invalidFeedback.innerText = errorText
   classListAdd(input, BORDER_RED);

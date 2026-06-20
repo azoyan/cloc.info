@@ -44,7 +44,19 @@ export default {
     build: {
         rollupOptions: {
             output: {
-                // assetFileNames: 'assets/[name][extname]' // Ensure other assets also go to the assets directory without hashing
+                assetFileNames: (assetInfo) => {
+                    const names = [
+                        assetInfo.name,
+                        ...(assetInfo.names || []),
+                        ...(assetInfo.originalFileNames || []),
+                    ].filter(Boolean)
+
+                    if (names.some((name) => name.endsWith("main.css"))) {
+                        return "assets/main.css"
+                    }
+
+                    return "assets/[name]-[hash][extname]"
+                }
             },
         },
         assetsInlineLimit: 0,

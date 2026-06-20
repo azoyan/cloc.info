@@ -13,7 +13,7 @@ use axum::{
     extract,
     handler::HandlerWithoutStateExt,
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Response},
     routing::{get, get_service, post},
     serve::serve,
     Router,
@@ -24,7 +24,10 @@ use hyper::{Request, StatusCode};
 use retainer::Cache;
 use std::{future::IntoFuture, net::SocketAddr, path::Path, sync::Arc, time::Duration};
 use tempfile::tempdir_in;
-use tokio::{fs, signal::{self, ctrl_c}};
+use tokio::{
+    fs,
+    signal::{self, ctrl_c},
+};
 use tokio_postgres::NoTls;
 use tokio_util::sync::CancellationToken;
 use tower::{BoxError, ServiceBuilder};
@@ -35,10 +38,26 @@ use tower_http::{
     trace::TraceLayer,
 };
 
+fn is_fingerprinted_asset(path: &str) -> bool {
+    let Some(file_name) = path.rsplit('/').next() else {
+        return false;
+    };
+
+    let Some((stem, _extension)) = file_name.rsplit_once('.') else {
+        return false;
+    };
+
+    let Some((_, suffix)) = stem.rsplit_once('-') else {
+        return false;
+    };
+
+    suffix.len() >= 6 && suffix.chars().all(|ch| ch.is_ascii_alphanumeric())
+}
+
 pub async fn start_application(
     socket: SocketAddr,
     connection_pool: Pool<PostgresConnectionManager<NoTls>>,
-) {
+) -> Result<(), String> {
     let root_service =
         get_service(ServeFile::new("dist/index.html")).handle_error(|error| async move {
             (
@@ -116,7 +135,9 @@ pub async fn start_application(
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http());
 
-    let tcp_listener = tokio::net::TcpListener::bind(&socket).await.unwrap();
+    let tcp_listener = tokio::net::TcpListener::bind(&socket)
+        .await
+        .map_err(|error| format!("Failed to bind HTTP listener at {socket}: {error}"))?;
     let server = serve(tcp_listener, app.into_make_service())
         .with_graceful_shutdown(shutdown_signal(cancel, monitor))
         .into_future();
@@ -125,18 +146,45 @@ pub async fn start_application(
     let (_repo, handle) = tokio::join!(repository_service, server);
 
     match handle {
-        Ok(_ok) => tracing::debug!("Exit"),
-        Err(e) => tracing::error!("Error at stopping server: {e}"),
+        Ok(_ok) => {
+            tracing::debug!("Exit");
+            Ok(())
+        }
+        Err(error) => Err(format!("Error while running HTTP server: {error}")),
     }
 }
 async fn set_static_cache_control(request: Request<Body>, next: Next) -> Response {
-    let should_cache = request.uri().path().starts_with("/assets/");
+    let path = request.uri().path().to_owned();
     let mut response = next.run(request).await;
 
-    if should_cache && !response.headers().contains_key(hyper::header::CACHE_CONTROL) {
+    if response
+        .headers()
+        .contains_key(hyper::header::CACHE_CONTROL)
+    {
+        return response;
+    }
+
+    let cache_control = if path.starts_with("/assets/") {
+        if is_fingerprinted_asset(&path) {
+            Some("public, max-age=31536000, immutable")
+        } else {
+            Some("no-cache,private,max-age=0")
+        }
+    } else if response
+        .headers()
+        .get(hyper::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.starts_with("text/html"))
+    {
+        Some("no-cache,private,max-age=0")
+    } else {
+        None
+    };
+
+    if let Some(cache_control) = cache_control {
         response.headers_mut().insert(
             hyper::header::CACHE_CONTROL,
-            axum::http::HeaderValue::from_static("public, max-age=31536000"),
+            axum::http::HeaderValue::from_static(cache_control),
         );
     }
 
@@ -144,42 +192,65 @@ async fn set_static_cache_control(request: Request<Body>, next: Next) -> Respons
 }
 
 pub async fn not_found(_uri: axum::http::Uri) -> Response<Body> {
-    let file = std::fs::File::open("dist/404.html").unwrap();
-    let mut reader = std::io::BufReader::new(file);
-
-    let mut buffer = vec![];
-
-    std::io::Read::read_to_end(&mut reader, &mut buffer).unwrap();
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .header("Cache-Control", "no-cache,private,max-age=0") // TODO, maybe rewrite AddHeader
-        .body(Body::from(buffer))
-        .unwrap()
+    match std::fs::read("dist/404.html") {
+        Ok(buffer) => (
+            StatusCode::NOT_FOUND,
+            [
+                ("Cache-Control", "no-cache,private,max-age=0"),
+                ("Content-Type", "text/html; charset=utf-8"),
+            ],
+            buffer,
+        )
+            .into_response(),
+        Err(error) => {
+            tracing::error!("Can't load dist/404.html: {error}");
+            (
+                StatusCode::NOT_FOUND,
+                [("Cache-Control", "no-cache,private,max-age=0")],
+                "Not found",
+            )
+                .into_response()
+        }
+    }
 }
 
 async fn shutdown_signal(cancel: Arc<CancellationToken>, monitor: tokio::task::JoinHandle<()>) {
     let ctrl_c = async {
-        ctrl_c().await.expect("failed to install Ctrl+C handler");
+        if let Err(error) = ctrl_c().await {
+            tracing::warn!("Failed to install Ctrl+C handler: {error}");
+            std::future::pending::<()>().await;
+        }
     };
-
-    monitor.abort();
 
     #[cfg(unix)]
     let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
+        match signal::unix::signal(signal::unix::SignalKind::terminate()) {
+            Ok(mut signal) => {
+                signal.recv().await;
+            }
+            Err(error) => {
+                tracing::warn!("Failed to install SIGTERM handler: {error}");
+                std::future::pending::<()>().await;
+            }
+        }
     };
-    let hangup = async {
-        signal::unix::signal(signal::unix::SignalKind::hangup())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
-    };
-
     #[cfg(not(unix))]
     let terminate = std::future::pending::<()>();
+
+    #[cfg(unix)]
+    let hangup = async {
+        match signal::unix::signal(signal::unix::SignalKind::hangup()) {
+            Ok(mut signal) => {
+                signal.recv().await;
+            }
+            Err(error) => {
+                tracing::warn!("Failed to install SIGHUP handler: {error}");
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    #[cfg(not(unix))]
+    let hangup = std::future::pending::<()>();
 
     tokio::select! {
         _ = ctrl_c => {
@@ -196,6 +267,12 @@ async fn shutdown_signal(cancel: Arc<CancellationToken>, monitor: tokio::task::J
         },
     }
     cancel.cancel();
+    monitor.abort();
+    if let Err(error) = monitor.await {
+        if !error.is_cancelled() {
+            tracing::warn!("Cache monitor task stopped unexpectedly: {error}");
+        }
+    }
 }
 
 async fn handle_errors(err: BoxError) -> (StatusCode, String) {

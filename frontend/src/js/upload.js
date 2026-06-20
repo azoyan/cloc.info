@@ -1,10 +1,17 @@
 import { createTableFromResponse } from "./common.js";
 
-document.getElementById("file-input").onchange = e => {
+const fileInput = document.getElementById("file-input")
+const dropArea = document.getElementById("area")
+
+fileInput.onchange = e => {
     handleFiles(e.target.files)
 }
 
-export function dropHandler(ev) {
+dropArea.addEventListener('drop', dropHandler)
+dropArea.addEventListener('dragover', dragOverHandler)
+dropArea.addEventListener('click', () => fileInput.click())
+
+function dropHandler(ev) {
     let files = []
     console.log('File(s) dropped');
     ev.preventDefault();
@@ -61,7 +68,7 @@ function handleFiles(files) {
             document.getElementById("processing").hidden = false
             const progress = document.getElementById('progress-bar');
             const data = new FormData();
-            let delta = Math.floor(100 / files.length)
+            let delta = Math.max(1, Math.floor(100 / files.length))
             for (const file of files) {
                 data.append(file.name, file, file.name);
             }
@@ -84,9 +91,25 @@ function handleFiles(files) {
 
             request.addEventListener('load', function () {
                 console.log(request.status);
-                createTableFromResponse(request.response)
+                if (request.status < 200 || request.status >= 300) {
+                    showUploadError(`Upload failed with status ${request.status}.`)
+                    return
+                }
+
+                try {
+                    createTableFromResponse(request.responseText)
+                } catch (error) {
+                    console.error(error)
+                    showUploadError("The server returned data that could not be rendered.")
+                    return
+                }
+
                 document.getElementById("area").hidden = true
                 document.getElementById("processing").hidden = true;
+            })
+
+            request.addEventListener('error', function () {
+                showUploadError('Network error while uploading files.')
             })
 
             submitButton.hidden = true
@@ -136,4 +159,11 @@ function appendStatusLine(container, text) {
     line.className = 'card-text p-0'
     line.textContent = text
     container.appendChild(line)
+}
+
+function showUploadError(message) {
+    const status = document.getElementById("status")
+    appendStatusLine(status, message)
+    document.getElementById("processing").hidden = false
+    document.getElementById("submit").hidden = false
 }

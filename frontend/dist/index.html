@@ -1,7 +1,389 @@
-<!DOCTYPE html><html lang="en"><link rel="canonical" href="https://cloc.info"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#000000"><meta name="description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code"><meta name="og:description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code"><meta name="og:title" content="Count lines of code"><meta name="og:site_name" content="Count lines of code"><meta name="og:url" content="https://cloc.info"><meta name="og:image" content="./android-chrome-192x192.png"><meta name="og:image:width" content="192"><meta name="og:image:height" content="192"><meta name="og:locale" content="en_US"><meta name="og:type" content="website"><meta name="google-site-verification" content="ckQrLb6lG-zoXPWIEyOB13ZXK7Sgcx1IRHfxtexytI4"><link rel="shortcut icon" type="image/ico" id="favicon" href="/assets/favicon-D2pXn3IS.ico"><link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon-CHwmFDZ-.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32-DNESycOY.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16-CtKDRR54.png"><title>Count Lines of Code Online - cloc.info</title></html><script type="module" crossorigin src="/assets/index.pug-CkXVmWex.js"></script>
-<link rel="modulepreload" crossorigin href="/assets/common-jLFJ1HoF.js">
+<!DOCTYPE html><html lang="en"><link rel="canonical" href="https://cloc.info"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#000000"><meta name="description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code"><meta name="og:description" content="Count lines of code (cloc) online. Get information of any git repository online or upload your own code"><meta name="og:title" content="Count lines of code"><meta name="og:site_name" content="Count lines of code"><meta name="og:url" content="https://cloc.info"><meta name="og:image" content="./android-chrome-192x192.png"><meta name="og:image:width" content="192"><meta name="og:image:height" content="192"><meta name="og:locale" content="en_US"><meta name="og:type" content="website"><meta name="google-site-verification" content="ckQrLb6lG-zoXPWIEyOB13ZXK7Sgcx1IRHfxtexytI4"><link rel="shortcut icon" type="image/ico" id="favicon" href="/assets/favicon-D2pXn3IS.ico"><link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon-CHwmFDZ-.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32-DNESycOY.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16-CtKDRR54.png"><title>Count Lines of Code Online - cloc.info</title><link rel="preload" as="style" href="/assets/main.css" fetchpriority="low"><style>:root {
+    color-scheme: light dark;
+    --page-bg: #ffffff;
+    --page-fg: #171717;
+    --page-border: #d4d4d8;
+    --page-surface: #ffffff;
+    --nav-bg: #09090b;
+    --nav-fg: #f5f5f5;
+    --button-bg: #15803d;
+    --button-bg-hover: #166534;
+    --button-disabled: #71717a;
+    --hero-fg: #171717;
+    --input-fg: #171717;
+    --hint-fg: #737373;
+    --placeholder-fg: #6b7280;
+    --button-fg: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --page-bg: #18181b;
+        --page-fg: #e5e5e5;
+        --page-border: #71717a;
+        --page-surface: #18181b;
+        --button-bg: #166534;
+        --button-bg-hover: #15803d;
+        --hero-fg: #d4d4d4;
+        --input-fg: #d4d4d4;
+        --hint-fg: #d4d4d4;
+        --placeholder-fg: #737373;
+        --button-fg: #d4d4d4;
+    }
+}
+
+*,
+::before,
+::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: #e5e7eb;
+}
+
+html {
+    background: var(--page-bg);
+    font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    font-feature-settings: normal;
+    font-variation-settings: normal;
+    -webkit-tap-highlight-color: transparent;
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--page-bg);
+    color: var(--page-fg);
+    line-height: inherit;
+}
+
+h1,
+p {
+    margin: 0;
+}
+
+a {
+    color: inherit;
+    text-decoration: inherit;
+}
+
+button,
+input {
+    font-family: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    font-size: 100%;
+    font-weight: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+}
+
+button {
+    text-transform: none;
+}
+
+nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    width: 100%;
+    align-items: center;
+    background: var(--nav-bg);
+    padding: 1rem;
+}
+
+nav > div:first-child {
+    display: inline-flex;
+    align-items: center;
+    padding-right: 2rem;
+    color: var(--nav-fg);
+}
+
+nav > div:last-child {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+}
+
+nav > div:last-child > div {
+    display: inline-flex;
+    align-items: center;
+    color: var(--nav-fg);
+}
+
+nav > div:last-child > div:first-child {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+nav a {
+    display: inline-flex;
+    align-items: center;
+    color: var(--nav-fg);
+    text-decoration: none;
+}
+
+nav a[aria-label="Go to cloc.info home page"] {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 400;
+}
+
+nav a[href="/upload"] {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+}
+
+nav a[href="https://github.com/azoyan/cloc.info"] {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+}
+
+nav a[href="/upload"] svg {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+nav a:hover {
+    color: #ffffff;
+}
+
+nav a > div {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+nav svg {
+    display: block;
+}
+
+main {
+    min-height: 100vh;
+}
+
+main > h1 {
+    margin: 2.5rem 0;
+    padding: 0 1rem;
+    color: var(--hero-fg);
+    text-align: center;
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+    font-weight: 500;
+}
+
+main > div:first-of-type {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 0.5rem;
+}
+
+#input {
+    display: block;
+    width: 100%;
+    padding: 0.375rem 0.625rem;
+    border: 1px solid var(--page-border);
+    border-radius: 0.5rem;
+    background: var(--page-surface);
+    color: var(--input-fg);
+    font: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#input::-moz-placeholder {
+    opacity: 1;
+    color: var(--placeholder-fg);
+    font-size: 0.875rem;
+}
+
+#input::placeholder {
+    opacity: 1;
+    color: var(--placeholder-fg);
+    font-size: 0.875rem;
+}
+
+#input:focus {
+    outline: 2px solid rgba(34, 197, 94, 0.25);
+    outline-offset: 1px;
+}
+
+#hint {
+    margin: 0.25rem 0 0;
+    padding-top: 0.25rem;
+    color: var(--hint-fg);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+#hintUrl {
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.invisible {
+    visibility: hidden !important;
+}
+
+main > div:last-of-type {
+    display: grid;
+    align-items: center;
+    height: 66.666667%;
+    max-height: 100vh;
+}
+
+#submitButton {
+    align-self: flex-end;
+    justify-self: center;
+    width: 50%;
+    height: 4rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: var(--button-bg);
+    color: var(--button-fg);
+    font: inherit;
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0.75rem 1.25rem;
+    margin-top: 2.5rem;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+#submitButton:hover:not([disabled]) {
+    background: var(--button-bg-hover);
+}
+
+#submitButton[disabled] {
+    background: var(--button-disabled);
+    cursor: not-allowed;
+}
+
+#submitButton > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#buttonText {
+    white-space: nowrap;
+}
+
+statistic,
+about {
+    display: block;
+    content-visibility: auto;
+}
+
+statistic {
+    contain-intrinsic-size: 720px;
+}
+
+about {
+    contain-intrinsic-size: 1600px;
+}
+
+@media (max-width: 640px) {
+    nav a[href="/"] > div,
+    nav a[href="https://github.com/azoyan/cloc.info"] > div {
+        display: none;
+    }
+}
+
+@media (min-width: 640px) {
+    nav a[href="/"] > div {
+        display: block !important;
+    }
+
+    main > div:last-of-type {
+        height: auto;
+    }
+}
+
+@media (min-width: 768px) {
+    nav a[href="https://github.com/azoyan/cloc.info"] > div {
+        display: block !important;
+    }
+
+    #submitButton {
+        width: 20%;
+    }
+}
+
+@media (min-width: 1024px) {
+    #submitButton {
+        width: 16.666667%;
+    }
+}
+</style><script>(() => {
+    const stylesheetId = "home-full-style";
+    const stylesheetHref = "/assets/main.css";
+
+    function loadStylesheet() {
+        if (document.getElementById(stylesheetId)) {
+            return;
+        }
+
+        const link = document.createElement("link");
+        link.id = stylesheetId;
+        link.rel = "stylesheet";
+        link.href = stylesheetHref;
+        document.head.appendChild(link);
+    }
+
+    function scheduleAfterPaint() {
+        let loaded = false;
+
+        const guardedLoad = () => {
+            if (loaded) {
+                return;
+            }
+
+            loaded = true;
+            loadStylesheet();
+        };
+
+        const timeoutId = window.setTimeout(guardedLoad, 1200);
+
+        if (window.requestAnimationFrame) {
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
+                    window.clearTimeout(timeoutId);
+                    guardedLoad();
+                });
+            });
+
+            return;
+        }
+
+        guardedLoad();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", scheduleAfterPaint, { once: true });
+    } else {
+        scheduleAfterPaint();
+    }
+})();</script></html><script type="module" crossorigin src="/assets/index.pug-yZrnkJng.js"></script>
+<link rel="modulepreload" crossorigin href="/assets/common-DcCrPDoB.js">
 <link rel="modulepreload" crossorigin href="/assets/git_url_parser-D-slnpxz.js">
-<link rel="stylesheet" crossorigin href="/assets/main-BbYhiQ8p.css">
 
 <body class="dark:bg-zinc-900"><nav class="flex w-full bg-zinc-950 p-4 sticky top-0">
     <div class="inline-flex items-center pr-8 text-neutral-100 hover:text-white">
@@ -70,9 +452,9 @@
                     class="flex w-28 sm:w-64 truncate border text-neutral-800 border-neutral-300 hover:bg-neutral-100 focus:bg-white rounded-lg text-sm px-2.5 py-2 items-center dark:border-zinc-500 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                     type="button">
                     <div>
-                        <svg class="w-6 h-4 dark:text-neutral-300" width="24" height="16" xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 21 21" fill="none" stroke="currentColor" stroke-width="1"
-                            stroke-linecap="round">
+                        <svg class="w-6 h-4 dark:text-neutral-300" width="24" height="16"
+                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21" fill="none" stroke="currentColor"
+                            stroke-width="1" stroke-linecap="round">
                             <path d="M6 9v6" />
                             <circle cx="18" cy="6" r="2.5" />
                             <circle cx="6" cy="6" r="2.5" />
@@ -82,8 +464,8 @@
                     </div>
                     <div id="branchLabel" class="truncate w-28 sm:w-52 text-start px-1 dark:text-neutral-300">dummy
                     </div>
-                    <svg class="w-4 h-4 ml-auto dark:text-neutral-300" width="16" height="16" fill="none" stroke="currentColor"
-                        viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <svg class="w-4 h-4 ml-auto dark:text-neutral-300" width="16" height="16" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
                         </path>
                     </svg>
@@ -123,101 +505,6 @@
 <statistic class="bg-neutral-100 dark:bg-zinc-900 min-h-svh flex flex-wrap items-center justify-center py-12 gap-12">
 </statistic>
 
-<about class="flex flex-col items-center py-12 px-2 mx-auto max-w-[72rem] dark:text-neutral-300 space-y-8">
-    <div class="container space-y-2">
-        <h2 class="text-3xl text font-medium">How it works</h2>
-        <p>Under the hood is <a href="https://github.com/boyter/scc" title="Go to scc GitHub repository" target="_blank"
-                rel="noopener noreferrer"
-                class="underline hover:text-neutral-800 dark:hover:text-neutral-100 text-neutral-500 dark:text-neutral-300">scc</a>
-            tool, a fast and accurate code counter that supports over 300 languages and multiple output formats. We
-            are
-            grateful to the developers of scc for creating such a powerful and reliable tool.</p>
-    </div>
-    <div class="container space-y-4">
-        <div class="space-y-2">
-            <h3 class="text-2xl font-medium">How to use from terminal</h3>
-            You can use this service as an API by sending a request with <a
-                class="underline hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100 text-neutral-500"
-                title="Go to wget official webpage" href="https://www.gnu.org/software/wget" target="_blank"
-                rel="noopener noreferrer">wget</a> or <a
-                class="underline hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100 text-neutral-500"
-                title="Go to curl official website" href="https://curl.se" target="_blank"
-                rel="noopener noreferrer">curl</a> and getting a human-readable
-            response. Terminal browsers such as lynx are also supported.
-            <p>
-                To send a request to this service, use the following link structure:
-            </p>
-            <div
-                class="bg-neutral-50 border dark:border-zinc-500 py-4 px-4 pe-10 rounded-md overflow-auto dark:bg-neutral-800">
-                <pre><code class="pe-4">https://cloc.info/[git_host]/[git_owner]/[git_repo]</code></pre>
-            </div>
-            <p>where <text class="font-mono">[git_host]</text> is the hosting platform for git,
-                <text class="font-mono">[git_owner]</text> is the owner of the repository and
-                <text class="font-mono">[git_repo]</text> is the name of the repository.
-            </p>
-        </div>
-        <div class="space-y-2">
-            <h4 class="text-xl font-medium">Example</h4>
-            <p>To count lines of code for the repository <a
-                    class="underline hover:text-neutral-800 dark:hover:text-neutral-100"
-                    href="https://github.com/torvalds/libgit2" title="Linus Torvalds Github Repository" target="_blank"
-                    rel="noopener noreferrer">https://github.com/torvalds/libgit2</a>, just append
-                to <text class="font-mono">https://cloc.info/</text> the rest of the URL
-                <text class="font-mono">github.com/torvalds/libgit2</text>
-            </p>
-            <div
-                class="bg-neutral-50 border dark:border-zinc-500 my-4 p-4 rounded-md overflow-auto dark:bg-neutral-800">
-                <pre><code style="user-select: none;">$ </code><code>curl </code><code>https://cloc.info/</code><code class="pe-4">github.com/torvalds/libgit2</code></pre>
-                <pre><code style="user-select: none;">$ </code><code>wget -qO- </code><code>https://cloc.info/</code><code class="pe-4">github.com/torvalds/libgit2</code></pre>
-            </div>
-            <div
-                class="bg-neutral-50 border dark:border-zinc-500 my-4 py-2 px-4 pe-10 rounded-md overflow-auto dark:bg-neutral-800">
-                <pre class="font-mono text-sm whitespace-pre">
-<samp class="pe-4">-------------------------------------------------------------------------------
-Language                 Files     Lines   Blanks  Comments     Code Complexity
--------------------------------------------------------------------------------
-C                          717    287940    53208     23097   211635      35225
-C Header                   355     66273     7175     25338    33760       1372
-Plain Text                 113       994       93         0      901          0
-CMake                       49      2632      421       406     1805        230
-Markdown                    27      4958     1170         0     3788          0
-Shell                       17      1562      297       108     1157        242
-BASH                        12        96       24        12       60          0
-License                      6      1455      266         0     1189          0
-HTML                         5       175        0         0      175          0
-PHP                          5       201       18        30      153         15
-JSON                         4        64        0         0       64          0
-YAML                         4       859       26        37      796          0
-Autoconf                     3       125       26        97        2          2
-gitignore                    3        11        0         2        9          0
-Module-Definition            2        58        0         0       58          0
-Python                       2       507       40        12      455         48
--------------------------------------------------------------------------------
-Total                     1324    367910    62764     49139   256007      37134
--------------------------------------------------------------------------------
-Estimated Cost to Develop (organic) $9,125,564
-Estimated Schedule Effort (organic) 31.86 months
-Estimated People Required (organic) 25.44
--------------------------------------------------------------------------------
-Processed 11310219 bytes, 11.310 megabytes (SI)
--------------------------------------------------------------------------------</samp></pre>
-            </div>
-            <p>This command will return a table with the number of lines of code for each programming
-                language in the repository, as well as some metrics, such as the estimated cost of development, the
-                estimated time of completion, and the estimated number of people
-                required.</p>
-            <p>You can use the same syntax for any other git platform, such as
-                gitlab.com or bitbucket.org,
-                just by replacing <text class="text-secondary-emphasis font-monospace">[git_host]</text></code> with
-                the
-                corresponding host.</p>
-        </div>
-    </div>
-    <div class="container space-y-4">
-        <h2 class="text-3xl text font-medium">Feedback</h2>
-        <p class="">If you have any suggestions or questions, please feel free to open issue on <a
-                href="https://github.com/azoyan/cloc.info" target="_blank" rel="noopener noreferrer"
-                class="link-secondary">GitHub
-                repository</a>. I would appreciate your feedback.</p>
-    </div>
+<about id="aboutSection"
+    class="flex flex-col items-center py-12 px-2 mx-auto max-w-[72rem] dark:text-neutral-300 space-y-8">
 </about><footer class="pt-10 text-sm font-light text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-zinc-950"><div class="grid grid-flow-col gap-10 justify-center"><a class="hover:text-neutral-900 dark:hover:text-white inline-flex items-center px-1 link link-hover hover:underline" href="/upload"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"></path></svg><div class="mx-1">Upload</div></a><a class="hover:text-neutral-900 dark:hover:text-white inline-flex items-center px-1 link link-hover hover:underline" href="https://github.com/azoyan/cloc.info"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"></path></svg><div class="mx-1">Github</div></a></div><div class="pt-10 pb-8 text-center">Copyright 2024 (c) Ivan Azoyan</div></footer></body>
