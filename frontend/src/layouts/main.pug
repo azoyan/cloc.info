@@ -1,7 +1,8 @@
 doctype html
 html(lang="en")
     include ../components/meta.pug
-    link(rel="stylesheet" href="/src/styles/main.css")
+    block styles
+        link(rel="stylesheet" href="/src/styles/main.css")
     //- script(src="https://cdn.tailwindcss.com")
     block scripts
 body(class="dark:bg-zinc-900")

@@ -51,6 +51,9 @@ pub enum Error {
         source: tokio_postgres::Error,
     },
 
+    #[snafu(display("Error at getting database connection from pool: {error}"))]
+    ConnectionPool { error: String },
+
     #[snafu(display("Error at creating temporary directory for clone: {error}"))]
     TempDirError { error: String },
 

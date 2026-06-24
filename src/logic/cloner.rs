@@ -99,8 +99,16 @@ impl Cloner {
         command.stderr(Stdio::piped());
         tracing::debug!("{command:?} to {path}");
 
-        let mut child = command.spawn().unwrap();
-        let stderr = child.stderr.take().unwrap();
+        let repository = path.to_string();
+
+        let mut child = command.spawn().map_err(|e| Error::CloneError {
+            repository: repository.clone(),
+            error: e.to_string(),
+        })?;
+        let stderr = child.stderr.take().ok_or_else(|| Error::CloneError {
+            repository: repository.clone(),
+            error: "stderr pipe is unavailable".to_string(),
+        })?;
 
         let mut reader = BufReader::new(stderr);
         let mut buffer = Vec::with_capacity(1000);
@@ -109,7 +117,20 @@ impl Cloner {
             ..Default::default()
         };
 
-        while reader.read_until(b'\r', &mut buffer).await.unwrap() != 0 {
+        loop {
+            let read =
+                reader
+                    .read_until(b'\r', &mut buffer)
+                    .await
+                    .map_err(|e| Error::CloneError {
+                        repository: repository.clone(),
+                        error: e.to_string(),
+                    })?;
+
+            if read == 0 {
+                break;
+            }
+
             if let Ok(line) = String::from_utf8(buffer.clone()) {
                 if line.contains("Cloning") {
                     stages.cloning = line;
@@ -153,7 +174,7 @@ impl Cloner {
                     Ok(Status::Cloned)
                 } else {
                     Err(Error::CloneError {
-                        repository: path.into(),
+                        repository: repository.clone(),
                         error: exit.to_string(),
                     })
                 }
@@ -161,7 +182,7 @@ impl Cloner {
             Err(e) => {
                 tracing::error!("git clone exit error: {}", e);
                 Err(Error::CloneError {
-                    repository: path.into(),
+                    repository,
                     error: e.to_string(),
                 })
             }

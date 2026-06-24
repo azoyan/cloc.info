@@ -20,13 +20,14 @@ use axum::{
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
-use bytes::Bytes;
-use http_body_util::BodyExt;
 use hyper::{Request, StatusCode};
 use retainer::Cache;
-use std::{future::IntoFuture, net::SocketAddr, sync::Arc, time::Duration};
+use std::{future::IntoFuture, net::SocketAddr, path::Path, sync::Arc, time::Duration};
 use tempfile::tempdir_in;
-use tokio::signal::{self, ctrl_c};
+use tokio::{
+    fs,
+    signal::{self, ctrl_c},
+};
 use tokio_postgres::NoTls;
 use tokio_util::sync::CancellationToken;
 use tower::{BoxError, ServiceBuilder};
@@ -37,10 +38,26 @@ use tower_http::{
     trace::TraceLayer,
 };
 
+fn is_fingerprinted_asset(path: &str) -> bool {
+    let Some(file_name) = path.rsplit('/').next() else {
+        return false;
+    };
+
+    let Some((stem, _extension)) = file_name.rsplit_once('.') else {
+        return false;
+    };
+
+    let Some((_, suffix)) = stem.rsplit_once('-') else {
+        return false;
+    };
+
+    suffix.len() >= 6 && suffix.chars().all(|ch| ch.is_ascii_alphanumeric())
+}
+
 pub async fn start_application(
     socket: SocketAddr,
     connection_pool: Pool<PostgresConnectionManager<NoTls>>,
-) {
+) -> Result<(), String> {
     let root_service =
         get_service(ServeFile::new("dist/index.html")).handle_error(|error| async move {
             (
@@ -116,10 +133,11 @@ pub async fn start_application(
         .layer(CorsLayer::new().allow_credentials(true))
         .layer(axum::middleware::from_fn(set_static_cache_control))
         .layer(CompressionLayer::new())
-        .layer(axum::middleware::from_fn(print_request_response))
         .layer(TraceLayer::new_for_http());
 
-    let tcp_listener = tokio::net::TcpListener::bind(&socket).await.unwrap();
+    let tcp_listener = tokio::net::TcpListener::bind(&socket)
+        .await
+        .map_err(|error| format!("Failed to bind HTTP listener at {socket}: {error}"))?;
     let server = serve(tcp_listener, app.into_make_service())
         .with_graceful_shutdown(shutdown_signal(cancel, monitor))
         .into_future();
@@ -128,56 +146,111 @@ pub async fn start_application(
     let (_repo, handle) = tokio::join!(repository_service, server);
 
     match handle {
-        Ok(_ok) => tracing::debug!("Exit"),
-        Err(e) => tracing::error!("Error at stopping server: {e}"),
+        Ok(_ok) => {
+            tracing::debug!("Exit");
+            Ok(())
+        }
+        Err(error) => Err(format!("Error while running HTTP server: {error}")),
     }
 }
 async fn set_static_cache_control(request: Request<Body>, next: Next) -> Response {
+    let path = request.uri().path().to_owned();
     let mut response = next.run(request).await;
-    response.headers_mut().insert(
-        hyper::header::CACHE_CONTROL,
-        axum::http::HeaderValue::from_static("public, max-age=31536000"),
-    );
+
+    if response
+        .headers()
+        .contains_key(hyper::header::CACHE_CONTROL)
+    {
+        return response;
+    }
+
+    let cache_control = if path.starts_with("/assets/") {
+        if is_fingerprinted_asset(&path) {
+            Some("public, max-age=31536000, immutable")
+        } else {
+            Some("no-cache,private,max-age=0")
+        }
+    } else if response
+        .headers()
+        .get(hyper::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.starts_with("text/html"))
+    {
+        Some("no-cache,private,max-age=0")
+    } else {
+        None
+    };
+
+    if let Some(cache_control) = cache_control {
+        response.headers_mut().insert(
+            hyper::header::CACHE_CONTROL,
+            axum::http::HeaderValue::from_static(cache_control),
+        );
+    }
+
     response
 }
 
 pub async fn not_found(_uri: axum::http::Uri) -> Response<Body> {
-    let file = std::fs::File::open("dist/404.html").unwrap();
-    let mut reader = std::io::BufReader::new(file);
-
-    let mut buffer = vec![];
-
-    std::io::Read::read_to_end(&mut reader, &mut buffer).unwrap();
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .header("Cache-Control", "no-cache,private,max-age=0") // TODO, maybe rewrite AddHeader
-        .body(Body::from(buffer))
-        .unwrap()
+    match std::fs::read("dist/404.html") {
+        Ok(buffer) => (
+            StatusCode::NOT_FOUND,
+            [
+                ("Cache-Control", "no-cache,private,max-age=0"),
+                ("Content-Type", "text/html; charset=utf-8"),
+            ],
+            buffer,
+        )
+            .into_response(),
+        Err(error) => {
+            tracing::error!("Can't load dist/404.html: {error}");
+            (
+                StatusCode::NOT_FOUND,
+                [("Cache-Control", "no-cache,private,max-age=0")],
+                "Not found",
+            )
+                .into_response()
+        }
+    }
 }
 
 async fn shutdown_signal(cancel: Arc<CancellationToken>, monitor: tokio::task::JoinHandle<()>) {
     let ctrl_c = async {
-        ctrl_c().await.expect("failed to install Ctrl+C handler");
+        if let Err(error) = ctrl_c().await {
+            tracing::warn!("Failed to install Ctrl+C handler: {error}");
+            std::future::pending::<()>().await;
+        }
     };
-
-    monitor.abort();
 
     #[cfg(unix)]
     let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
+        match signal::unix::signal(signal::unix::SignalKind::terminate()) {
+            Ok(mut signal) => {
+                signal.recv().await;
+            }
+            Err(error) => {
+                tracing::warn!("Failed to install SIGTERM handler: {error}");
+                std::future::pending::<()>().await;
+            }
+        }
     };
-    let hangup = async {
-        signal::unix::signal(signal::unix::SignalKind::hangup())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
-    };
-
     #[cfg(not(unix))]
     let terminate = std::future::pending::<()>();
+
+    #[cfg(unix)]
+    let hangup = async {
+        match signal::unix::signal(signal::unix::SignalKind::hangup()) {
+            Ok(mut signal) => {
+                signal.recv().await;
+            }
+            Err(error) => {
+                tracing::warn!("Failed to install SIGHUP handler: {error}");
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    #[cfg(not(unix))]
+    let hangup = std::future::pending::<()>();
 
     tokio::select! {
         _ = ctrl_c => {
@@ -194,6 +267,12 @@ async fn shutdown_signal(cancel: Arc<CancellationToken>, monitor: tokio::task::J
         },
     }
     cancel.cancel();
+    monitor.abort();
+    if let Err(error) = monitor.await {
+        if !error.is_cancelled() {
+            tracing::warn!("Cache monitor task stopped unexpectedly: {error}");
+        }
+    }
 }
 
 async fn handle_errors(err: BoxError) -> (StatusCode, String) {
@@ -210,59 +289,104 @@ async fn handle_errors(err: BoxError) -> (StatusCode, String) {
     }
 }
 
-async fn print_request_response(
-    req: Request<Body>,
-    next: Next,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let (parts, body) = req.into_parts();
-    let bytes = buffer_and_print("request", body).await?;
-    let req = Request::from_parts(parts, Body::from(bytes));
+async fn upload(mut multipart: extract::Multipart) -> Result<Response<Body>, (StatusCode, String)> {
+    fs::create_dir_all("cloc_repo")
+        .await
+        .map_err(internal_server_error)?;
 
-    let res = next.run(req).await;
+    let tempdir = tempdir_in("cloc_repo").map_err(internal_server_error)?;
+    let path = tempdir.path().to_path_buf();
+    let path_str = path
+        .to_str()
+        .ok_or_else(|| internal_server_error("temporary path is not valid UTF-8"))?;
 
-    let (parts, body) = res.into_parts();
-    let bytes = buffer_and_print("response", body).await?;
-    let res = Response::from_parts(parts, Body::from(bytes));
+    let mut index = 0usize;
+    while let Some(field) = multipart.next_field().await.map_err(bad_request)? {
+        let source_name = field.file_name().or(field.name()).unwrap_or("upload");
+        let relative_path = sanitize_upload_path(source_name);
+        let data = field.bytes().await.map_err(bad_request)?;
+        let file_path = unique_upload_path(&path, &relative_path, index);
 
-    Ok(res)
-}
-
-async fn buffer_and_print<B>(direction: &str, body: B) -> Result<Bytes, (StatusCode, String)>
-where
-    B: axum::body::HttpBody<Data = Bytes>,
-    B::Error: std::fmt::Display,
-{
-    let bytes = match body.collect().await {
-        Ok(collected) => collected.to_bytes(),
-        Err(err) => {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                format!("failed to read {direction} body: {err}"),
-            ));
+        if let Some(parent) = file_path.parent() {
+            fs::create_dir_all(parent)
+                .await
+                .map_err(internal_server_error)?;
         }
-    };
 
-    if let Ok(body) = std::str::from_utf8(&bytes) {
-        tracing::debug!("{direction} body = {body:?}");
+        fs::write(&file_path, &data)
+            .await
+            .map_err(internal_server_error)?;
+
+        tracing::debug!("write file '{}'", file_path.display());
+        index += 1;
     }
 
-    Ok(bytes)
-}
+    let scc_output = count_line_of_code(path_str, "")
+        .await
+        .map_err(|e| internal_server_error(e.to_string()))?;
 
-async fn upload(mut multipart: extract::Multipart) -> Response<Body> {
-    let tempdir = tempdir_in("cloc_repo").unwrap();
-    let path = tempdir.path().to_str().unwrap();
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        let name = field.name().unwrap().to_string();
-        let data = field.bytes().await.unwrap();
-
-        std::fs::write(&format!("{path}/{name}"), &data).unwrap();
-
-        tracing::debug!("write file '{name}' ")
-    }
-    let scc_output = count_line_of_code(path, "").await.unwrap();
     Response::builder()
         .header("Content-Type", "text/plain")
         .body(Body::from(scc_output))
-        .unwrap()
+        .map_err(internal_server_error)
+}
+
+fn sanitize_upload_path(name: &str) -> std::path::PathBuf {
+    let mut path = std::path::PathBuf::new();
+
+    for component in Path::new(name).components() {
+        if let std::path::Component::Normal(value) = component {
+            let Some(value) = value.to_str() else {
+                continue;
+            };
+
+            let sanitized = value
+                .chars()
+                .map(|ch| if ch.is_control() { '_' } else { ch })
+                .collect::<String>();
+
+            if !sanitized.is_empty() {
+                path.push(sanitized);
+            }
+        }
+    }
+
+    if path.as_os_str().is_empty() {
+        path.push("upload");
+    }
+
+    path
+}
+
+fn unique_upload_path(root: &Path, relative_path: &Path, index: usize) -> std::path::PathBuf {
+    let candidate = root.join(relative_path);
+
+    if !candidate.exists() {
+        return candidate;
+    }
+
+    let parent = candidate
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| root.to_path_buf());
+    let stem = candidate
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("upload");
+    let extension = candidate.extension().and_then(|value| value.to_str());
+    let file_name = match extension {
+        Some(extension) if !extension.is_empty() => format!("{index:04}_{stem}.{extension}"),
+        _ => format!("{index:04}_{stem}"),
+    };
+
+    parent.join(file_name)
+}
+
+fn bad_request(error: impl std::fmt::Display) -> (StatusCode, String) {
+    (StatusCode::BAD_REQUEST, error.to_string())
+}
+
+fn internal_server_error(error: impl std::fmt::Display) -> (StatusCode, String) {
+    (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
 }

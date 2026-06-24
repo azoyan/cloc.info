@@ -19,7 +19,7 @@ use std::{
 };
 use tokio::sync::Mutex;
 use tokio_postgres::{IsolationLevel::Serializable, NoTls, Row};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 type VecTasks = Arc<Mutex<Vec<(Option<Row>, Task)>>>;
 #[derive(Clone)]
@@ -107,19 +107,21 @@ impl RepositoryProvider {
     ) -> Result<(), Error> {
         info!("process_task(unique_name: {unique_name}, task: {task:?})");
         // 1. Смотрим есть ли в БД
-        let mut connection: bb8::PooledConnection<'_, PostgresConnectionManager<NoTls>> =
-            match self.connection_pool.get().await {
-                Ok(connection) => connection,
-                Err(error) => {
-                    match error {
-                        bb8::RunError::User(user) => error!("{user}"),
-                        bb8::RunError::TimedOut => error!("timeout error"),
-                    }
-                    panic!("Error at connection")
-                }
-            };
+        let mut connection: bb8::PooledConnection<'_, PostgresConnectionManager<NoTls>> = self
+            .connection_pool
+            .get()
+            .await
+            .map_err(|error| Error::ConnectionPool {
+                error: error.to_string(),
+            })?;
 
         let tmp_path = generate_path();
+        let cleanup_path = tmp_path.clone();
+        defer! {
+            if let Err(error) = remove_dir(&cleanup_path) {
+                warn!("Can't remove dir {cleanup_path}: {error}");
+            }
+        }
         self.cloner
             .clone_repository(task, unique_name, &tmp_path)
             .await?;
@@ -127,7 +129,6 @@ impl RepositoryProvider {
         self.statuses
             .insert(unique_name.to_string(), Status::Done(scc_output.clone()));
 
-        defer!(remove_dir(&tmp_path).expect("Can't remove dir"));
         let last_commit_local = last_commit_local(&tmp_path)?;
         let repository_size = dir_size(&tmp_path)? as i64;
 
@@ -179,11 +180,13 @@ impl RepositoryProvider {
         let branch = branch.unwrap_or(default_branch.clone());
         let query = "select * from branches where name=$4 and repository_id=(select id from repositories where hostname=$1 and owner=$2 and repository_name=$3);";
 
-        let connection = self
-            .connection_pool
-            .get()
-            .await
-            .expect("Can't get connection to postgres");
+        let connection =
+            self.connection_pool
+                .get()
+                .await
+                .map_err(|error| Error::ConnectionPool {
+                    error: error.to_string(),
+                })?;
         let row = connection
             .query_opt(query, &[&host, &owner, &repository_name, &branch])
             .await
@@ -207,27 +210,36 @@ impl RepositoryProvider {
             if self.is_commit_actual(row, &task).await? {
                 let branch_id = row.get("id");
                 self.update_statistic(branch_id, &task.user_agent).await;
-                return Ok((unique_name, Status::Done(scc_output)));
+                let done_status = Status::Done(scc_output);
+                self.statuses
+                    .insert(unique_name.clone(), done_status.clone());
+                return Ok((unique_name, done_status));
             } else {
                 let query = "select min_time from recently_branches_view where branch_id=$1";
                 let branch_id: i64 = row.get("id");
-                let row = connection
+                let previous_row = connection
                     .query_opt(query, &[&branch_id])
                     .await
-                    .context(QuerySnafu { query })?
-                    .expect("expected previous date");
-                let date: DateTime<Utc> = row.get("min_time");
-                Status::Previous {
-                    date,
-                    commit: db_last_commit,
-                    data: scc_output,
+                    .context(QuerySnafu { query })?;
+
+                match previous_row {
+                    Some(row) => {
+                        let date: DateTime<Utc> = row.get("min_time");
+                        Status::Previous {
+                            date,
+                            commit: db_last_commit,
+                            data: scc_output,
+                        }
+                    }
+                    None => Status::Ready,
                 }
             }
         } else {
             Status::Ready
         };
 
-        let need_task = self.statuses.get(&unique_name).is_none();
+        let current_status = self.current_status(&unique_name);
+        let need_task = should_queue_task(current_status.as_ref(), &result_status);
 
         if need_task {
             info!("add_task {}", unique_name);
@@ -248,10 +260,10 @@ impl RepositoryProvider {
         Ok((unique_name, result_status))
     }
 
-    pub fn current_status(&self, unique_name: &str) -> Status {
-        let status = self.statuses.get(unique_name).unwrap().value().clone();
-        // tracing::debug!("current_status for {unique_name}: {}", status);
-        status
+    pub fn current_status(&self, unique_name: &str) -> Option<Status> {
+        self.statuses
+            .get(unique_name)
+            .map(|status| status.value().clone())
     }
 
     pub async fn default_branch_remote(
@@ -284,7 +296,13 @@ impl RepositoryProvider {
     }
 
     async fn update_statistic(&self, branch_id: Id, user_agent: &str) {
-        let connection = self.connection_pool.get().await.unwrap();
+        let connection = match self.connection_pool.get().await {
+            Ok(connection) => connection,
+            Err(error) => {
+                error!("Insert statistic get connection error: {error}");
+                return;
+            }
+        };
         let query = "INSERT INTO statistic VALUES(DEFAULT, $1, $2, NOW());";
         let r = connection
             .execute(query, &[&user_agent, &branch_id])
@@ -312,14 +330,14 @@ impl RepositoryProvider {
     ) -> Result<Id, Error> {
         let repository_id: Id = row.get("repository_id");
         tracing::debug!(
-                "INSERT INTO branches VALUES(DEFAULT, {}, '{}', '{}', 'scc', {}) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id;",
+                "INSERT INTO branches VALUES(DEFAULT, {}, '{}', '{}', 'scc', {}) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha, scc_output = EXCLUDED.scc_output, size = EXCLUDED.size RETURNING id;",
                 repository_id,
                 branch,
                 last_commit_local,
                 repository_size
             );
 
-        let upsert_branch = "INSERT INTO branches VALUES(DEFAULT, $1, $2, $3, $4, $5) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id";
+        let upsert_branch = "INSERT INTO branches VALUES(DEFAULT, $1, $2, $3, $4, $5) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha, scc_output = EXCLUDED.scc_output, size = EXCLUDED.size RETURNING id";
         let transaction = connection
             .build_transaction()
             .isolation_level(Serializable)
@@ -393,7 +411,7 @@ impl RepositoryProvider {
         let repository_id: Id = row.get("id");
 
         tracing::debug!(
-            "INSERT INTO branches VALUES(DEFAULT, {}, '{}', '{}', 'scc', {}) ON CONFLICT (repository_id, name) DO UPDATE SET repository_id = EXCLUDED.repository_id, name = EXCLUDED.name, last_commit_sha = EXCLUDED.last_commit_sha RETURNING id;",
+            "INSERT INTO branches VALUES(DEFAULT, {}, '{}', '{}', 'scc', {}) RETURNING id;",
             repository_id,
             branch,
             &last_commit_local,
@@ -520,16 +538,30 @@ pub async fn count_line_of_code(path: &str, _format: &str) -> Result<Vec<u8>, Er
 }
 
 fn remove_dir(path: &str) -> Result<(), std::io::Error> {
-    Command::new("rm").args(["-rf", path, "&"]).status()?;
-    tracing::debug!("Remove {path}");
+    if Path::new(path).exists() {
+        std::fs::remove_dir_all(path)?;
+        tracing::debug!("Remove {path}");
+    }
     Ok(())
+}
+
+fn should_queue_task(current_status: Option<&Status>, result_status: &Status) -> bool {
+    match result_status {
+        Status::Ready | Status::Previous { .. } => !matches!(
+            current_status,
+            Some(Status::Ready | Status::InProgress(_) | Status::Cloned)
+        ),
+        Status::Done(_) | Status::InProgress(_) | Status::Cloned | Status::Error(_) => false,
+    }
 }
 
 pub fn dir_size<P>(path: P) -> Result<u64, Error>
 where
     P: AsRef<Path>,
 {
-    let path = path.as_ref().to_str().unwrap();
+    let path = path.as_ref().to_str().ok_or_else(|| Error::Size {
+        error: "Directory path is not valid UTF-8".to_string(),
+    })?;
     let mut command = Command::new("du");
     command.args(["-sb", path]);
 
@@ -562,4 +594,37 @@ fn generate_path() -> String {
         .take(30)
         .map(char::from)
         .collect::<String>()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_queue_task;
+    use crate::logic::info::Status;
+    use chrono::Utc;
+
+    #[test]
+    fn queues_when_previous_result_needs_refresh() {
+        let previous = Status::Previous {
+            date: Utc::now(),
+            commit: "abc123".to_string(),
+            data: vec![],
+        };
+
+        assert!(should_queue_task(None, &previous));
+        assert!(should_queue_task(Some(&Status::Done(vec![])), &previous));
+        assert!(should_queue_task(
+            Some(&Status::Error("failed".to_string())),
+            &previous
+        ));
+    }
+
+    #[test]
+    fn skips_queue_while_task_is_active() {
+        assert!(!should_queue_task(Some(&Status::Ready), &Status::Ready,));
+        assert!(!should_queue_task(
+            Some(&Status::InProgress("cloning".to_string())),
+            &Status::Ready,
+        ));
+        assert!(!should_queue_task(Some(&Status::Cloned), &Status::Ready,));
+    }
 }

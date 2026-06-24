@@ -33,15 +33,41 @@ const dropdownList = documentGetElementById("dropdownList")
 const branchLabel = documentGetElementById("branchLabel")
 const submitButton = documentGetElementById("submitButton")
 const buttonText = documentGetElementById("buttonText")
-const submitText = "Submit"
+const checkSpinner = documentGetElementById("checkSpinner")
+const submitText = "Count"
 
 let Later = null
 let Visibility = 0
 let Branches
+let ValidatedUrl = null
+let ValidationToken = 0
+
+function normalizeRepositoryUrl(urlStr) {
+  return urlStr.replace(/\/+$/g, '')
+}
+
+function invalidateValidatedRepository() {
+  ValidationToken += 1
+  ValidatedUrl = null
+  Branches = undefined
+  disable(submitButton)
+  classListAdd(checkSpinner, HIDDEN)
+  buttonText.innerText = submitText
+}
+
+function beginEditingRepository() {
+  invalidateValidatedRepository()
+  setVisible(false, repositoryInfo, checkMark)
+}
 
 submitButton.onclick = function () {
+  const normalizedInput = normalizeRepositoryUrl(input.value)
+  if (submitButton.hasAttribute("disabled") || Branches === undefined || ValidatedUrl !== normalizedInput) {
+    return
+  }
+
   const url = gitUrlParse(input.value)
-  log(branchLabel.value)
+  log(branchLabel.innerText)
   const selected = branchLabel.innerText;
   // log("SubmitButton onclick()", selected, url)
   let path = url.host + '/' + url.owner + '/' + url.name;
@@ -85,16 +111,34 @@ input.oninput = (evt) => {
   }
 }
 
-input.onkeydown = (e) => { if (e.key === ' ') e.preventDefault(); }
+input.onbeforeinput = (evt) => {
+  if (!evt.inputType) {
+    return
+  }
+
+  beginEditingRepository()
+}
+
+input.onkeydown = (e) => {
+  if (e.key === ' ') {
+    e.preventDefault();
+    return;
+  }
+
+  if (e.key === 'Enter' && !submitButton.disabled) {
+    e.preventDefault();
+    submitButton.click();
+  }
+}
 
 function reset() {
   cancelLaterTimer()
+  invalidateValidatedRepository()
   // log("reset")
   setVisible(false, repositoryInfo, invalidFeedback, checkMark)
   setVisible(true, hint)
   classListAdd(input, FOCUS_RING)
   classListRemove(input, BORDER_RED)
-  disable(submitButton)
 
   appendChildren(invalidFeedback.parentElement, invalidFeedback)
 }
@@ -118,6 +162,7 @@ function cancelLaterTimer() {
 
 async function editValue(value) {
   cancelLaterTimer()
+  beginEditingRepository()
   // log("edit", value)
   if (Later === null) {
     Later = later.later(2000, false)
@@ -138,7 +183,10 @@ function pasteValue(value) {
 }
 
 function check(urlStr) {
-  urlStr = urlStr.replace(/\/+$/g, '')
+  urlStr = normalizeRepositoryUrl(urlStr)
+  const validationToken = ++ValidationToken
+  ValidatedUrl = null
+  Branches = undefined
 
   // let git_extension = urlStr.slice(-4);
   // if (git_extension !== ".git") {
@@ -170,29 +218,36 @@ function check(urlStr) {
 
   const repository_name = parsed_url.name
   // if (repository_name.slice(-4) !== ".git") { repository_name += ".git" }
-  let branches_api = DOCUMENT.URL + "api/" + parsed_url.host + '/' + parsed_url.owner + '/' + repository_name + "/branches";
-  branches_api = branches_api.replace(/([^:]\/)\/+/g, "$1");
+  const branches_api = new URL(
+    `/api/${parsed_url.host}/${parsed_url.owner}/${repository_name}/branches`,
+    window.location.origin,
+  ).toString();
   const current_branch = extractBranchFromGitUrl(parsed_url)
 
   // log("branches_api", branches_api, parsed_url.toString())
   // log("current_branch", current_branch)
 
   fetch(branches_api)
-    .then((response) => response.json())
+    .then(async (response) => {
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || notValidUrlText(urlStr));
+      }
+
+      return response.json();
+    })
     .then((response) => {
+      if (validationToken !== ValidationToken || normalizeRepositoryUrl(input.value) !== urlStr) {
+        return
+      }
+
       Branches = response;
+      ValidatedUrl = urlStr
       updateRepositoryPicture()
       updateSelect(Branches, current_branch);
       updateCommitLabel()
 
       submitButton.removeAttribute("disabled");
-
-      DOCUMENT.addEventListener("keypress", function (event) {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          submitButton.click();
-        }
-      });
       setVisible(true, repositoryInfo, checkMark)
       dropdownButton.onclick = () => { Visibility = 1, setVisible(true, dropdownList) }
       setVisible(false, hint, invalidFeedback)
@@ -204,19 +259,17 @@ function check(urlStr) {
       buttonText.innerText = submitText
     })
     .catch(function (error) {
-      if (error.response) {
-        showError(error.response.data)
-        console.error(error.response.data);
-        console.error(error.response.status);
-        console.error(error.response.headers);
+      if (validationToken !== ValidationToken || normalizeRepositoryUrl(input.value) !== urlStr) {
+        return
       }
-      else {
-        log("error", error)
-        showError(notValidUrlText(urlStr))
-      }
+
+      log("error", error)
+      showError(error.message || notValidUrlText(urlStr))
     });
 }
 function showError(errorText) {
+  ValidatedUrl = null
+  Branches = undefined
   setVisible(true, invalidFeedback)
   invalidFeedback.innerText = errorText
   classListAdd(input, BORDER_RED);
@@ -293,7 +346,7 @@ function updateRepositoryPicture() {
   repoUrl.setAttribute("href", input.value)
   const text = documentCreateElement(TEXT)
   classListAdd(text, HIDDEN, MD_BLOCK, PX_2)
-  text.innerText = extractRepositoryHost(input.value)
+  text.innerText = "Open " + extractRepositoryHost(input.value)
 
   appendChildren(pic, createRepositoryIcon(input.value, 24, 24), text)
 }
@@ -308,7 +361,7 @@ function updateCommitLabel(branchName) {
 }
 
 function setCommitHash(commitHash) {
-  classListAdd(commit, FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, ROUNDED, DARK_BORDER_ZINC_500)
+  classListAdd(commit, FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, ROUNDED, DARK_BORDER_ZINC_500, DARK_BG_ZINC_800)
   const label = documentCreateElement(DIV)
   classListAdd(label, FLEX, "justify-center", ITEMS_CENTER, TEXT_SM, ROUNDED_L_LG, PY_2, PX_2, SM_PL_2, SM_PR_4, TEXT_NEUTRAL_600, BORDER_R, DARK_TEXT_NEUTRAL_200, DARK_BORDER_ZINC_500, DARK_BG_ZINC_800);
   const commitIcon = createCommitSvgIcon(20, 20)
@@ -319,7 +372,7 @@ function setCommitHash(commitHash) {
   appendChildren(label, commitIcon, text)
 
   const p = documentCreateElement("p")
-  classListAdd(p, TRUNCATE, PX_2, SM_PR_4, FONT_MONO, FONT_LIGHT, TEXT_SM, TEXT_NEUTRAL_600, DARK_TEXT_NEUTRAL_200)
+  classListAdd(p, TRUNCATE, PX_2, SM_PR_4, FONT_MONO, FONT_LIGHT, TEXT_SM, TEXT_NEUTRAL_600, DARK_TEXT_NEUTRAL_300)
   p.innerText = commitHash
   commit.innerHTML = ""
   commit.title = LAST_COMMIT_SHA

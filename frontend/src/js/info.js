@@ -1,5 +1,5 @@
 import { gitUrlParse } from "./git_url_parser";
-import { createRepositoryIcon, isGithub, documentGetElementById, documentCreateElement, classListRemove, classListAdd, appendChildren, TEXT, DOCUMENT, DIV } from "./common";
+import { createRepositoryIcon, isGithub, documentGetElementById, documentCreateElement, classListRemove, classListAdd, appendChildren, TEXT, DOCUMENT, DIV, parseSccOutput } from "./common";
 import {
     TABLE, TABLE_AUTO, FLEX, TRUNCATE, HIDDEN, PY_2, MD, FONT_LIGHT,
     W_FULL,
@@ -13,6 +13,7 @@ import {
     PT_1_5,
     BORDER_B,
     TEXT_START,
+    TEXT_END,
     MB_2,
     TEXT_NEUTRAL_700,
     TRANSFORM,
@@ -48,6 +49,7 @@ const WARNING_DIV = documentGetElementById("warning")
 const REPOSITORY_DIV = documentGetElementById("repository")
 const COCOMO_DIV = documentGetElementById("cocomo")
 const PROCESSING_DIV = documentGetElementById("processing")
+const TEXT_DECODER = new TextDecoder()
 
 
 const SEMICOLON_STR = ":"
@@ -100,7 +102,7 @@ function extractContent(response, error_msg) {
         });
     } else {
         if (response.status >= 400) {
-            response.text().then(text => {
+            return response.text().then(text => {
                 throw new FetchError(response.status, msg + text)
             });
         }
@@ -258,12 +260,35 @@ async function preparePage(url) {
 }
 
 function showError(status, message) {
-    // console.trace()
-    // let alert = documentGetElementById("warning")
-    // alert.classList.toggle('show')
-    let bodyText = message ? message : ""
-    let headerText = status ? status : ""
-    // console.log("BODY", bodyText, "HEADER", headerText)
+    const bodyText = message
+        ? message
+        : status instanceof Error
+            ? status.message
+            : String(status || "Unexpected error while loading repository information.");
+    const headerText = typeof status === "number"
+        ? `HTTP ${status}`
+        : status && !(status instanceof Error)
+            ? String(status)
+            : "Request error";
+
+    WARNING_DIV.replaceChildren();
+
+    const heading = documentCreateElement("p")
+    classListAdd(heading, FONT_MEDIUM, MB_2)
+    heading.innerText = headerText
+
+    const text = documentCreateElement("p")
+    text.innerText = bodyText
+
+    appendChildren(WARNING_DIV, heading, text)
+    classListRemove(WARNING_DIV, HIDDEN)
+    classListAdd(PROCESSING_DIV, HIDDEN)
+    classListAdd(TABLE_DIV, HIDDEN)
+    classListAdd(COCOMO_DIV, HIDDEN)
+}
+
+function decodeBytes(bytes) {
+    return TEXT_DECODER.decode(new Uint8Array(bytes))
 }
 
 function createWarning(prev) {
@@ -306,7 +331,7 @@ async function start(_e) {
         }
         else if (cloc_reply.statusCode === 206) {
             let prev = cloc_reply.getJsonData().Previous;
-            let data = String.fromCharCode(...prev.data);
+            let data = decodeBytes(prev.data);
             classListRemove(REPOSITORY_DIV, HIDDEN)
             appendChildren(WARNING_DIV, createWarning(prev, prev))
             classListRemove(TABLE_DIV, BORDER_T, ROUNDED_L_LG, ROUNDED_R_LG, ROUNDED_T_LG, HIDDEN)
@@ -376,7 +401,7 @@ function startStreaming(ws) {
             // console.log("payload", json.Done);
             if (cloc.length > 0) {
                 stopStreaming(ws)
-                const CLOC = String.fromCharCode(...cloc);
+                const CLOC = decodeBytes(cloc);
                 createTableFromResponse(CLOC);
                 classListAdd(PROCESSING_DIV, HIDDEN)
                 classListAdd(WARNING_DIV, HIDDEN)
@@ -491,39 +516,19 @@ class PrepareError extends Error {
 }
 
 function createTableFromResponse(data) {
-    let strings = data.split("\n")
-    console.log(data)
-
-    strings.splice(0, 1);
-    strings.splice(1, 1);
-    console.log(strings.splice(-1, 1))
-
-    console.log(strings.splice(-2, 2))
-
-    let processed = strings.splice(-1, 1)
-    console.log(strings.splice(-1, 1))
-    let cocomo = strings.splice(-3, 3);
-
-    console.log(strings.splice(-1))
-    console.log(strings.splice(-2, 1))
-
-    for (let i = 0; i < strings.length; ++i) {
-        let array = strings[i].trim().split(/\s+/);
-        while (array.length > 7) {
-            array[0] += array[1]
-            array.splice(1, 1)
-        }
-        strings[i] = array;
+    const parsed = parseSccOutput(data)
+    if (parsed === null) {
+        return
     }
 
     let table = documentCreateElement(TABLE)
     classListAdd(table, TABLE, TABLE_AUTO, MD_TABLE_FIXED, W_FULL, DARK_TEXT_WHITE)
 
-    let thead = createTableHead(strings[0]);
+    let thead = createTableHead(parsed.header);
     let tbody = documentCreateElement("tbody")
 
-    for (let i = 1; i < strings.length; ++i) {
-        let row = createTableRow(strings[i])
+    for (let i = 0; i < parsed.rows.length; ++i) {
+        let row = createTableRow(parsed.rows[i])
         appendChildren(tbody, row)
     }
     appendChildren(table, thead, tbody)
@@ -531,23 +536,27 @@ function createTableFromResponse(data) {
     TABLE_DIV.replaceChildren()
 
     let caption = documentCreateElement(DIV);
-    caption.textContent = processed;
+    caption.textContent = parsed.processed;
     classListAdd(caption, PT_1_5, PX_2_5, FONT_LIGHT, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_300)
 
     appendChildren(TABLE_DIV, table, caption)
 
-    console.log(strings, cocomo)
-    createCocomoFromResponse(cocomo)
+    createCocomoFromResponse(parsed.cocomo)
 }
 
 function createTableHead(array) {
     let thead = documentCreateElement('thead')
     let tr = documentCreateElement('tr')
 
-    array.forEach((item) => {
+    array.forEach((item, index) => {
         let th = documentCreateElement('th');
         th.scope = 'col'
-        classListAdd(th, PX_2_5, P_4, TEXT_START, FONT_MEDIUM, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_300, BORDER_NEUTRAL_300)
+        if (index === 0) {
+            classListAdd(th, TEXT_START)
+        } else {
+            classListAdd(th, TEXT_END)
+        }
+        classListAdd(th, PX_2_5, P_4, FONT_MEDIUM, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_300, BORDER_NEUTRAL_300)
         th.textContent = item;
 
         appendChildren(tr, th)
@@ -563,13 +572,22 @@ function createTableRow(array) {
     array.forEach((item, index) => {
         let td = documentCreateElement('td');
         classListAdd(td, PX_2_5, PY_2, BORDER_B, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_200, BORDER_NEUTRAL_200, DARK_BORDER_ZINC_500)
-        td.textContent = item.substring(0, 17)
-        if (item.length >= 20) {
-            td.textContent += '...'
-        }
+
         if (index === 0) {
-            td.title = td.textContent
+            td.textContent = item.substring(0, 17)
+            if (item.length >= 20) {
+                td.textContent += '...'
+            }
+            td.title = item
             classListAdd(td, FONT_MEDIUM, TRUNCATE)
+        } else {
+            classListAdd(td, TEXT_END)
+            const num = Number(item);
+            if (!isNaN(num)) {
+                td.textContent = num.toLocaleString()
+            } else {
+                td.textContent = item
+            }
         }
         appendChildren(row, td)
     });
@@ -584,7 +602,7 @@ function createCocomoFromResponse(cocomo_data) {
     classListAdd(card, MAX_W_SCREEN_LG, MY_4, FLEX, FLEX_COL, ROUNDED_LG, DARK_TEXT_NEUTRAL_200)
 
     let cardTitle = documentCreateElement(DIV)
-    
+
 
     cardTitle.textContent = 'COCOMO'
 

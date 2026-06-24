@@ -6,16 +6,26 @@ authors = ["Ivan Azoyan"]
 description = "Count lines of Code service"
 
 [dependencies]
-tokio = {version = "1", features = ["rt-multi-thread", "process", "macros", "net", "signal" ]}
-futures-util = {version = "0.3"}
-axum = { version =  "0.7", features = ["ws", "multipart"] }
+tokio = { version = "1", features = [
+    "rt-multi-thread",
+    "process",
+    "macros",
+    "net",
+    "signal",
+] }
+futures-util = { version = "0.3" }
+axum = { version = "0.7", features = ["ws", "multipart"] }
 hyper = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive", "cargo"] }
 mime_guess = "2"
 tower = { version = "0.4", features = ["full"] }
 tower-http = { version = "0.5", features = ["full", "compression-full"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "time"] }
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+    "fmt",
+    "time",
+] }
 time = { version = "0.3", features = ["macros", "local-offset"] }
 bytes = "1"
 snafu = "0.8"
@@ -36,13 +46,21 @@ http-body-util = "0.1"
 const_format = "0.2"
 
 [build-dependencies]
-vergen = { version = "8", features = ["build", "cargo", "git", "gitcl", "rustc", "si"] }
+vergen = { version = "8", features = [
+    "build",
+    "cargo",
+    "git",
+    "gitcl",
+    "rustc",
+    "si",
+] }
 
 [profile.release]
-lto = true
-opt-level = 3  # Optimize for size.
-strip = true  # Automatically strip symbols from the binary.
+lto = "fat"
+opt-level = 3     # Optimize for size.
+strip = "symbols" # Automatically strip symbols from the binary.
+codegen-units = 1
 
 [profile.dev]
-opt-level = 0  # Controls the --opt-level the compiler builds with
-debug = true   # Controls whether the compiler passes `-g`
+opt-level = 0 # Controls the --opt-level the compiler builds with
+debug = true  # Controls whether the compiler passes `-g`
