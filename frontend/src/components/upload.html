@@ -1,17 +1,26 @@
-<main class="d-flex my-5">
+<main class="upload-page my-5">
     <div class="container-md">
-        <div class="table-responsive card shadow mt-4 pt-3 pb-2 px-4" id="t" hidden></div>
-        <div id="cocomo" class="card mt-5 px-0 shadow" hidden></div>
+        <div class="upload-card" id="t" hidden></div>
+        <div id="cocomo" class="upload-card" hidden></div>
         <div class="row">
             <div class="col">
-                <div id="area" class="container py-5 rounded bg-light text text-muted text-center"
-                    style="cursor: pointer; border: 1px silver dashed;">
-                    <p id="label" class="h4 py-5" style="cursor: pointer;">Drag one or more files to this drop
+                <div id="area" class="upload-dropzone">
+                    <p id="label" class="upload-dropzone-label">Drag one or more files to this drop
                         zone</p>
-                    <p id="label2" class="h4 py-5" style="cursor: pointer;">or click area to browse
+                    <p id="label2" class="upload-dropzone-label">or click area to browse
                         files</p>
                     <input id="file-input" type="file" multiple name="name" style="display: none;" />
-                    <div class="container px-5 justify-content-start text-start" id="items">
+                    <input id="directory-input" type="file" multiple webkitdirectory directory name="directory"
+                        style="display: none;" />
+                    <div class="upload-picker-actions">
+                        <button id="file-picker-button" class="upload-secondary-button" type="button">
+                            Choose files
+                        </button>
+                        <button id="directory-picker-button" class="upload-secondary-button" type="button">
+                            Choose folder
+                        </button>
+                    </div>
+                    <div id="items">
 
                     </div>
                 </div>
@@ -20,11 +29,10 @@
         <div class="row text-center">
             <div class="col">
                 <div class="container pt-5 justify-content-center">
-                    <button class="btn btn-success btn-lg" style="width: calc(5% + 100px);" id="submit" type="submit"
-                        hidden>
+                    <button class="upload-submit-button" id="submit" type="submit" hidden>
                         Count
                     </button>
-                    <div class="accordion shadow mt-4 font-monospace" id="processing" hidden>
+                    <div class="upload-processing font-monospace" id="processing" hidden>
                         <div class="accordion-item">
                             <h2 class="accordion-header" id="headingOne">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
@@ -42,8 +50,8 @@
                             </div>
                         </div>
 
-                        <div id="progress" class="progress shadow" style="height: 12px; border-radius: 0%;">
-                            <div class="progress-bar bg-dark" role="progressbar" aria-label="Segment one"
+                        <div id="progress" class="upload-progress">
+                            <div class="upload-progress-bar" role="progressbar" aria-label="Segment one"
                                 id="progress-bar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0"
                                 aria-valuemax="100">
                             </div>

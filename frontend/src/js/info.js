@@ -1,5 +1,5 @@
 import { gitUrlParse } from "./git_url_parser";
-import { createRepositoryIcon, isGithub, documentGetElementById, documentCreateElement, classListRemove, classListAdd, appendChildren, TEXT, DOCUMENT, DIV } from "./common";
+import { createRepositoryIcon, isGithub, documentGetElementById, documentCreateElement, classListRemove, classListAdd, appendChildren, TEXT, DOCUMENT, DIV, parseSccOutput } from "./common";
 import {
     TABLE, TABLE_AUTO, FLEX, TRUNCATE, HIDDEN, PY_2, MD, FONT_LIGHT,
     W_FULL,
@@ -516,43 +516,19 @@ class PrepareError extends Error {
 }
 
 function createTableFromResponse(data) {
-    let strings = data.split("\n")
-    console.log(data)
-
-    strings.splice(0, 1);
-    strings.splice(1, 1);
-    console.log(strings.splice(-1, 1))
-
-    console.log(strings.splice(-2, 2))
-
-    let processed = strings.splice(-1, 1)
-    console.log(strings.splice(-1, 1))
-    let cocomo = strings.splice(-3, 3);
-
-    console.log(strings.splice(-1))
-    console.log(strings.splice(-2, 1))
-
-    for (let i = 0; i < strings.length; ++i) {
-        let array = strings[i].trim().split(/\s+/);
-        while (array.length > 7) {
-            array[0] += " " + array[1]
-            array.splice(1, 1)
-        }
-        if (array.length >= 7) {
-            let files = array.splice(1, 1)[0];
-            array.splice(5, 0, files);
-        }
-        strings[i] = array;
+    const parsed = parseSccOutput(data)
+    if (parsed === null) {
+        return
     }
 
     let table = documentCreateElement(TABLE)
     classListAdd(table, TABLE, TABLE_AUTO, MD_TABLE_FIXED, W_FULL, DARK_TEXT_WHITE)
 
-    let thead = createTableHead(strings[0]);
+    let thead = createTableHead(parsed.header);
     let tbody = documentCreateElement("tbody")
 
-    for (let i = 1; i < strings.length; ++i) {
-        let row = createTableRow(strings[i])
+    for (let i = 0; i < parsed.rows.length; ++i) {
+        let row = createTableRow(parsed.rows[i])
         appendChildren(tbody, row)
     }
     appendChildren(table, thead, tbody)
@@ -560,13 +536,12 @@ function createTableFromResponse(data) {
     TABLE_DIV.replaceChildren()
 
     let caption = documentCreateElement(DIV);
-    caption.textContent = processed;
+    caption.textContent = parsed.processed;
     classListAdd(caption, PT_1_5, PX_2_5, FONT_LIGHT, TEXT_NEUTRAL_700, DARK_TEXT_NEUTRAL_300)
 
     appendChildren(TABLE_DIV, table, caption)
 
-    console.log(strings, cocomo)
-    createCocomoFromResponse(cocomo)
+    createCocomoFromResponse(parsed.cocomo)
 }
 
 function createTableHead(array) {

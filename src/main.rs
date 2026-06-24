@@ -7,7 +7,7 @@ use cloc::application::start_application;
 use const_format::formatcp;
 use std::net::{IpAddr, SocketAddr};
 use std::process::ExitCode;
-use time::{format_description, UtcOffset};
+use time::{macros::format_description, UtcOffset};
 use tokio_postgres::NoTls;
 use tracing_subscriber::{fmt::time::OffsetTime, layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -22,10 +22,9 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), String> {
-    let timer = format_description::parse(
-        "[year]-[month padding:zero]-[day padding:zero] [hour]:[minute]:[second]:[subsecond digits:3]",
-    )
-    .map_err(|error| format!("Failed to configure log timer: {error}"))?;
+    let timer = format_description!(
+        "[year]-[month padding:zero]-[day padding:zero] [hour]:[minute]:[second]:[subsecond digits:3]"
+    );
     let time_offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
     let timer = OffsetTime::new(time_offset, timer);
 

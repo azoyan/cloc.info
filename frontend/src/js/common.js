@@ -230,64 +230,90 @@ export function createCommitSvgIcon(width, height) {
     return svg;
 }
 
-export function createTableFromResponse(data) {
-    let strings = data.split("\n")
-    console.log(data)
+export function parseSccOutput(data) {
+    const lines = data
+        .split("\n")
+        .map((line) => line.trimEnd())
+        .filter((line) => line.trim() !== "")
 
-    strings.splice(0, 1);
-    strings.splice(1, 1);
-    console.log(strings.splice(-1, 1))
+    const isSeparator = (line) => /^-+$/.test(line.trim())
+    const splitColumns = (line, isHeader = false) => {
+        const columns = line.trim().split(/\s{2,}/)
 
-    console.log(strings.splice(-2, 2))
-
-    let processed = strings.splice(-1, 1)
-    // console.log(processed)
-    console.log(strings.splice(-1, 1))
-    let cocomo = strings.splice(-3, 3);
-    // console.log(cocomo)
-
-    // document.getElementById('toggleButton').addEventListener('click', function () {
-    //   var collapsibleDiv = document.getElementById('collapsibleDiv');
-    //   if (collapsibleDiv.style.display === 'none') {
-    //     collapsibleDiv.style.display = 'block';
-    //     setTimeout(function () {
-    //       collapsibleDiv.style.transform = 'scaleY(1)';
-    //     }, 20);
-    //   } else {
-    //     collapsibleDiv.style.transform = 'scaleY(0)';
-    //     setTimeout(function () {
-    //       collapsibleDiv.style.display = 'none';
-    //     }, 10);
-    //   }
-    // });
-    console.log(strings.splice(-1))
-    console.log(strings.splice(-2, 1))
-
-    for (let i = 0; i < strings.length; ++i) {
-        let array = strings[i].trim().split(/\s+/);
-        while (array.length > 7) {
-            array[0] += array[1]
-            array.splice(1, 1)
+        if (isHeader && columns[columns.length - 1] === "Code Complexity") {
+            columns.splice(columns.length - 1, 1, "Code", "Complexity")
         }
-        strings[i] = array;
+
+        return columns
+    }
+
+    const headerIndex = lines.findIndex((line) => !isSeparator(line))
+    if (headerIndex === -1) {
+        return null
+    }
+
+    const tableStart = lines.findIndex((line, index) => index > headerIndex && isSeparator(line)) + 1
+    const totalIndex = lines.findIndex((line, index) => index >= tableStart && line.trimStart().startsWith("Total"))
+
+    if (tableStart === 0 || totalIndex === -1) {
+        return null
+    }
+
+    const rows = lines
+        .slice(tableStart, totalIndex)
+        .filter((line) => !isSeparator(line))
+        .map((line) => splitColumns(line))
+
+    rows.push(splitColumns(lines[totalIndex]))
+
+    const tail = lines.slice(totalIndex + 1)
+    let index = 0
+    while (index < tail.length && isSeparator(tail[index])) {
+        index += 1
+    }
+
+    const cocomo = []
+    while (index < tail.length && !isSeparator(tail[index]) && !tail[index].startsWith("Processed ")) {
+        cocomo.push(tail[index])
+        index += 1
+    }
+
+    while (index < tail.length && isSeparator(tail[index])) {
+        index += 1
+    }
+
+    const processed = index < tail.length ? tail[index] : ""
+
+    return {
+        header: splitColumns(lines[headerIndex], true),
+        rows,
+        cocomo,
+        processed,
+    }
+}
+
+export function createTableFromResponse(data) {
+    const parsed = parseSccOutput(data)
+    if (parsed === null) {
+        return
     }
 
     let table = '<table class="table-auto dark:text-white">'
-    table += createTableHead(strings[0])
+    table += createTableHead(parsed.header)
     table += "<tbody>"
 
-    for (let i = 1; i < strings.length; ++i) {
-        table += createTableRow(strings[i])
+    for (let i = 0; i < parsed.rows.length; ++i) {
+        table += createTableRow(parsed.rows[i])
     }
 
     table += "</tbody>"
-    let caption = '<caption>' + processed + '</caption>'
+    let caption = '<caption>' + parsed.processed + '</caption>'
     table += caption
     table += "</table>"
     document.getElementById("t").innerHTML = table
     document.getElementById("t").hidden = false
-    console.log(strings, cocomo)
-    createCocomoFromResponse(cocomo)
+
+    createCocomoFromResponse(parsed.cocomo)
 }
 
 export function createTableHead(array) {
@@ -320,9 +346,9 @@ export function createCocomoFromResponse(cocomo_data) {
     let str = ""
 
     str += '<div class="card-body"><h5 class="card-title"><strong>COCOMO</strong></h5><h6 class="card-subtitle mb-4 text-muted">Constructive Cost Model (<a target="_blank" rel="noopener noreferrer canonical" href="https://en.wikipedia.org/wiki/COCOMO">wiki</a>)</h6>'
-    str += '<p class="card-text">' + cocomo_data[0] + '</p>'
-    str += '<p class="card-text">' + cocomo_data[1] + '</p>'
-    str += '<p class="card-text">' + cocomo_data[2] + '</p>'
+    for (let i = 0; i < cocomo_data.length; ++i) {
+        str += '<p class="card-text">' + cocomo_data[i] + '</p>'
+    }
     str += '</div>'
 
     let cocomo = document.getElementById("cocomo");

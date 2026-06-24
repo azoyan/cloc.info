@@ -303,14 +303,21 @@ async fn upload(mut multipart: extract::Multipart) -> Result<Response<Body>, (St
     let mut index = 0usize;
     while let Some(field) = multipart.next_field().await.map_err(bad_request)? {
         let source_name = field.file_name().or(field.name()).unwrap_or("upload");
-        let name = sanitize_upload_name(source_name, index);
+        let relative_path = sanitize_upload_path(source_name);
         let data = field.bytes().await.map_err(bad_request)?;
+        let file_path = unique_upload_path(&path, &relative_path, index);
 
-        fs::write(path.join(&name), &data)
+        if let Some(parent) = file_path.parent() {
+            fs::create_dir_all(parent)
+                .await
+                .map_err(internal_server_error)?;
+        }
+
+        fs::write(&file_path, &data)
             .await
             .map_err(internal_server_error)?;
 
-        tracing::debug!("write file '{name}'");
+        tracing::debug!("write file '{}'", file_path.display());
         index += 1;
     }
 
@@ -324,14 +331,56 @@ async fn upload(mut multipart: extract::Multipart) -> Result<Response<Body>, (St
         .map_err(internal_server_error)
 }
 
-fn sanitize_upload_name(name: &str, index: usize) -> String {
-    let file_name = Path::new(name)
-        .file_name()
+fn sanitize_upload_path(name: &str) -> std::path::PathBuf {
+    let mut path = std::path::PathBuf::new();
+
+    for component in Path::new(name).components() {
+        if let std::path::Component::Normal(value) = component {
+            let Some(value) = value.to_str() else {
+                continue;
+            };
+
+            let sanitized = value
+                .chars()
+                .map(|ch| if ch.is_control() { '_' } else { ch })
+                .collect::<String>();
+
+            if !sanitized.is_empty() {
+                path.push(sanitized);
+            }
+        }
+    }
+
+    if path.as_os_str().is_empty() {
+        path.push("upload");
+    }
+
+    path
+}
+
+fn unique_upload_path(root: &Path, relative_path: &Path, index: usize) -> std::path::PathBuf {
+    let candidate = root.join(relative_path);
+
+    if !candidate.exists() {
+        return candidate;
+    }
+
+    let parent = candidate
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| root.to_path_buf());
+    let stem = candidate
+        .file_stem()
         .and_then(|value| value.to_str())
         .filter(|value| !value.is_empty())
         .unwrap_or("upload");
+    let extension = candidate.extension().and_then(|value| value.to_str());
+    let file_name = match extension {
+        Some(extension) if !extension.is_empty() => format!("{index:04}_{stem}.{extension}"),
+        _ => format!("{index:04}_{stem}"),
+    };
 
-    format!("{index:04}_{file_name}")
+    parent.join(file_name)
 }
 
 fn bad_request(error: impl std::fmt::Display) -> (StatusCode, String) {
