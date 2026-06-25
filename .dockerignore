@@ -1,0 +1,10 @@
+target
+cloc_repo/*
+!cloc_repo/.gitkeep
+frontend/node_modules
+frontend/dist
+frontend/.vite
+frontend/frontend_ex.zip
+node_modules
+dist
+.tmp
