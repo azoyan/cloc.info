@@ -10,8 +10,40 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  changes:
     runs-on: ubuntu-latest
+
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      rust: ${{ steps.filter.outputs.rust }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Detect changed areas
+      id: filter
+      uses: dorny/paths-filter@v3
+      with:
+        filters: |
+          frontend:
+            - 'frontend/**'
+            - '.github/workflows/rust.yml'
+          rust:
+            - 'src/**'
+            - 'Cargo.toml'
+            - 'Cargo.lock'
+            - 'build.rs'
+            - 'schema/**'
+            - 'Dockerfile'
+            - 'rust-toolchain.toml'
+            - '.github/workflows/rust.yml'
+
+  frontend:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
 
     steps:
     - uses: actions/checkout@v4
@@ -28,6 +60,14 @@ jobs:
       run: |
         npm ci
         npm run build
+
+  rust:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+
+    steps:
+    - uses: actions/checkout@v4
 
     - name: Set up Rust toolchain
       uses: dtolnay/rust-toolchain@stable
