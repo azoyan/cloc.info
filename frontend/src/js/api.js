@@ -110,6 +110,7 @@ async function renderStatisticSection(statisticElement, name, id, index, loader,
 function createStatisticBlock(name, id) {
     const block = documentCreateElement(DIV);
 
+    classListAdd(block, "statistic-card");
     classListAdd(block, BG_WHITE, ROUNDED, BORDER, BORDER_NEUTRAL, DARK_BG_ZINC_900, DARK_BORDER_ZINC_500);
     const elementHeader = documentCreateElement(DIV);
     classListAdd(elementHeader, TEXT_CENTER, FONT_MEDIUM, TEXT_2XL, BORDER_B, PY_2, BORDER_NEUTRAL, DARK_BORDER_ZINC_500, DARK_TEXT_NEUTRAL_300, ROUNDED_T_LG, DARK_BG_ZINC_800);

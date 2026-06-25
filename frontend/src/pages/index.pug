@@ -295,14 +295,40 @@ block styles
             contain-intrinsic-size: 720px;
         }
 
+        .home-statistic {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 21.5rem), 1fr));
+            align-items: start;
+            gap: 1.5rem;
+            max-width: 72rem;
+            margin: 0 auto;
+            padding: 3rem 0.5rem;
+        }
+
+        .home-statistic > .statistic-card {
+            min-width: 0;
+            width: 100%;
+            align-self: start;
+        }
+
         about {
             contain-intrinsic-size: 1600px;
         }
 
         @media (max-width: 640px) {
+            .home-statistic {
+                gap: 1rem;
+            }
+
             nav a[href="/"] > div,
             nav a[href="https://github.com/azoyan/cloc.info"] > div {
                 display: none;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .home-statistic {
+                gap: 3rem;
             }
         }
 
