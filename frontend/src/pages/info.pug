@@ -1,5 +1,9 @@
 extends ../layouts/main.pug
 
+block styles
+     link(rel="preload" as="style" href="/assets/main.css" fetchpriority="high")
+     link(rel="stylesheet" href="/src/styles/main.css")
+
 block scripts
      script(type="module", src='/src/js/git_url_parser.js')
      script(type="module", src='/src/js/common.js')
