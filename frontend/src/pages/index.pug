@@ -300,9 +300,8 @@ block styles
             grid-template-columns: repeat(auto-fit, minmax(min(100%, 21.5rem), 1fr));
             align-items: start;
             gap: 1.5rem;
-            max-width: 72rem;
-            margin: 0 auto;
-            padding: 3rem 0.5rem;
+            width: 100%;
+            padding: 3rem max(0.5rem, calc((100% - 72rem) / 2 + 0.5rem));
         }
 
         .home-statistic > .statistic-card {
