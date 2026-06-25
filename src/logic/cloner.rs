@@ -215,7 +215,7 @@ impl Cloner {
             "clone".to_string(),
             "--progress".to_string(),
             "--no-tags".to_string(),
-            "--filter:blob".to_string(),
+            "--filter=blob:none".to_string(),
             "--single-branch".to_string(),
             "--depth=1".to_string(),
             "--branch".to_string(),
