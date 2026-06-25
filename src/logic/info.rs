@@ -62,8 +62,23 @@ pub struct RequiredStatusChecks {
     pub contexts: Vec<String>,
 }
 
+pub fn is_gitflic(hostname: &str) -> bool {
+    hostname == "gitflic.ru"
+}
+
+pub fn to_repository_path(hostname: &str, owner: &str, repository_name: &str) -> String {
+    if is_gitflic(hostname) {
+        format!("{hostname}/project/{owner}/{repository_name}")
+    } else {
+        format!("{hostname}/{owner}/{repository_name}")
+    }
+}
+
 pub fn to_url(hostname: &str, owner: &str, repository_name: &str) -> String {
-    format!("https://{hostname}/{owner}/{repository_name}")
+    format!(
+        "https://{}",
+        to_repository_path(hostname, owner, repository_name)
+    )
 }
 
 pub fn to_unique_name(host: &str, owner: &str, repository_name: &str, branch: &str) -> String {
@@ -406,5 +421,34 @@ impl From<Vec<Row>> for RecentRepositories {
             repositories.push(hostname, owner, repository_name, branch, time);
         }
         repositories
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{to_repository_path, to_url};
+
+    #[test]
+    fn standard_hosts_keep_standard_repository_path() {
+        assert_eq!(
+            to_repository_path("github.com", "owner", "repo.git"),
+            "github.com/owner/repo.git"
+        );
+        assert_eq!(
+            to_url("github.com", "owner", "repo.git"),
+            "https://github.com/owner/repo.git"
+        );
+    }
+
+    #[test]
+    fn gitflic_uses_project_prefix() {
+        assert_eq!(
+            to_repository_path("gitflic.ru", "red-soft", "fbx.git"),
+            "gitflic.ru/project/red-soft/fbx.git"
+        );
+        assert_eq!(
+            to_url("gitflic.ru", "red-soft", "fbx.git"),
+            "https://gitflic.ru/project/red-soft/fbx.git"
+        );
     }
 }

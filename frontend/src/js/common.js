@@ -16,6 +16,7 @@ const gitlabStr = "gitlab"
 const bitbucketStr = "bitbucket.org"
 const giteaStr = "gitea"
 const codebergStr = "codeberg.org"
+const gitflicStr = "gitflic.ru"
 const sourcehutStr = "sr.ht"
 const gitverseStr = "gitverse.ru"
 const gitbucketStr = "gitbucket"
@@ -31,11 +32,26 @@ export let isGitlab = (str) => str.includes(gitlabStr)
 export let isBitbucket = (str) => str.includes(bitbucketStr)
 export let isGitea = (str) => str.includes(giteaStr)
 export let isCodeberg = (str) => str.includes(codebergStr)
+export let isGitflic = (str) => str.includes(gitflicStr)
 export let isSourcehut = (str) => str.includes(sourcehutStr)
 export let isGitverse = (str) => str.includes(gitverseStr)
 export let isGitbucket = (str) => str.includes(gitbucketStr)
 export let isGnu = (str) => str.includes(gnuStr)
 export let isLaunchpad = (str) => str.includes(launchpadStr)
+
+export function buildRepositoryPath(hostname, owner, repositoryName) {
+    const normalizedOwner = owner.startsWith("project/") ? owner.slice("project/".length) : owner
+
+    if (isGitflic(hostname)) {
+        return `${hostname}/project/${normalizedOwner}/${repositoryName}`
+    }
+
+    return `${hostname}/${owner}/${repositoryName}`
+}
+
+export function buildRepositoryUrl(hostname, owner, repositoryName) {
+    return `https://${buildRepositoryPath(hostname, owner, repositoryName)}`
+}
 
 
 export function createRepositoryIcon(input, width, height) {
@@ -174,6 +190,8 @@ export function extractRepositoryHost(input) {
         return "Bitbucket"
     } else if (input.includes(codebergStr)) {
         return "Codeberg"
+    } else if (input.includes(gitflicStr)) {
+        return "GitFlic"
     } else if (input.includes(giteaStr)) {
         return "Gitea"
     } else if (input.includes(sourcehutStr)) {

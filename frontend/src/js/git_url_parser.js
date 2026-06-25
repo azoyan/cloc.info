@@ -13,6 +13,12 @@ export function extractBranchFromGitUrl(git_url) {
     else if (git_url.host === "gitea.com") {
         branch_word = "src/branch"
     }
+    else if (git_url.host === "gitflic.ru") {
+        if (git_url.query && typeof git_url.query.branch === "string") {
+            return git_url.query.branch
+        }
+        branch_word = "tree"
+    }
 
     let branch_word_idx = git_url.pathname.indexOf(branch_word)
     if (git_url.owner === branch_word) {
@@ -143,17 +149,23 @@ export function gitUrlParse(url) {
                 const blobIndex = splits.indexOf("blob", 2);
                 const treeIndex = splits.indexOf("tree", 2);
                 const commitIndex = splits.indexOf("commit", 2);
+                const fileIndex = splits.indexOf("file", 2);
                 const srcIndex = splits.indexOf("src", 2);
                 const rawIndex = splits.indexOf("raw", 2);
                 nameIndex = dashIndex > 0 ? dashIndex - 1
                     : blobIndex > 0 ? blobIndex - 1
                         : treeIndex > 0 ? treeIndex - 1
                             : commitIndex > 0 ? commitIndex - 1
-                                : srcIndex > 0 ? srcIndex - 1
-                                    : rawIndex > 0 ? rawIndex - 1
-                                        : nameIndex;
+                                : fileIndex > 0 ? fileIndex - 1
+                                    : srcIndex > 0 ? srcIndex - 1
+                                        : rawIndex > 0 ? rawIndex - 1
+                                            : nameIndex;
 
-                urlInfo.owner = splits.slice(0, nameIndex).join('/');
+                if (urlInfo.source === "gitflic.ru" && splits[0] === "project") {
+                    urlInfo.owner = splits.slice(1, nameIndex).join('/');
+                } else {
+                    urlInfo.owner = splits.slice(0, nameIndex).join('/');
+                }
                 urlInfo.name = splits[nameIndex];
                 if (commitIndex) {
                     urlInfo.commit = splits[nameIndex + 2]
@@ -172,6 +184,9 @@ export function gitUrlParse(url) {
                 }
             }
             urlInfo.organization = urlInfo.owner;
+            if (urlInfo.source === "gitflic.ru" && splits[0] === "project") {
+                urlInfo.full_name = `project/${urlInfo.owner}/${urlInfo.name}`;
+            }
             break;
     }
 

@@ -1,4 +1,4 @@
-import { DIV, TEXT, DOCUMENT, documentCreateElement, insertAt, appendChildren, classListAdd, classListRemove, documentGetElementById, createRepositoryIcon } from "./common.js";
+import { DIV, TEXT, DOCUMENT, documentCreateElement, insertAt, appendChildren, classListAdd, classListRemove, documentGetElementById, createRepositoryIcon, buildRepositoryPath, buildRepositoryUrl } from "./common.js";
 
 import {
     FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, ROUNDED, TEXT_NEUTRAL_600, HIDDEN, PY_2, SPACE_X_3, BG_WHITE, TEXT_CENTER, FONT_MEDIUM, TEXT_2XL, BORDER_B, LIST_NONE, LIST_INSIDE, DIVIDE_Y, PB_1, LIST_GROUP_ITEM, MX_2, H_12, W_36, SM_W_32, UNDERLINE, W_24, W_28, W_8, H_8, P_1, W_2, PY_1_5, COLLAPSABLE, P_2, JUSTIFY_START, W_32,
@@ -244,7 +244,7 @@ class ListItem {
 
         classListAdd(listItem, LIST_GROUP_ITEM, MX_2, DARK_TEXT_NEUTRAL_300);
 
-        let local_href = "/" + repository.hostname + "/" + repository.owner + "/" + repository.repository_name;
+        let local_href = "/" + buildRepositoryPath(repository.hostname, repository.owner, repository.repository_name);
 
         let row = createRow(FLEX, "me-3", H_12, ITEMS_CENTER, SPACE_X_3);
         let col1 = createColumn(W_36, SM_W_32, TRUNCATE);
@@ -257,7 +257,7 @@ class ListItem {
 
         appendChildren(col2, this.description);
 
-        const href = 'https://' + repository.hostname + "/" + repository.owner + "/" + repository.repository_name;
+        const href = buildRepositoryUrl(repository.hostname, repository.owner, repository.repository_name);
         const external = createExternalLink(href, "", `Open repository ${href}`);
         const externalLink = createRepositoryIcon(repository.hostname, 16, 16);
         classListAdd(externalLink, BORDER, W_8, H_8, P_1, ROUNDED, HOVER_BG_NEUTRAL_100, DARK_TEXT_WHITE, DARK_BORDER_ZINC_500, DARK_HOVER_BG_ZINC_800);
