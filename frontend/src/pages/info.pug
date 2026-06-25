@@ -1,6 +1,54 @@
 extends ../layouts/main.pug
 
 block styles
+     script.
+          (() => {
+                 const root = document.documentElement;
+                 let observer;
+
+                 const reveal = () => {
+                      window.clearTimeout(window.__infoStylesFallback);
+                      root.removeAttribute('data-info-pending-styles');
+                      if (observer) {
+                           observer.disconnect();
+                      }
+                 };
+
+                 const watchStylesheet = () => {
+                      const link = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+                           .find((node) => node.href.includes('/assets/main.css'));
+
+                      if (!link) {
+                           return false;
+                      }
+
+                      if (link.sheet) {
+                           reveal();
+                           return true;
+                      }
+
+                      link.addEventListener('load', reveal, { once: true });
+                      link.addEventListener('error', reveal, { once: true });
+                      return true;
+                 };
+
+                 root.setAttribute('data-info-pending-styles', '');
+                 window.__infoStylesFallback = window.setTimeout(reveal, 5000);
+
+                 if (watchStylesheet()) {
+                      return;
+                 }
+
+                 observer = new MutationObserver(() => {
+                      watchStylesheet();
+                 });
+
+                 observer.observe(document.head, { childList: true });
+          })();
+     style.
+          html[data-info-pending-styles] body {
+              visibility: hidden;
+          }
      link(rel="preload" as="style" href="/assets/main.css" fetchpriority="high")
      link(rel="stylesheet" href="/src/styles/main.css")
 
