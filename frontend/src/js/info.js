@@ -644,23 +644,38 @@ worker.onmessage = (event) => rotate(event.data);
 
 // Get the favicon element
 const FAVICON_ELEMENT = documentGetElementById('favicon');
+const ORIGINAL_FAVICON_HREF = FAVICON_ELEMENT?.href ?? FAVICON_ELEMENT?.getAttribute('href') ?? '';
 
 // Load the original favicon image
 const originalFavicon = new Image();
-originalFavicon.src = '/assets/favicon.ico';
+originalFavicon.src = ORIGINAL_FAVICON_HREF;
 
 const LOGO = documentGetElementById("logo")
 
 function rotate(angle) {
     LOGO.setAttribute(TRANSFORM, "rotate(" + angle + ")");
 
+    if (!FAVICON_ELEMENT || !canRotateImage(originalFavicon)) {
+        return
+    }
+
     const rotatedFavicon = rotateImage(originalFavicon, angle);
-    FAVICON_ELEMENT.href = rotatedFavicon;
+    if (rotatedFavicon !== null) {
+        FAVICON_ELEMENT.href = rotatedFavicon;
+    }
 }
 
 function rotateImage(image, angle) {
+    if (!canRotateImage(image)) {
+        return null
+    }
+
     const canvas = documentCreateElement('canvas');
     const ctx = canvas.getContext('2d');
+    if (ctx === null) {
+        return null
+    }
+
     canvas.width = image.width;
     canvas.height = image.height;
 
@@ -671,9 +686,15 @@ function rotateImage(image, angle) {
     return canvas.toDataURL('image/x-icon');
 }
 
+function canRotateImage(image) {
+    return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0
+}
+
 function stopRotate() {
     worker.postMessage({ start: false })
     rotate(0);
-    FAVICON_ELEMENT.href = originalFavicon.src;
+    if (FAVICON_ELEMENT) {
+        FAVICON_ELEMENT.href = ORIGINAL_FAVICON_HREF;
+    }
     LOGO.removeAttribute(TRANSFORM)
 }
