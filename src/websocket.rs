@@ -24,16 +24,18 @@ pub async fn handler_ws(
     let branch = provider.git_provider.default_branch(&url).await;
 
     match branch {
-        Ok(branch) => ws.on_upgrade(move |socket| {
-            handle_socket(
-                host,
-                owner,
-                repository_name,
-                branch,
-                socket,
-                State(provider),
-            )
-        }).into_response(),
+        Ok(branch) => ws
+            .on_upgrade(move |socket| {
+                handle_socket(
+                    host,
+                    owner,
+                    repository_name,
+                    branch,
+                    socket,
+                    State(provider),
+                )
+            })
+            .into_response(),
         Err(e) => (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
     }
 }
@@ -81,7 +83,9 @@ async fn handle_socket(
 
     while let Some(msg) = socket.recv().await {
         if let Ok(_msg) = msg {
-            let state = provider.current_status(&unique_name).unwrap_or(Status::Ready);
+            let state = provider
+                .current_status(&unique_name)
+                .unwrap_or(Status::Ready);
             let msg = match serde_json::to_string(&state) {
                 Ok(json) => Message::Text(json),
                 Err(e) => Message::Text(e.to_string()),
