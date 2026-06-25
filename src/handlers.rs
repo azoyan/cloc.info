@@ -28,19 +28,27 @@ pub fn create_api_router(provider: RepositoryProvider) -> Router {
         .route("/:owner/:repo/-/tree/*branch", get(branch_commit_info))
         .route("/:owner/:repo/src/*branch", get(branch_commit_info))
         .route("/:owner/:repo/branches", get(all_branches_lookup))
+        .route("/project/:owner/:repo", get(default_branch_info))
+        .route(
+            "/project/:owner/:repo/tree/*branch",
+            get(branch_commit_info),
+        )
+        .route("/project/:owner/:repo/branches", get(all_branches_lookup))
         .with_state(provider)
 }
 
 pub fn create_general_router(provider: RepositoryProvider) -> Router {
-    let router = Router::new()
-        .route("/", get(default_handler))
-        .route("/src/branch/*branch", get(handler_with_branch))
-        .route("/tree/*branch", get(handler_with_branch))
-        .route("/-/tree/*branch", get(handler_with_branch))
-        .route("/src/*branch", get(handler_with_branch));
-
     Router::new()
-        .nest("/:owner/:repo", router)
+        .route("/:owner/:repo", get(default_handler))
+        .route("/:owner/:repo/src/branch/*branch", get(handler_with_branch))
+        .route("/:owner/:repo/tree/*branch", get(handler_with_branch))
+        .route("/:owner/:repo/-/tree/*branch", get(handler_with_branch))
+        .route("/:owner/:repo/src/*branch", get(handler_with_branch))
+        .route("/project/:owner/:repo", get(default_handler))
+        .route(
+            "/project/:owner/:repo/tree/*branch",
+            get(handler_with_branch),
+        )
         .with_state(provider)
 }
 

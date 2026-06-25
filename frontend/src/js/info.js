@@ -1,5 +1,5 @@
 import { gitUrlParse } from "./git_url_parser";
-import { createRepositoryIcon, isGithub, documentGetElementById, documentCreateElement, classListRemove, classListAdd, appendChildren, TEXT, DOCUMENT, DIV, parseSccOutput } from "./common";
+import { createRepositoryIcon, isGithub, buildRepositoryPath, buildRepositoryUrl, documentGetElementById, documentCreateElement, classListRemove, classListAdd, appendChildren, TEXT, DOCUMENT, DIV, parseSccOutput } from "./common";
 import {
     TABLE, TABLE_AUTO, FLEX, TRUNCATE, HIDDEN, PY_2, MD, FONT_LIGHT,
     W_FULL,
@@ -129,20 +129,42 @@ async function fetch_branch_commit(url_str) {
     return extractContent(response, "Error at fetching branch commit")
 }
 
-async function preparePage(url) {
+function parseRepositoryPath(url) {
     let path_name_array = url.pathname.split('/').filter(item => item);
     console.log(path_name_array, url)
     if (path_name_array.length < 3) {
         console.error("Incorrect URL:", url)
         throw new PrepareError("Incorrect URL", url + " should contain repository hostname, owner and repository name");
     }
-    let repository_hostname = path_name_array[0];
-    let owner = path_name_array[1]
-    let repository_name = path_name_array[2]
-    let branch = ""
 
-    // try {
-    let origin_url = "https:/" + Url.pathname
+    let repository_hostname = path_name_array[0];
+    let owner_index = repository_hostname === "gitflic.ru" && path_name_array[1] === "project" ? 2 : 1;
+
+    if (path_name_array[owner_index] === undefined || path_name_array[owner_index + 1] === undefined) {
+        console.error("Incorrect URL:", url)
+        throw new PrepareError("Incorrect URL", url + " should contain repository hostname, owner and repository name");
+    }
+
+    let owner = path_name_array[owner_index]
+    let repository_name = path_name_array[owner_index + 1]
+
+    return {
+        repository_hostname,
+        owner,
+        repository_name,
+        remainder: path_name_array.slice(owner_index + 2),
+        repository_path: buildRepositoryPath(repository_hostname, owner, repository_name),
+    }
+}
+
+async function preparePage(url) {
+    const { repository_hostname, owner, repository_name, remainder, repository_path } = parseRepositoryPath(url)
+    let branch = ""
+    const repository_page_url = buildRepositoryUrl(repository_hostname, owner, repository_name.replace(/\.git$/, ''))
+
+    let origin_url = repository_page_url
+    let show_url = repository_page_url
+    let external_url = repository_page_url
     console.log("origin_url", origin_url)
     let parsed_url = gitUrlParse(origin_url)
     console.log("parsed_url", parsed_url);
@@ -152,46 +174,46 @@ async function preparePage(url) {
     // else if (repository_name.slice(-4) !== ".git") { origin_url += ".git" }
 
     let pic_ref = '<a target="_blank" rel="noopener noreferrer canonical" href="' + origin_url + '">' + img + '</a>'
-    let show_url = "https://" + repository_hostname + '/' + owner + '/' + repository_name
-    for (let i = 3; i < path_name_array.length; ++i) { show_url += '/' + path_name_array[i] }
-    documentGetElementById("url").innerText = show_url
-    documentGetElementById("url").setAttribute("href", origin_url)
     // documentGetElementById("url_pic").innerHTML = pic_ref
     // }
     // catch (e) {
     //     throw new Error("Can't setup URL" + e)
     // }
 
-    if (path_name_array[3] === undefined) {
-        let branch_info = await fetch_branch_info(Url.protocol + Url.host + "/api" + Url.pathname)
+    const api_base = Url.origin + "/api/" + repository_path
+
+    if (remainder[0] === undefined) {
+        let branch_info = await fetch_branch_info(api_base)
         branch = branch_info.getJsonData()
         documentGetElementById("branch").innerText = branch.default_branch
-        let commit_info = await fetch_branch_commit(Url.protocol + Url.host + "/api" + Url.pathname + "/tree/" + branch.default_branch)
+        let commit_info = await fetch_branch_commit(api_base + "/tree/" + branch.default_branch)
         let commit = commit_info.getJsonData()
 
         documentGetElementById("commit").innerText = commit.commit
     }
-    else if (repository_hostname === "github.com" && path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
-        for (let i = 4; i < path_name_array.length; ++i) {
-            console.log("el:", path_name_array[i])
-            branch += '/' + path_name_array[i]
+    else if (repository_hostname === "github.com" && remainder[0] === "tree" && remainder[1] !== undefined) {
+        for (let i = 1; i < remainder.length; ++i) {
+            console.log("el:", remainder[i])
+            branch += '/' + remainder[i]
         }
+        show_url = repository_page_url + "/tree" + branch
+        external_url = show_url
         documentGetElementById("branch").innerText = branch.slice(1)
-        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/tree" + branch
+        let url_str = api_base + "/tree" + branch
         let commit = await fetch_branch_commit(url_str)
         documentGetElementById("commit").innerText = commit.commit
     }
     else if (isGithub(repository_hostname)) {
-        if (path_name_array[3] === "tree" && path_name_array[4] !== undefined) {
-            for (let i = 4; i < path_name_array.length; ++i) {
-                console.log("el:", path_name_array[i])
-                branch += '/' + path_name_array[i]
+        if (remainder[0] === "tree" && remainder[1] !== undefined) {
+            for (let i = 1; i < remainder.length; ++i) {
+                console.log("el:", remainder[i])
+                branch += '/' + remainder[i]
             }
         }
-        else if (path_name_array[3] === "-" && path_name_array[4] === "tree" && path_name_array[5] !== undefined) {
-            for (let i = 5; i < path_name_array.length; ++i) {
-                console.log("el:", path_name_array[i])
-                branch += '/' + path_name_array[i]
+        else if (remainder[0] === "-" && remainder[1] === "tree" && remainder[2] !== undefined) {
+            for (let i = 2; i < remainder.length; ++i) {
+                console.log("el:", remainder[i])
+                branch += '/' + remainder[i]
             }
         }
         else {
@@ -199,54 +221,74 @@ async function preparePage(url) {
             console.error(error_msg)
             throw new PrepareError("Incorrect URL", error_msg)
         }
+        show_url = remainder[0] === "-" ? repository_page_url + "/-/tree" + branch : repository_page_url + "/tree" + branch
+        external_url = show_url
         documentGetElementById("branch").innerText = branch.slice(1)
-        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/tree" + branch
+        let url_str = api_base + "/tree" + branch
         let commit = await fetch_branch_commit(url_str)
         documentGetElementById("commit").innerText = commit.commit
     }
-    else if (repository_hostname === "bitbucket.org" && path_name_array[3] === "src" && path_name_array[4] !== undefined) {
-        for (let i = 4; i < path_name_array.length; ++i) {
-            console.log("el:", path_name_array[i])
-            branch += '/' + path_name_array[i]
+    else if (repository_hostname === "gitflic.ru" && remainder[0] === "tree" && remainder[1] !== undefined) {
+        for (let i = 1; i < remainder.length; ++i) {
+            console.log("el:", remainder[i])
+            branch += '/' + remainder[i]
         }
+        show_url = repository_page_url + "/file/?branch=" + encodeURIComponent(branch.slice(1))
+        external_url = show_url
         documentGetElementById("branch").innerText = branch.slice(1)
-        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/src" + branch
+        let url_str = api_base + "/tree" + branch
         let commit = await fetch_branch_commit(url_str)
         documentGetElementById("commit").innerText = commit.commit
     }
-    else if (repository_hostname == "codeberg.org" && path_name_array[3] === "src") {
+    else if (repository_hostname === "bitbucket.org" && remainder[0] === "src" && remainder[1] !== undefined) {
+        for (let i = 1; i < remainder.length; ++i) {
+            console.log("el:", remainder[i])
+            branch += '/' + remainder[i]
+        }
+        show_url = repository_page_url + "/src" + branch
+        external_url = show_url
+        documentGetElementById("branch").innerText = branch.slice(1)
+        let url_str = api_base + "/src" + branch
+        let commit = await fetch_branch_commit(url_str)
+        documentGetElementById("commit").innerText = commit.commit
+    }
+    else if (repository_hostname == "codeberg.org" && remainder[0] === "src") {
         let index;
-        if (path_name_array[4] === "branch" && path_name_array[5] !== undefined) {
-            index = 5
+        if (remainder[1] === "branch" && remainder[2] !== undefined) {
+            index = 2
         }
-        else if (path_name_array[4] !== undefined) {
-            index = 4
+        else if (remainder[1] !== undefined) {
+            index = 1
         }
-        for (let i = index; i < path_name_array.length; ++i) {
-            console.log("el:", path_name_array[i])
-            branch += '/' + path_name_array[i]
+        for (let i = index; i < remainder.length; ++i) {
+            console.log("el:", remainder[i])
+            branch += '/' + remainder[i]
         }
 
+        show_url = remainder[1] === "branch" ? repository_page_url + "/src/branch" + branch : repository_page_url + "/src" + branch
+        external_url = show_url
         documentGetElementById("branch").innerText = branch.slice(1)
-        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/src" + branch
+        let url_str = api_base + "/src" + branch
         let commit = await fetch_branch_commit(url_str)
         documentGetElementById("commit").innerText = commit.commit
     }
-    else if (repository_hostname == "gitea.com" && path_name_array[3] === "src") {
+    else if (repository_hostname == "gitea.com" && remainder[0] === "src") {
         let index;
-        if (path_name_array[4] === "branch" && path_name_array[5] !== undefined) {
-            index = 5
+        if (remainder[1] === "branch" && remainder[2] !== undefined) {
+            index = 2
         }
-        else if (path_name_array[4] !== undefined) {
-            index = 4
+        else if (remainder[1] !== undefined) {
+            index = 1
         }
-        for (let i = index; i < path_name_array.length; ++i) {
-            console.log("el:", path_name_array[i])
-            branch += '/' + path_name_array[i]
+        for (let i = index; i < remainder.length; ++i) {
+            console.log("el:", remainder[i])
+            branch += '/' + remainder[i]
         }
 
+        show_url = remainder[1] === "branch" ? repository_page_url + "/src/branch" + branch : repository_page_url + "/src" + branch
+        external_url = show_url
         documentGetElementById("branch").innerText = branch.slice(1)
-        let url_str = Url.protocol + Url.host + "/api" + "/" + repository_hostname + "/" + owner + "/" + repository_name + "/src" + branch
+        let url_str = api_base + "/src" + branch
         let commit = await fetch_branch_commit(url_str)
         documentGetElementById("commit").innerText = commit.commit
     }
@@ -255,6 +297,9 @@ async function preparePage(url) {
         console.error(error_msg)
         throw new PrepareError("Incorrect URL", error_msg)
     }
+
+    documentGetElementById("url").innerText = show_url
+    documentGetElementById("url").setAttribute("href", external_url)
 
     return true
 }

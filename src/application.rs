@@ -91,11 +91,19 @@ pub async fn start_application(
         tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(1)).await });
 
     let websocket_service = Router::new()
-        .route("/", get(handler_ws))
-        .route("/tree/*branch", get(handler_ws_with_branch))
-        .route("/-/tree/*branch", get(handler_ws_with_branch))
-        .route("/src/*branch", get(handler_ws_with_branch))
-        .route("/src/branch/*branch", get(handler_ws_with_branch))
+        .route("/:owner/:repo", get(handler_ws))
+        .route("/:owner/:repo/tree/*branch", get(handler_ws_with_branch))
+        .route("/:owner/:repo/-/tree/*branch", get(handler_ws_with_branch))
+        .route("/:owner/:repo/src/*branch", get(handler_ws_with_branch))
+        .route(
+            "/:owner/:repo/src/branch/*branch",
+            get(handler_ws_with_branch),
+        )
+        .route("/project/:owner/:repo", get(handler_ws))
+        .route(
+            "/project/:owner/:repo/tree/*branch",
+            get(handler_ws_with_branch),
+        )
         .with_state(repository_provider.clone());
 
     let statistic_router = Router::new()
@@ -119,7 +127,7 @@ pub async fn start_application(
         .route_service("/", root_service)
         .route_service("/upload", upload_service)
         .route_service("/post", post(upload))
-        .nest("/ws/:host/:owner/:repo", websocket_service)
+        .nest("/ws/:host", websocket_service)
         .nest("/api", statistic_router)
         .nest("/api/:host", api_router)
         .nest("/:host", general_router)

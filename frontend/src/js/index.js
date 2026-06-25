@@ -1,6 +1,6 @@
 import later from "./later.js"
 
-import { DIV, TEXT, DOCUMENT, createRepositoryIcon, createCommitSvgIcon, extractRepositoryHost, appendChildren, classListAdd, classListRemove, disable, swapElements, documentGetElementById, documentCreateElement } from "./common.js"
+import { DIV, TEXT, DOCUMENT, createRepositoryIcon, createCommitSvgIcon, extractRepositoryHost, appendChildren, classListAdd, classListRemove, disable, swapElements, documentGetElementById, documentCreateElement, buildRepositoryPath } from "./common.js"
 import {
   FLEX, TRUNCATE, ITEMS_CENTER, BORDER, BORDER_NEUTRAL, BORDER_R, ROUNDED, TEXT_NEUTRAL_600, HIDDEN, PX_2, PY_2, W_2, TEXT_SM, BORDER_RED, FOCUS_RING, BG_NEUTRAL_100, SM, MD, BLOCK, INVISIBLE, SPACE_X_3, CURSOR_POINTER, HOVER_TEXT_BLACK, PX_1, RING_1, RING_INSET, RING_GRAY_500_10, ROUNDED_L_LG, SM_PL_2, SM_PR_4, HOVER_ROUNDED, FONT_MONO, FONT_LIGHT,
   DARK_TEXT_NEUTRAL_300,
@@ -70,9 +70,9 @@ submitButton.onclick = function () {
   log(branchLabel.innerText)
   const selected = branchLabel.innerText;
   // log("SubmitButton onclick()", selected, url)
-  let path = url.host + '/' + url.owner + '/' + url.name;
+  let path = buildRepositoryPath(url.host, url.owner, url.name);
   if (selected !== Branches.default_branch) {
-    if (url.host === "github.com" || url.host === "gitlab.com") {
+    if (url.host === "github.com" || url.host === "gitlab.com" || url.host === "gitflic.ru") {
       path += '/tree/'
     } else if (url.host === "bitbucket.org") {
       path += '/src/'
@@ -218,8 +218,9 @@ function check(urlStr) {
 
   const repository_name = parsed_url.name
   // if (repository_name.slice(-4) !== ".git") { repository_name += ".git" }
+  const repository_path = buildRepositoryPath(parsed_url.host, parsed_url.owner, repository_name)
   const branches_api = new URL(
-    `/api/${parsed_url.host}/${parsed_url.owner}/${repository_name}/branches`,
+    `/api/${repository_path}/branches`,
     window.location.origin,
   ).toString();
   const current_branch = extractBranchFromGitUrl(parsed_url)
