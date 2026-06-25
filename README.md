@@ -6,6 +6,22 @@ Try it online: https://cloc.info
 ## Details
 Backend written in Rust. The tool that count lines of code under hood is scc https://github.com/boyter/scc
 
+The built frontend output in `frontend/dist` is generated and is not meant to be stored in git.
+
+## Local Frontend Build
+For local runs outside Docker, build the frontend before starting the Rust server:
+
+```bash
+cd frontend && npm ci && npm run build
+cd .. && cargo run --release -- 127.0.0.1 9999
+```
+
+Or use the existing wrapper:
+
+```bash
+./run.sh
+```
+
 ## Local Docker Compose
 The repository includes a local Docker Compose stack that brings up PostgreSQL and the Rust application with the frontend already baked into the app image.
 
