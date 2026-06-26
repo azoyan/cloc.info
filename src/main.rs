@@ -80,8 +80,11 @@ fn run() -> Result<(), String> {
 
     let path = std::env::current_exe()
         .map_err(|error| format!("Failed to resolve current executable path: {error}"))?;
-
-    tracing::info!("Path: {path:?}. Starting cloc server {ip}:{port}");
+    let threads_count = r.metrics().num_workers();
+    tracing::info!(
+        "Path: {path:?}. Starting cloc server {ip}:{port}; threads {}",
+        threads_count
+    );
     r.block_on(start_all(socket))
 }
 
