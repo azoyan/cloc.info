@@ -147,11 +147,28 @@ pub async fn start_application(
         .await
         .map_err(|error| format!("Failed to bind HTTP listener at {socket}: {error}"))?;
     let server = serve(tcp_listener, app.into_make_service())
-        .with_graceful_shutdown(shutdown_signal(cancel, monitor))
+        .with_graceful_shutdown(shutdown_signal(cancel.clone()))
         .into_future();
 
-    let repository_service = repository_provider.run();
-    let (_repo, handle) = tokio::join!(repository_service, server);
+    let repository_service = {
+        let repository_provider = repository_provider.clone();
+        tokio::spawn(async move { repository_provider.run().await })
+    };
+
+    let handle = server.await;
+    cancel.cancel();
+    monitor.abort();
+
+    let repository_result = repository_service.await;
+    if let Err(error) = monitor.await {
+        if !error.is_cancelled() {
+            tracing::warn!("Cache monitor task stopped unexpectedly: {error}");
+        }
+    }
+
+    if let Err(error) = repository_result {
+        return Err(format!("Repository service task failed: {error}"));
+    }
 
     match handle {
         Ok(_ok) => {
@@ -222,7 +239,7 @@ pub async fn not_found(_uri: axum::http::Uri) -> Response<Body> {
     }
 }
 
-async fn shutdown_signal(cancel: Arc<CancellationToken>, monitor: tokio::task::JoinHandle<()>) {
+async fn shutdown_signal(cancel: Arc<CancellationToken>) {
     let ctrl_c = async {
         if let Err(error) = ctrl_c().await {
             tracing::warn!("Failed to install Ctrl+C handler: {error}");
@@ -275,12 +292,6 @@ async fn shutdown_signal(cancel: Arc<CancellationToken>, monitor: tokio::task::J
         },
     }
     cancel.cancel();
-    monitor.abort();
-    if let Err(error) = monitor.await {
-        if !error.is_cancelled() {
-            tracing::warn!("Cache monitor task stopped unexpectedly: {error}");
-        }
-    }
 }
 
 async fn handle_errors(err: BoxError) -> (StatusCode, String) {
