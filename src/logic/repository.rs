@@ -11,12 +11,7 @@ use dashmap::DashMap;
 use rand::{thread_rng, Rng};
 use scopeguard::defer;
 use snafu::ResultExt;
-use std::{
-    path::Path,
-    process::{Command, Stdio},
-    str::from_utf8,
-    sync::Arc,
-};
+use std::{path::Path, process::Stdio, str::from_utf8, sync::Arc};
 use tokio::sync::Mutex;
 use tokio_postgres::{IsolationLevel::Serializable, NoTls, Row};
 use tracing::{error, info, warn};
@@ -129,8 +124,8 @@ impl RepositoryProvider {
         self.statuses
             .insert(unique_name.to_string(), Status::Done(scc_output.clone()));
 
-        let last_commit_local = last_commit_local(&tmp_path)?;
-        let repository_size = dir_size(&tmp_path)? as i64;
+        let last_commit_local = last_commit_local(&tmp_path).await?;
+        let repository_size = dir_size(&tmp_path).await? as i64;
 
         let branch_id = if let Some(row) = row {
             self.update_database(
@@ -484,11 +479,11 @@ impl RepositoryProvider {
 
 use String as CommitHash;
 
-pub(crate) fn last_commit_local(path: &str) -> Result<CommitHash, Error> {
-    let mut last_commit_command = std::process::Command::new("git");
+pub(crate) async fn last_commit_local(path: &str) -> Result<CommitHash, Error> {
+    let mut last_commit_command = tokio::process::Command::new("git");
     last_commit_command.args(["-C", path, "rev-parse", "HEAD"]);
 
-    match last_commit_command.output() {
+    match last_commit_command.output().await {
         Ok(output) if output.status.success() => match from_utf8(&output.stdout) {
             Ok(hash) => Ok(hash.trim().to_string()),
             Err(e) => Err(Error::LastCommitError {
@@ -555,19 +550,19 @@ fn should_queue_task(current_status: Option<&Status>, result_status: &Status) ->
     }
 }
 
-pub fn dir_size<P>(path: P) -> Result<u64, Error>
+pub async fn dir_size<P>(path: P) -> Result<u64, Error>
 where
     P: AsRef<Path>,
 {
     let path = path.as_ref().to_str().ok_or_else(|| Error::Size {
         error: "Directory path is not valid UTF-8".to_string(),
     })?;
-    let mut command = Command::new("du");
+    let mut command = tokio::process::Command::new("du");
     command.args(["-sb", path]);
 
     command.stdout(Stdio::piped());
 
-    match command.output() {
+    match command.output().await {
         Ok(output) => match String::from_utf8(output.stdout) {
             Ok(out) => match out.split_whitespace().next() {
                 Some(str) => Ok(str.parse::<u64>().map_err(|e| Error::Size {

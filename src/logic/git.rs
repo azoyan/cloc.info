@@ -4,7 +4,8 @@ use super::{
 };
 use retainer::Cache;
 use snafu::{OptionExt, ResultExt};
-use std::{process::Command, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
+use tokio::process::Command;
 
 #[derive(Clone)]
 pub struct Git {
@@ -21,7 +22,7 @@ impl Git {
             tracing::info!("Get branches from cache");
             branches.clone()
         } else {
-            let branches = self::all_heads_branches(url)?;
+            let branches = self::all_heads_branches(url).await?;
             self.cache
                 .insert(url.to_string(), branches.clone(), Duration::from_secs(60))
                 .await;
@@ -62,12 +63,13 @@ impl Git {
     }
 }
 
-pub fn all_heads_branches(url: &str) -> Result<Branches, Error> {
+pub async fn all_heads_branches(url: &str) -> Result<Branches, Error> {
     let mut command = Command::new("git");
 
     let result = command
         .args(["ls-remote", url])
         .output()
+        .await
         .map_err(|e| Error::Io {
             url: url.into(),
             source: e,
