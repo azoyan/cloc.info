@@ -5,6 +5,8 @@ block styles
     style.
         :root {
             color-scheme: light dark;
+            --page-max-width: 72rem;
+            --page-inline-padding: 0.5rem;
             --page-bg: #ffffff;
             --page-fg: #171717;
             --page-border: #d4d4d8;
@@ -187,9 +189,9 @@ block styles
         }
 
         main > div:first-of-type {
-            max-width: 72rem;
+            max-width: var(--page-max-width);
             margin: 0 auto;
-            padding: 0 0.5rem;
+            padding: 0 var(--page-inline-padding);
         }
 
         #input {
@@ -301,7 +303,7 @@ block styles
             align-items: start;
             gap: 1.5rem;
             width: 100%;
-            padding: 3rem max(0.5rem, calc((100% - 72rem) / 2 + 0.5rem));
+            padding: 3rem var(--page-inline-padding);
         }
 
         .home-statistic > .statistic-card {
@@ -310,8 +312,19 @@ block styles
             align-self: start;
         }
 
+        #aboutSection {
+            padding-left: var(--page-inline-padding);
+            padding-right: var(--page-inline-padding);
+        }
+
         about {
             contain-intrinsic-size: 1600px;
+        }
+
+        @supports (padding-inline: max(1px, 2px)) {
+            .home-statistic {
+                padding-inline: max(var(--page-inline-padding), calc((100% - var(--page-max-width)) / 2 + var(--page-inline-padding)));
+            }
         }
 
         @media (max-width: 640px) {

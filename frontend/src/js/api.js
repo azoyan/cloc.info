@@ -35,67 +35,15 @@ function start() {
 
     let api = new Api();
 
-    renderStatisticSection(statisticElement, "Recent", "recent", 0, () => api.recent(), RecentList);
-    renderStatisticSection(statisticElement, "Popular", "popular", 1, () => api.popular(), PopularList);
-    renderStatisticSection(statisticElement, "Largest", "largest", 2, () => api.largest(), LargestList);
-}
-
-function observeStatisticSection() {
-    const statisticElement = DOCUMENT.querySelector("statistic");
-
-    if (!statisticElement) {
-        return;
-    }
-
-    if (!("IntersectionObserver" in globalThis)) {
-        start();
-        return;
-    }
-
-    const observer = new IntersectionObserver(
-        (entries) => {
-            for (let i = 0; i < entries.length; i++) {
-                if (!entries[i].isIntersecting) {
-                    continue;
-                }
-
-                observer.disconnect();
-                start();
-                break;
-            }
-        },
-        {
-            rootMargin: "480px 0px 480px 0px"
-        },
-    );
-
-    observer.observe(statisticElement);
-}
-
-function observeAfterScroll(callback) {
-    let observed = false;
-
-    const start = () => {
-        if (observed) {
-            return;
-        }
-
-        observed = true;
-        window.removeEventListener("scroll", start);
-        window.removeEventListener("wheel", start);
-        window.removeEventListener("touchmove", start);
-        callback();
-    };
-
-    window.addEventListener("scroll", start, { passive: true, once: true });
-    window.addEventListener("wheel", start, { passive: true, once: true });
-    window.addEventListener("touchmove", start, { passive: true, once: true });
+    void renderStatisticSection(statisticElement, "Recent", "recent", 0, () => api.recent(), RecentList);
+    void renderStatisticSection(statisticElement, "Popular", "popular", 1, () => api.popular(), PopularList);
+    void renderStatisticSection(statisticElement, "Largest", "largest", 2, () => api.largest(), LargestList);
 }
 
 async function renderStatisticSection(statisticElement, name, id, index, loader, ListType) {
-    insertAt(statisticElement, createStatisticBlock(name, id), index);
-
-    const list = documentGetElementById(id);
+    const list = documentCreateElement("ul");
+    list.id = id;
+    classListAdd(list, LIST_NONE, LIST_INSIDE, DIVIDE_Y, PB_1, DARK_DIVIDE_ZINC_600);
 
     try {
         const data = await loader();
@@ -105,9 +53,11 @@ async function renderStatisticSection(statisticElement, name, id, index, loader,
         console.error(error);
         appendChildren(list, createMessageListItem(error.message || `Unable to load ${name.toLowerCase()} repositories.`));
     }
+
+    insertAt(statisticElement, createStatisticBlock(name, list), index);
 }
 
-function createStatisticBlock(name, id) {
+function createStatisticBlock(name, list) {
     const block = documentCreateElement(DIV);
 
     classListAdd(block, "statistic-card");
@@ -115,9 +65,6 @@ function createStatisticBlock(name, id) {
     const elementHeader = documentCreateElement(DIV);
     classListAdd(elementHeader, TEXT_CENTER, FONT_MEDIUM, TEXT_2XL, BORDER_B, PY_2, BORDER_NEUTRAL, DARK_BORDER_ZINC_500, DARK_TEXT_NEUTRAL_300, ROUNDED_T_LG, DARK_BG_ZINC_800);
     elementHeader.innerText = name;
-    const list = documentCreateElement("ul");
-    list.id = id;
-    classListAdd(list, LIST_NONE, LIST_INSIDE, DIVIDE_Y, PB_1, DARK_DIVIDE_ZINC_600);
 
     appendChildren(block, elementHeader, list);
 
@@ -511,4 +458,8 @@ function formatBytes(a, b = 2, k = 1024) {
     return 0 == a ? "0 Bytes" : parseFloat((a / Math.pow(k, d)).toFixed(Math.max(0, b))) + " " + ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"][d];
 }
 
-DOCUMENT.addEventListener("DOMContentLoaded", () => observeAfterScroll(observeStatisticSection));
+if (DOCUMENT.readyState === "loading") {
+    DOCUMENT.addEventListener("DOMContentLoaded", start, { once: true });
+} else {
+    start();
+}
