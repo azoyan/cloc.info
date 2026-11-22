@@ -241,20 +241,28 @@ block styles
             visibility: hidden !important;
         }
 
-        /* These blocks appear only after a repository is validated. Keeping them
-           in the flow reserved space whose height depends on main.css, which is
-           applied after the first paint, so the Count button jumped. */
+        /* main.css is applied after the first paint, while the branch selector
+           and the error box are laid out from the start. Their size must not
+           depend on that stylesheet, otherwise the Count button jumps when it
+           arrives and again when the selector becomes visible. */
         #repoInfo,
+        #dropdownButton,
         #invalidFeedback {
-            display: none;
+            display: flex;
+            align-items: center;
         }
 
-        #repoInfo:not(.invisible) {
-            display: flex;
+        #repoInfo {
+            height: 38px;
         }
 
-        #invalidFeedback:not(.invisible) {
-            display: flex;
+        #branchLabel {
+            min-height: 20px;
+        }
+
+        #invalidFeedback {
+            min-height: 34px;
+            margin-bottom: 1rem;
         }
 
         main > div:last-of-type {
