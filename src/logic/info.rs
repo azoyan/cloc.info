@@ -201,7 +201,7 @@ impl PopularRepositories {
         if let Some(repository) = self
             .repositories
             .iter_mut()
-            .find(|r| r.repository_name == repository_name)
+            .find(|r| r.repository_name.eq_ignore_ascii_case(&repository_name))
         {
             repository.total_count += count;
 
@@ -294,7 +294,7 @@ impl LargestRepositories {
         if let Some(repository) = self
             .repositories
             .iter_mut()
-            .find(|r| r.repository_name == repository_name)
+            .find(|r| r.repository_name.eq_ignore_ascii_case(&repository_name))
         {
             repository.size = repository.size.max(size);
             repository.branches.push(branch);
@@ -385,7 +385,7 @@ impl RecentRepositories {
         if let Some(repository) = self
             .repositories
             .iter_mut()
-            .find(|r| r.repository_name == repository_name)
+            .find(|r| r.repository_name.eq_ignore_ascii_case(&repository_name))
         {
             repository.time = repository.time.max(time);
             repository.branches.push(branch);
@@ -426,7 +426,77 @@ impl From<Vec<Row>> for RecentRepositories {
 
 #[cfg(test)]
 mod tests {
-    use super::{to_repository_path, to_url};
+    use super::{
+        to_repository_path, to_url, LargestRepositories, PopularRepositories, RecentRepositories,
+    };
+    use chrono::Utc;
+
+    #[test]
+    fn largest_repositories_merge_names_that_differ_only_in_case() {
+        let mut largest = LargestRepositories::new();
+        largest.push(
+            "github.com".into(),
+            "Hell2025".into(),
+            "Hell2025".into(),
+            "main".into(),
+            18_620_000_000,
+        );
+        largest.push(
+            "github.com".into(),
+            "hell2025".into(),
+            "hell2025".into(),
+            "main".into(),
+            18_620_000_000,
+        );
+
+        let top = largest.top(10);
+        assert_eq!(top.len(), 1);
+        assert_eq!(top[0].repository_name, "Hell2025");
+    }
+
+    #[test]
+    fn popular_repositories_merge_names_that_differ_only_in_case() {
+        let mut popular = PopularRepositories::new();
+        popular.push(
+            "github.com".into(),
+            "Hell2025".into(),
+            "Hell2025".into(),
+            "main".into(),
+            2,
+        );
+        popular.push(
+            "github.com".into(),
+            "hell2025".into(),
+            "hell2025".into(),
+            "main".into(),
+            3,
+        );
+
+        let top = popular.top(10);
+        assert_eq!(top.len(), 1);
+        assert_eq!(top[0].total_count, 5);
+    }
+
+    #[test]
+    fn recent_repositories_merge_names_that_differ_only_in_case() {
+        let mut recent = RecentRepositories::new();
+        recent.push(
+            "github.com".into(),
+            "Hell2025".into(),
+            "Hell2025".into(),
+            "main".into(),
+            Utc::now(),
+        );
+        recent.push(
+            "github.com".into(),
+            "hell2025".into(),
+            "hell2025".into(),
+            "main".into(),
+            Utc::now(),
+        );
+
+        assert_eq!(recent.top(10).len(), 1);
+    }
 
     #[test]
     fn standard_hosts_keep_standard_repository_path() {
