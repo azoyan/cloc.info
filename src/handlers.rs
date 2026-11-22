@@ -52,14 +52,133 @@ pub fn create_general_router(provider: RepositoryProvider) -> Router {
         .with_state(provider)
 }
 
-fn static_page() -> Result<Response<Body>, Error> {
-    let buffer = std::fs::read("dist/info.html").context(TemplatePageIoSnafu)?;
+fn escape_html(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            _ => escaped.push(character),
+        }
+    }
+    escaped
+}
+
+fn insert_before_head_end(html: &str, snippet: &str) -> String {
+    match html.find("</head>") {
+        Some(position) => format!("{}{}{}", &html[..position], snippet, &html[position..]),
+        None => format!("{html}{snippet}"),
+    }
+}
+
+/// Replaces the content of the first element delimited by `open` and `close`
+/// (for example `<title>` and `</title>`). Falls back to inserting a complete
+/// element into the document head when the element is missing.
+fn replace_element_content(html: &str, open: &str, close: &str, content: &str) -> String {
+    let Some(start) = html.find(open) else {
+        return insert_before_head_end(html, &format!("{open}{content}{close}"));
+    };
+    let content_start = start + open.len();
+    let Some(offset) = html[content_start..].find(close) else {
+        return html.to_string();
+    };
+    let content_end = content_start + offset;
+
+    format!(
+        "{}{}{}",
+        &html[..content_start],
+        content,
+        &html[content_end..]
+    )
+}
+
+fn replace_attribute_value(html: &str, prefix: &str, suffix: &str, value: &str) -> Option<String> {
+    let start = html.find(prefix)?;
+    let value_start = start + prefix.len();
+    let offset = html[value_start..].find(suffix)?;
+    let value_end = value_start + offset;
+
+    Some(format!(
+        "{}{}{}",
+        &html[..value_start],
+        value,
+        &html[value_end..]
+    ))
+}
+
+fn repository_canonical(host: &str, owner: &str, repository: &str) -> String {
+    if host == "gitflic.ru" {
+        format!("https://cloc.info/{host}/project/{owner}/{repository}")
+    } else {
+        format!("https://cloc.info/{host}/{owner}/{repository}")
+    }
+}
+
+/// Adds unique metadata to the shared report template. Without it every
+/// repository page would carry the home page title and canonical URL; branch
+/// pages are marked `noindex` because they duplicate the repository report.
+fn inject_repository_metadata(
+    html: &str,
+    host: &str,
+    owner: &str,
+    name: &str,
+    branch: Option<&str>,
+) -> String {
+    let owner = owner.strip_prefix("project/").unwrap_or(owner);
+    let repository = name.trim_end_matches(".git");
+    let display = format!("{owner}/{repository}");
+
+    let title = match branch {
+        Some(branch) => format!("Lines of Code in {display} (branch {branch}) - cloc.info"),
+        None => format!("Lines of Code in {display}: SLOC, Comments and COCOMO - cloc.info"),
+    };
+    let canonical = repository_canonical(host, owner, repository);
+
+    let mut result = replace_element_content(html, "<title>", "</title>", &escape_html(&title));
+
+    result = match replace_attribute_value(
+        &result,
+        "rel=\"canonical\" href=\"",
+        "\"",
+        &escape_html(&canonical),
+    ) {
+        Some(updated) => updated,
+        None => insert_before_head_end(
+            &result,
+            &format!(
+                "<link rel=\"canonical\" href=\"{}\">",
+                escape_html(&canonical)
+            ),
+        ),
+    };
+
+    if branch.is_some() {
+        result = insert_before_head_end(
+            &result,
+            "<meta name=\"robots\" content=\"noindex, follow\">",
+        );
+    }
+
+    result
+}
+
+fn repository_page(
+    host: &str,
+    owner: &str,
+    name: &str,
+    branch: Option<&str>,
+) -> Result<Response<Body>, Error> {
+    let template = std::fs::read_to_string("dist/info.html").context(TemplatePageIoSnafu)?;
+    let html = inject_repository_metadata(&template, host, owner, name, branch);
     Ok((
         [
             ("Cache-Control", "no-cache,private,max-age=0"),
             ("Content-Type", "text/html; charset=utf-8"),
         ],
-        buffer,
+        html,
     )
         .into_response())
 }
@@ -198,7 +317,7 @@ async fn regular(
                     .context(ResponseSnafu)
             }
         }
-        None => static_page(),
+        None => repository_page(&host, &owner, &name, branch.as_deref()),
     }
 }
 
@@ -447,6 +566,56 @@ mod tests {
         header::{HeaderValue, USER_AGENT},
         Request,
     };
+
+    use super::{inject_repository_metadata, repository_canonical};
+
+    const TEMPLATE: &str = r#"<html><head><title>Count Lines of Code Online - cloc.info</title><link rel="canonical" href="https://cloc.info"></head><body></body></html>"#;
+
+    #[test]
+    fn repository_page_gets_its_own_title_and_canonical() {
+        let html = inject_repository_metadata(TEMPLATE, "github.com", "tokio-rs", "axum.git", None);
+
+        assert!(html.contains(
+            "<title>Lines of Code in tokio-rs/axum: SLOC, Comments and COCOMO - cloc.info</title>"
+        ));
+        assert!(html.contains(
+            "<link rel=\"canonical\" href=\"https://cloc.info/github.com/tokio-rs/axum\">"
+        ));
+        assert!(!html.contains("Count Lines of Code Online"));
+        assert!(!html.contains("noindex"));
+    }
+
+    #[test]
+    fn branch_pages_are_noindexed_and_canonical_to_the_repository() {
+        let html =
+            inject_repository_metadata(TEMPLATE, "github.com", "tokio-rs", "axum", Some("main"));
+
+        assert!(html
+            .contains("<title>Lines of Code in tokio-rs/axum (branch main) - cloc.info</title>"));
+        assert!(html.contains("<meta name=\"robots\" content=\"noindex, follow\">"));
+        assert!(html.contains(
+            "<link rel=\"canonical\" href=\"https://cloc.info/github.com/tokio-rs/axum\">"
+        ));
+    }
+
+    #[test]
+    fn canonical_urls_cover_gitflic_and_missing_canonical_tag() {
+        assert_eq!(
+            repository_canonical("gitflic.ru", "ivan", "project"),
+            "https://cloc.info/gitflic.ru/project/ivan/project"
+        );
+
+        let without_canonical = inject_repository_metadata(
+            "<html><head><title>t</title></head><body></body></html>",
+            "gitlab.com",
+            "gitlab-org",
+            "gitlab",
+            None,
+        );
+        assert!(without_canonical.contains(
+            "<link rel=\"canonical\" href=\"https://cloc.info/gitlab.com/gitlab-org/gitlab\">"
+        ));
+    }
 
     #[test]
     fn invalid_user_agent_falls_back_to_unknown() {
