@@ -241,6 +241,22 @@ block styles
             visibility: hidden !important;
         }
 
+        /* These blocks appear only after a repository is validated. Keeping them
+           in the flow reserved space whose height depends on main.css, which is
+           applied after the first paint, so the Count button jumped. */
+        #repoInfo,
+        #invalidFeedback {
+            display: none;
+        }
+
+        #repoInfo:not(.invisible) {
+            display: flex;
+        }
+
+        #invalidFeedback:not(.invisible) {
+            display: flex;
+        }
+
         main > div:last-of-type {
             display: grid;
             align-items: center;
