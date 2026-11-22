@@ -127,6 +127,7 @@ pub async fn start_application(
         .route_service("/", root_service)
         .route_service("/upload", upload_service)
         .route_service("/post", post(upload))
+        .route("/count", get(handlers::count_redirect))
         .route("/sitemap.xml", get(sitemap).with_state(connection_pool))
         .route("/robots.txt", get(handlers::robots))
         .nest("/ws/:host", websocket_service)

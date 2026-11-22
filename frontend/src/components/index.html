@@ -1,6 +1,7 @@
 <main class="min-h-screen justify-center">
     <h1 class="my-10 font-medium text-4xl text-center dark:text-neutral-300">Count lines of code</h1>
     <div class="max-w-[72rem] mx-auto px-2">
+        <form id="countForm" method="get" action="/count">
         <input id="input" aria-describedby="insert repository url" placeholder="Repository URL" required name="url"
             type="url" pattern="https?://.*" class="truncate text-nowrap rounded-lg border border-neutral-300 focus:outline-none dark:focus:outline-1 focus:ring  dark:bg-zinc-900 dark:border-zinc-500 dark:text-neutral-300 dark:placeholder-neutral-500 placeholder:text-sm block
                 w-full py-1.5 px-2.5">
@@ -18,6 +19,26 @@
                 https://github.com/tokio-rs/axum
             </text>
         </p>
+        </form>
+
+        <noscript>
+            <div class="mt-6 space-y-3 text-sm text-neutral-600 dark:text-neutral-300">
+                <p>JavaScript is disabled, so the interactive counter is not available. Submit the form above or open a
+                    repository URL directly:</p>
+                <div
+                    class="bg-neutral-50 border dark:border-zinc-500 py-3 px-4 rounded-md overflow-auto dark:bg-neutral-800">
+                    <pre><code>https://cloc.info/[git_host]/[git_owner]/[git_repo]</code></pre>
+                </div>
+                <p>Examples:</p>
+                <ul class="list-disc pl-6 space-y-1">
+                    <li><a class="underline" href="/github.com/tokio-rs/axum">github.com/tokio-rs/axum</a></li>
+                    <li><a class="underline" href="/github.com/torvalds/linux">github.com/torvalds/linux</a></li>
+                    <li><a class="underline" href="/gitlab.com/gitlab-org/gitlab">gitlab.com/gitlab-org/gitlab</a></li>
+                </ul>
+                <p>Append <code class="font-mono">/tree/&lt;branch&gt;</code> to count a specific branch. Uploading an
+                    archive needs a graphical browser.</p>
+            </div>
+        </noscript>
         <div id="repoInfo" class="flex space-x-2 items-center invisible">
             <a target="_blank" rel="noopener noreferrer canonical" id="repoUrl" class="link-dark">
                 <div id="repoButton"
@@ -66,8 +87,8 @@
         <button id="submitButton" type="button" disabled class="h-16 self-end justify-self-center text-white disabled:border-zinc-500 bg-green-700 hover:bg-green-800 disabled:bg-zinc-500 focus:outline-none text-xl  w-1/2 lg:w-1/6 md:w-1/5 font-medium rounded-lg px-5 py-3 my-10 me-2 mb-2 focus:ring-4 
                 dark:text-neutral-300 dark:bg-green-800 dark:hover:bg-green-700 focus:ring-green-300">
             <div class="flex justify-center">
-                <div class="flex-none hidden" id="checkSpinner" role="status">
-                    <img class="inline w-4 h-4 me-3 animate-spin" src="assets/spinner.svg">
+                <div class="flex-none hidden" id="checkSpinner" role="status" hidden>
+                    <img class="inline w-4 h-4 me-3 animate-spin" src="assets/spinner.svg" alt="">
                 </div>
                 <div id="buttonText" class="flex-shrink-0">
                     Count

@@ -5,7 +5,7 @@ use crate::logic::{
 };
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::{IntoResponse, Response},
     routing::get,
     Json, Router,
@@ -107,6 +107,58 @@ fn replace_attribute_value(html: &str, prefix: &str, suffix: &str, value: &str) 
         value,
         &html[value_end..]
     ))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct CountQuery {
+    url: Option<String>,
+}
+
+/// Turns a pasted repository URL into the report path, e.g.
+/// `https://github.com/tokio-rs/axum.git` -> `/github.com/tokio-rs/axum`.
+fn repository_path_from_input(input: &str) -> Option<String> {
+    let input = input.trim();
+    let input = input
+        .strip_prefix("https://")
+        .or_else(|| input.strip_prefix("http://"))
+        .unwrap_or(input);
+    let input = input.strip_prefix("www.").unwrap_or(input);
+    let input = input.split(['?', '#']).next()?;
+
+    let mut segments = input.split('/').filter(|segment| !segment.is_empty());
+    let host = segments.next()?;
+    let owner = segments.next()?;
+    let repository = segments.next()?.trim_end_matches(".git");
+
+    let looks_like_host = host.contains('.') && !host.chars().any(char::is_whitespace);
+    if !looks_like_host || owner == ".." || repository.is_empty() || repository == ".." {
+        return None;
+    }
+
+    Some(format!("/{host}/{owner}/{repository}"))
+}
+
+/// Handles the plain HTML form on the home page, so browsers without
+/// JavaScript (Lynx, w3m, Links) can still submit a repository URL. The
+/// redirect target serves them a text report thanks to the user agent check.
+pub async fn count_redirect(Query(query): Query<CountQuery>) -> Response<Body> {
+    let Some(path) = query.url.as_deref().and_then(repository_path_from_input) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            [("Content-Type", "text/html; charset=utf-8")],
+            "<p>Could not read the repository URL. Use the form https://cloc.info/[git_host]/[git_owner]/[git_repo].</p>",
+        )
+            .into_response();
+    };
+
+    match Response::builder()
+        .status(StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, path)
+        .body(Body::empty())
+    {
+        Ok(response) => response,
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
+    }
 }
 
 pub async fn robots() -> Response<Body> {
@@ -577,7 +629,7 @@ mod tests {
         Request,
     };
 
-    use super::{inject_repository_metadata, repository_canonical};
+    use super::{inject_repository_metadata, repository_canonical, repository_path_from_input};
 
     const TEMPLATE: &str = r#"<html><head><title>Count Lines of Code Online - cloc.info</title><link rel="canonical" href="https://cloc.info"></head><body></body></html>"#;
 
@@ -625,6 +677,35 @@ mod tests {
         assert!(without_canonical.contains(
             "<link rel=\"canonical\" href=\"https://cloc.info/gitlab.com/gitlab-org/gitlab\">"
         ));
+    }
+
+    #[test]
+    fn repository_path_accepts_browser_urls() {
+        assert_eq!(
+            repository_path_from_input("https://github.com/tokio-rs/axum.git").as_deref(),
+            Some("/github.com/tokio-rs/axum")
+        );
+        assert_eq!(
+            repository_path_from_input("http://www.gitlab.com/gitlab-org/gitlab/").as_deref(),
+            Some("/gitlab.com/gitlab-org/gitlab")
+        );
+        assert_eq!(
+            repository_path_from_input("github.com/torvalds/linux/tree/master").as_deref(),
+            Some("/github.com/torvalds/linux")
+        );
+        assert_eq!(
+            repository_path_from_input("  codeberg.org/forgejo/forgejo  ").as_deref(),
+            Some("/codeberg.org/forgejo/forgejo")
+        );
+    }
+
+    #[test]
+    fn repository_path_rejects_garbage() {
+        assert!(repository_path_from_input("").is_none());
+        assert!(repository_path_from_input("github.com/axum").is_none());
+        assert!(repository_path_from_input("not a url at all").is_none());
+        assert!(repository_path_from_input("https://github.com/../axum").is_none());
+        assert!(repository_path_from_input("https://github.com/tokio-rs/.git").is_none());
     }
 
     #[test]

@@ -35,6 +35,16 @@ const submitButton = documentGetElementById("submitButton")
 const buttonText = documentGetElementById("buttonText")
 const checkSpinner = documentGetElementById("checkSpinner")
 const submitText = "Count"
+const countForm = documentGetElementById("countForm")
+
+if (countForm) {
+  countForm.addEventListener("submit", (event) => {
+    event.preventDefault()
+    if (!submitButton.hasAttribute("disabled")) {
+      submitButton.click()
+    }
+  })
+}
 
 let Later = null
 let Visibility = 0
@@ -52,6 +62,7 @@ function invalidateValidatedRepository() {
   Branches = undefined
   disable(submitButton)
   classListAdd(checkSpinner, HIDDEN)
+  checkSpinner.hidden = true
   buttonText.innerText = submitText
 }
 
@@ -215,6 +226,7 @@ function check(urlStr) {
   disable(submitButton)
   setVisible(false, repositoryInfo, checkMark)
   classListRemove(checkSpinner, HIDDEN);
+  checkSpinner.hidden = false;
 
   const repository_name = parsed_url.name
   // if (repository_name.slice(-4) !== ".git") { repository_name += ".git" }
@@ -257,6 +269,7 @@ function check(urlStr) {
       classListAdd(input, FOCUS_RING)
       appendChildren(invalidFeedback.parentElement, invalidFeedback)
       classListAdd(checkSpinner, HIDDEN);
+      checkSpinner.hidden = true;
       buttonText.innerText = submitText
     })
     .catch(function (error) {
