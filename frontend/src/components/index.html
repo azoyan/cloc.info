@@ -21,24 +21,6 @@
         </p>
         </form>
 
-        <noscript>
-            <div class="mt-6 space-y-3 text-sm text-neutral-600 dark:text-neutral-300">
-                <p>JavaScript is disabled, so the interactive counter is not available. Submit the form above or open a
-                    repository URL directly:</p>
-                <div
-                    class="bg-neutral-50 border dark:border-zinc-500 py-3 px-4 rounded-md overflow-auto dark:bg-neutral-800">
-                    <pre><code>https://cloc.info/[git_host]/[git_owner]/[git_repo]</code></pre>
-                </div>
-                <p>Examples:</p>
-                <ul class="list-disc pl-6 space-y-1">
-                    <li><a class="underline" href="/github.com/tokio-rs/axum">github.com/tokio-rs/axum</a></li>
-                    <li><a class="underline" href="/github.com/torvalds/linux">github.com/torvalds/linux</a></li>
-                    <li><a class="underline" href="/gitlab.com/gitlab-org/gitlab">gitlab.com/gitlab-org/gitlab</a></li>
-                </ul>
-                <p>Append <code class="font-mono">/tree/&lt;branch&gt;</code> to count a specific branch. Uploading an
-                    archive needs a graphical browser.</p>
-            </div>
-        </noscript>
         <div id="repoInfo" class="flex space-x-2 items-center invisible">
             <a target="_blank" rel="noopener noreferrer canonical" id="repoUrl" class="link-dark">
                 <div id="repoButton"
@@ -96,6 +78,14 @@
             </div>
         </button>
     </div>
+
+    <noscript>
+        <div class="max-w-[72rem] mx-auto px-2 pb-6 text-sm text-neutral-600 dark:text-neutral-300">
+            <p>or use curl:</p>
+            <pre
+                class="mt-1 bg-neutral-50 border dark:border-zinc-500 px-4 py-2 rounded-md overflow-auto dark:bg-neutral-800"><code>curl https://cloc.info/github.com/tokio-rs/axum</code></pre>
+        </div>
+    </noscript>
 </main>
 
 
