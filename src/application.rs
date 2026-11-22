@@ -4,7 +4,7 @@ use crate::{
         git::Git,
         repository::{count_line_of_code, RepositoryProvider},
     },
-    statistic::{largest, popular, recent},
+    statistic::{largest, popular, recent, sitemap},
     websocket::{handler_ws, handler_ws_with_branch},
 };
 use axum::{
@@ -110,7 +110,7 @@ pub async fn start_application(
         .route("/largest/:limit", get(largest))
         .route("/recent/:limit", get(recent))
         .route("/popular/:limit", get(popular))
-        .with_state(connection_pool);
+        .with_state(connection_pool.clone());
 
     let api_router = handlers::create_api_router(repository_provider.clone());
     let general_router = handlers::create_general_router(repository_provider.clone());
@@ -127,6 +127,8 @@ pub async fn start_application(
         .route_service("/", root_service)
         .route_service("/upload", upload_service)
         .route_service("/post", post(upload))
+        .route("/sitemap.xml", get(sitemap).with_state(connection_pool))
+        .route("/robots.txt", get(handlers::robots))
         .nest("/ws/:host", websocket_service)
         .nest("/api", statistic_router)
         .nest("/api/:host", api_router)

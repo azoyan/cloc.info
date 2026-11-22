@@ -1,6 +1,6 @@
 use crate::logic::{
     self,
-    info::{to_url, Status},
+    info::{to_repository_path, to_url, Status},
     repository::RepositoryProvider,
 };
 use axum::{
@@ -109,12 +109,22 @@ fn replace_attribute_value(html: &str, prefix: &str, suffix: &str, value: &str) 
     ))
 }
 
+pub async fn robots() -> Response<Body> {
+    (
+        [
+            ("Cache-Control", "public, max-age=3600"),
+            ("Content-Type", "text/plain; charset=utf-8"),
+        ],
+        crate::statistic::robots_txt(),
+    )
+        .into_response()
+}
+
 fn repository_canonical(host: &str, owner: &str, repository: &str) -> String {
-    if host == "gitflic.ru" {
-        format!("https://cloc.info/{host}/project/{owner}/{repository}")
-    } else {
-        format!("https://cloc.info/{host}/{owner}/{repository}")
-    }
+    format!(
+        "https://cloc.info/{}",
+        to_repository_path(host, owner, repository)
+    )
 }
 
 /// Adds unique metadata to the shared report template. Without it every
