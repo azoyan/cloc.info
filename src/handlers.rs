@@ -6,6 +6,7 @@ use crate::logic::{
 use axum::{
     body::Body,
     extract::{Path, Query, State},
+    middleware::Next,
     response::{IntoResponse, Response},
     routing::get,
     Json, Router,
@@ -450,6 +451,18 @@ async fn terminal_browser(
                     .context(ResponseSnafu)
         },
     }
+}
+
+/// Serves the hand-written text page to terminal browsers, everyone else gets
+/// the single-page application shell.
+pub async fn index_page(request: Request<Body>, next: Next) -> Response {
+    if is_terminal_browser(&extract_user_agent(&request)) {
+        tracing::info!("Terminal browser on the home page");
+
+        return crate::terminal::index_page();
+    }
+
+    next.run(request).await
 }
 
 fn is_terminal_browser(user_agent: &str) -> bool {

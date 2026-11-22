@@ -65,6 +65,7 @@ pub async fn start_application(
                 format!("Unhandled internal error: {}", error),
             )
         });
+    let root_service = root_service.layer(axum::middleware::from_fn(handlers::index_page));
 
     let upload_service = HandleError::new(
         get_service(ServeFile::new("dist/upload.html")),
