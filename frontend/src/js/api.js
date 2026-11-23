@@ -81,10 +81,17 @@ function createMessageListItem(text) {
 class Api {
     constructor() {
         this.url = new URL(DOCUMENT.URL);
+        this.pendingRequests = globalThis.clocPendingRequests || {};
     }
 
-    async fetch(url) {
-        const response = await fetch(url);
+    // The home page starts these requests from its inline script, before this
+    // bundle is even downloaded; only fall back to starting them here.
+    request(name, path) {
+        return this.pendingRequests[name] || fetch(this.url.protocol + this.url.host + path);
+    }
+
+    async fetch(responsePromise) {
+        const response = await responsePromise;
 
         if (!response.ok) {
             throw new Error(`Request failed with status ${response.status}`);
@@ -99,18 +106,15 @@ class Api {
     }
 
     async recent() {
-        let url = new URL(this.url.protocol + this.url.host + `/api/recent/15`);
-        return this.fetch(url);
+        return this.fetch(this.request("recent", `/api/recent/15`));
     }
 
     async popular() {
-        let url = new URL(this.url.protocol + this.url.host + `/api/popular/15`);
-        return this.fetch(url);
+        return this.fetch(this.request("popular", `/api/popular/15`));
     }
 
     async largest() {
-        let url = new URL(this.url.protocol + this.url.host + `/api/largest/15`);
-        return this.fetch(url);
+        return this.fetch(this.request("largest", `/api/largest/15`));
     }
 }
 

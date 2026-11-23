@@ -11,7 +11,7 @@ async function loadAboutSection() {
     aboutSection.dataset.loaded = "pending"
 
     try {
-        const response = await fetch(ABOUT_SECTION_URL)
+        const response = await (globalThis.clocPendingRequests?.about || fetch(ABOUT_SECTION_URL))
 
         if (!response.ok) {
             throw new Error(`Request failed with status ${response.status}`)

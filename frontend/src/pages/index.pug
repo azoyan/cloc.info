@@ -446,6 +446,16 @@ block scripts
                 scheduleAfterPaint();
             }
         })();
+    script.
+        // The statistics and the about section live below the fold. Starting
+        // their requests from the document keeps them out of the module bundle's
+        // request chain, so they travel in parallel with the script download.
+        window.clocPendingRequests = Object.freeze({
+            recent: fetch("/api/recent/15"),
+            popular: fetch("/api/popular/15"),
+            largest: fetch("/api/largest/15"),
+            about: fetch("/assets/home-about.html")
+        });
     script(type="module", src='/src/js/home_styles.js')
     script(type="module", src='/src/js/index.js')
     script(type="module", src='/src/js/api.js')
